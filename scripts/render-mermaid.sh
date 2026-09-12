@@ -13,6 +13,6 @@ done
 for m in "$tmp"/*.mmd; do
   [ -e "$m" ] || continue
   n=$((n+1))
-  npx --yes @mermaid-js/mermaid-cli@11 -i "$m" -o "$m.svg" -q
+  npx --yes @mermaid-js/mermaid-cli@11 -p "$(dirname "$0")/puppeteer-config.json" -i "$m" -o "$m.svg" -q
 done
 echo "OK: $n mermaid block(s) rendered"

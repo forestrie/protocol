@@ -1,2 +1,72 @@
-# protocol
-Forestrie protocol specification: receipt trust model, log authority and grants, wire formats, and the conformance vectors every implementation must pass
+# Forestrie protocol
+
+The normative description of what a Forestrie receipt means, how a log's
+authority is established and delegated, how leaves are admitted, and the
+conformance vectors every implementation must pass. It is written for an
+outside reader: someone who wants to verify a receipt without trusting the
+operator that issued it, and who therefore needs every input to that check to
+be public.
+
+## Audience and ownership rule
+
+This repository is the **specification**. Implementations cite it by URL and
+do not restate it; where an implementation and this text disagree, the text is
+wrong or the implementation is, and either way the fix lands here first.
+Operator services, agent tooling, infrastructure and product strategy live
+elsewhere and are not needed to read or apply anything here.
+
+The text is durable and low-churn. Changes go through a pull request, and a
+change that alters the meaning of a receipt, a grant or a trust root is a
+decision recorded under `decisions/` before it appears under `spec/`.
+
+## Layout
+
+| Directory | What it holds |
+|---|---|
+| `spec/` | The protocol documents: receipt trust model, checkpoints and receipts, log authority and grants, leaf admission and session endorsement, delegation and WebAuthn envelopes, key custody and choice, trust boundaries and operator powers, and the COSE label registry |
+| `decisions/` | The accepted decisions the specification rests on (ADR-0045, ADR-0064, ADR-0065, ARC-0019). Numbers are stable identifiers; implementations may cite them by number |
+| `rules/` | `platform.md`: the platform invariants P1–P16, each linking to the decision it distils |
+| `vectors/` | Conformance vectors: the grant and leaf format with its cross-language vectors, and the golden receipt set. `SHA256SUMS` pins every file |
+| `glossary.md` | Terms used across the documents |
+
+Start with `spec/receipt-trust-model.md`. It names the four questions a
+verifier answers and the four trust roots a caller can hold: two signature
+roots (the log's genesis, or a known log key) and two accumulator roots (a known
+accumulator, or a checkpoint chain). They are alternatives, not a progression;
+which one applies depends on what the caller already holds.
+
+## Conformance
+
+Every implementation of receipt verification (TypeScript, Go, Solidity, and the
+MCP verification server) must pass the vectors under `vectors/` unchanged. The
+arithmetic is fixed by those public vectors, not by whoever ships a verifier.
+To check the vectors themselves:
+
+```
+sha256sum -c vectors/SHA256SUMS
+```
+
+CI on this repository renders every diagram, checks that no link points into a
+private repository, and verifies the sums.
+
+## Implementations
+
+- `@forestrie/receipt-verify`, `@forestrie/merklelog`, `@forestrie/encoding`:
+  the TypeScript verifier libraries, published to npm with provenance from
+  [forestrie/canopy](https://github.com/forestrie/canopy).
+- [forestrie/forestrie-cli](https://github.com/forestrie/forestrie-cli): the
+  reference command-line client (`verify`, `verify-grant`, `decode-receipt`).
+- [forestrie/mcp-verify](https://github.com/forestrie/mcp-verify): the
+  verify-only MCP server, `@forestrie/mcp-verify` on npm.
+- [forestrie/go-univocity](https://github.com/forestrie/go-univocity) and
+  [forestrie/go-merklelog](https://github.com/forestrie/go-merklelog): the Go
+  codec and MMR implementation.
+- [forestrie/univocity](https://github.com/forestrie/univocity): the contract
+  every receipt chains to.
+
+The receipt and proof profile is specified in
+[draft-bryce-cose-receipts-mmr-profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/).
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

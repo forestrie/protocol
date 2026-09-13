@@ -23,17 +23,28 @@ decision recorded under `decisions/` before it appears under `spec/`.
 
 | Directory | What it holds |
 |---|---|
-| `spec/` | The protocol documents: receipt trust model, checkpoints and receipts, log authority and grants, leaf admission and session endorsement, delegation and WebAuthn envelopes, key custody and choice, trust boundaries and operator powers, and the COSE label registry |
-| `decisions/` | The accepted decisions the specification rests on (ADR-0045, ADR-0064, ADR-0065, ARC-0019). Numbers are stable identifiers; implementations may cite them by number |
-| `rules/` | `platform.md`: the platform invariants P1–P16, each linking to the decision it distils |
-| `vectors/` | Conformance vectors: the grant and leaf format with its cross-language vectors, and the golden receipt set. `SHA256SUMS` pins every file |
-| `glossary.md` | Terms used across the documents |
+| `spec/` | The protocol documents: [receipt trust model](spec/receipt-trust-model.md), [checkpoints and receipts](spec/checkpoints-and-receipts.md), [log authority and grants](spec/log-authority-and-grants.md), [leaf admission and session endorsement](spec/leaf-admission-and-session-endorsement.md), [delegation and WebAuthn envelopes](spec/delegation-and-webauthn-envelopes.md), [key custody and choice](spec/key-custody-and-choice.md), [trust boundaries and operator powers](spec/trust-boundaries-and-operator-powers.md), and the [COSE label registry](spec/label-registry.md) |
+| `decisions/` | The accepted decisions the specification rests on: [ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md), [ADR-0064](decisions/adr-0064-passkey-session-key-endorsement.md), [ADR-0065](decisions/adr-0065-endorsed-session-key-admission.md), [ARC-0019](decisions/arc-0019-grant-verification-model.md). They are historical records in their own voice; where a decision and `spec/` differ in wording, `spec/` is the current statement. Numbers are stable identifiers; implementations may cite them by number |
+| `rules/` | [`platform.md`](rules/platform.md): the platform invariants P1–P16, each linking to the document that carries its reasoning |
+| `vectors/` | Conformance vectors: the [grant and leaf format](vectors/grant-and-leaf-format.md) with its cross-language vectors, and the golden receipt set. `SHA256SUMS` pins every file |
+| `glossary.md` | [Terms](glossary.md) used across the documents, defined once |
 
-Start with `spec/receipt-trust-model.md`. It names the four questions a
-verifier answers and the four trust roots a caller can hold: two signature
-roots (the log's genesis, or a known log key) and two accumulator roots (a known
-accumulator, or a checkpoint chain). They are alternatives, not a progression;
-which one applies depends on what the caller already holds.
+Start with [`spec/receipt-trust-model.md`](spec/receipt-trust-model.md). It names
+the four questions a verifier answers — split-view, sealing, authority and
+attribution — and the four trust roots a caller can hold: two signature roots
+(the log's genesis document, or a known log key) and two accumulator roots (a
+known accumulator, or a retained checkpoint chain). They are alternatives, not a
+progression; which one applies depends on what the caller already holds, and a
+result says which questions the root it used did not answer.
+
+Then read, in any order:
+[checkpoints and receipts](spec/checkpoints-and-receipts.md) for the wire
+formats and why anyone holding public data can mint a receipt;
+[log authority and grants](spec/log-authority-and-grants.md) for where a log's
+authority comes from; [leaf admission](spec/leaf-admission-and-session-endorsement.md)
+for who may sign an entry; and
+[trust boundaries](spec/trust-boundaries-and-operator-powers.md) for what the
+operator can and cannot do. Terms are defined in [glossary.md](glossary.md).
 
 ## Conformance
 

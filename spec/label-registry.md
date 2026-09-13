@@ -157,7 +157,7 @@ means the number is typed again somewhere it could have been imported.
 | Value | Authoritative | Declaration sites | Agree? | Weakest link |
 |---|---|---|---|---|
 | `-7` | RFC 9053 | many | Yes | — |
-| `-65799` | Solidity constants (chain) + the TypeScript encoding package | 13 named, 4 bare | **Yes** | Two thinker call sites put a **bare `-65799`** in a request body with no named constant at all |
+| `-65799` | Solidity constants (chain) + the TypeScript encoding package | 13 named, 4 bare | **Yes** | Two browser-client call sites put a **bare `-65799`** in a request body with no named constant at all |
 | `-65800` | Solidity constants (chain) + the TypeScript encoding package | 3 named | **Yes** | One canopy library re-types the literal instead of importing it; **arbor has no name for it at all** — it exists there only as test hex |
 | `-65801` (`TBD2`) | The TypeScript encoding package | **1** | **Yes** | None. This is the only codepoint with clean single-definition hygiene |
 | Bit 40 / UV | Solidity constants (chain) | 1 chain, 3 hand-derived TypeScript, 2 test literals | **Yes** | The bit-40 → byte-2/`0x01` translation is hand-derived in four independent places; a text-comparison test covers two of them, and only one assertion anywhere ties the wire encoding back to the on-chain bit |
@@ -165,7 +165,7 @@ means the number is typed again somewhere it could have been imported.
 Two related constants deserve the same treatment and do not currently get it:
 
 - **The endorsement not-before skew** (5 minutes) is declared independently in
-  canopy admission and in the thinker Durable Object, with only a comment
+  canopy admission and in the browser client's session component, with only a comment
   asserting they must match.
 - **The browser's not-before backdate** (60 seconds) is sized against that
   5-minute skew with no code linkage at all.

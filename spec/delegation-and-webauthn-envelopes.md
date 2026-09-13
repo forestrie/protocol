@@ -369,14 +369,14 @@ These hold in every implementation and in both directions.
 
 | Component | Delegation proof (`algData`) | Certificate envelope (`TBD1`) | Notes |
 |---|---|---|---|
-| univocity (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
-| canopy (TypeScript) | Builds it | **Yes** — builds and verifies | The single verification chokepoint off-chain |
-| thinker (browser) | Builds it | Builds it | Produces both assertions of the ceremony |
-| arbor (Go) — publish path | **Decodes and forwards** `algData` into calldata | No | Has no *name* for the algorithm; it appears only as test hex |
-| arbor (Go) — builder | **Cannot produce one.** The Go on-chain-proof builder never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
-| arbor (Go) — sealer | n/a | **No** — see below | The gap |
+| univocity — the contract (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
+| canopy — the admission and verification libraries (TypeScript) | Builds it | **Yes** — builds and verifies | The single verification chokepoint off-chain |
+| the browser client | Builds it | Builds it | Produces both assertions of the ceremony |
+| arbor — the operator services (Go), publish path | **Decodes and forwards** `algData` into calldata | No | Has no *name* for the algorithm; it appears only as test hex |
+| arbor — builder | **Cannot produce one.** The Go on-chain-proof builder never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
+| arbor — sealer | n/a | **No** — see below | The gap |
 
-Note the asymmetry within arbor: the publish path already speaks `-65800`
+There is an asymmetry within arbor: the publish path already speaks `-65800`
 end-to-end and the publisher even classifies the contract's WebAuthn reverts,
 while the sealer — the one component that must *accept* such a certificate —
 has no awareness of it at all.

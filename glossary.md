@@ -4,6 +4,70 @@ Shared domain language for Forestrie transparency logs, Univocity contracts,
 and the operational services around them. Terms are defined once here; the
 documents under [`spec/`](spec/) link to this file rather than restating them.
 
+## Log structure
+
+**MMR (Merkle Mountain Range)**:
+The append-only tree a Forestrie log is. Entries are leaves; the tree is never
+rewritten, only extended. The receipt and proof profile is
+[draft-bryce-cose-receipts-mmr-profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/).
+_Avoid_: "the Merkle root" — an MMR has a set of peaks, not one root.
+
+**Accumulator (peak set)**:
+The set of MMR peaks at a given log size: the log's committed state at that
+size. Every published accumulator is a committed prefix of every later one, so
+matching an old one is not a weaker check, only a narrower one. A checkpoint's
+detached payload is exactly these peaks, concatenated raw.
+_Avoid_: "the log root"; treating an older accumulator as less valid.
+
+**Peak**:
+One of the roots of the perfect subtrees an MMR decomposes into at a given size.
+An inclusion path runs from a leaf up to whichever peak covers it.
+
+**Massif**:
+The fixed-size block the log's storage and checkpointing are organised in
+(roughly 16k entries). Checkpoint bases snap to massif entry boundaries, so a
+chain of consistency proofs verifies boundary to boundary. A complete massif is
+immutable and cacheable; the head massif is not.
+
+**Buried peak**:
+A peak a receipt commits to that later log growth has replaced, so the receipt
+no longer matches the current accumulator. The receipt is still valid; reaching
+the current state needs a freshen, or a retained checkpoint chain.
+
+**Freshen**:
+Re-anchoring a stale receipt to the current sealed state by extending its
+inclusion path from the buried peak to the current accumulator, without tiles.
+See [receipt-trust-model.md](spec/receipt-trust-model.md).
+
+**Trust root**:
+The thing a caller already holds and evaluates a receipt against: the forest's
+genesis document, a known log key, a known accumulator, or a retained checkpoint
+chain. The four are alternatives, not levels — each answers a different subset
+of the four trust questions.
+_Avoid_: "verification level"; ranking the roots by strength.
+
+**idtimestamp**:
+The 8-byte big-endian identifier the sequencer assigns each entry, packing a
+time component, a sequence number and a device or shard id. Monotone and
+time-ordered; `unixMs = (idtimestamp >> TimeShift) + epochBaseMs(epoch)`. It is
+what an endorsement's validity window is checked against offline.
+_Avoid_: deriving ordering from a signature time — only the idtimestamp orders.
+
+**SCRAPI**:
+The SCITT reference HTTP API a Forestrie forest exposes — `register/…` for
+grants and signed statements, `logs/…` for reads. Permissionless: the grant is
+the only credential, which is why admission is the sole leaf-signer enforcement
+point.
+
+**Sequencer**:
+The component that assigns idtimestamps and content-hashes entries into the log
+(`ranger` in the arbor services). It never inspects an entry's signer.
+
+**Sealer**:
+The component that signs a checkpoint over the accumulator, under a delegation
+lease from the log's root key. It holds a delegated sealing key, never a log
+root.
+
 ## Core identity
 
 **Forest**:

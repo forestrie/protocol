@@ -29,7 +29,7 @@ load-bearing: the strongest attacks require them to **collude**.
 |---|---|---|
 | **The log owner** (user) | Owns the log's root authority | The root key, in one of the custody shapes |
 | **Transparency operator** — admission edge | Sequences entries, enforces who may sign one | No private keys authoritative for any log |
-| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A short-lived delegated sealing key, in memory only |
+| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A delegated sealing key, scoped by the lease and not persisted at rest |
 | **Hosting / payment operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. **Never** a user root; **never** the owner of a user's wallet |
 | **Enclave provider** | Optional signing backend for the hosted custody option | In that option only, the user-owned wallet key |
 | **The contract** | Anchors roots, accepts checkpoints | On-chain state; no secrets |
@@ -85,9 +85,12 @@ marketing.
 
 The sealing key is the one hot-path private key the operator holds. It exists
 only because the owner's root signed a lease authorising **that specific key**,
-scoped by log, MMR range and expiry, held in memory and discarded on restart.
-A compromise of it is bounded by those scopes and is neutralised definitively
-only by the owner rotating their root and re-delegating.
+scoped by log, MMR range and expiry, and no long-lived private key is persisted
+at rest. What bounds a compromise is therefore the lease, not the key's
+lifetime; a compromise is neutralised definitively only by the owner rotating
+their root and re-delegating. How the key is derived, and why that is not the
+same as being discarded, is in
+[receipt-trust-model.md](./receipt-trust-model.md) (question 2).
 
 ## 4. What the operator cannot do
 
@@ -120,7 +123,7 @@ public good that historically fails to materialise.
 
 | Adversary | Capability | Bounded by |
 |---|---|---|
-| **Compromised transparency operator** | Holds the leased sealing key; runs the admission edge | Signs only within an unexpired lease and consistently with anchored state. Cannot mint authority for an unauthorised key or log, cannot exceed lease bounds, cannot obtain the root. Restart discards the key. Can censor at admission. Neutralised definitively by the owner's exit |
+| **Compromised transparency operator** | Holds the leased sealing key; runs the admission edge | Signs only within an unexpired lease and consistently with anchored state. Cannot mint authority for an unauthorised key or log, cannot exceed lease bounds, cannot obtain the root. Can censor at admission. Neutralised definitively by the owner's exit |
 | **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted custody option is an additional signer | Cannot sign at all in the user-operated option. In the hosted option, signs only within policy until revoked; cannot entrench, export or rotate the user's key |
 | **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that option. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
 | **Script injection in the owner's page** | Can ask the session key to sign | Can attest turn content while the page is open. Cannot steal either key, re-root, extend authority, or persist beyond the session |
@@ -142,14 +145,17 @@ a replicated log. A *succinct* absence proof needs an authenticated secondary
 index that does not exist, because the exclusion trie's root is not currently
 anchored. Do not design against succinct absence as though it were available.
 
-**Offline verification is not finality.** Layers A–C prove inclusion in a
-sealed state. Whether that state is anchored on-chain is a separate question
+**Offline verification is not finality.** Layers A–C
+([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §4) prove
+inclusion in a sealed state. Whether that state is anchored on-chain is a separate question
 answered by reading the chain. A user interface that merges "verified" and
 "final" is overstating.
 
 **The off-chain authority walk is unimplemented.** Authority reaches the anchor
 on-chain, or off-chain only as far as a certificate reaches. The fully
-off-chain walk from grant records remains open.
+off-chain walk from grant records remains open — see
+[receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what that
+leaves answerable.
 
 **In-page compromise can attest content.** Accepted and retained: the passkey
 gates authorisation, not per-turn content. A design where every turn needed a

@@ -249,9 +249,10 @@ own receipt.
 - **Bits 35–39 are reserved by comment only.** No mask, no constant, no test
   asserts the algorithm band stays clear of them. A future widening of the
   algorithm band downward would break the reservation silently.
-- **The off-chain grant-chain walk is unimplemented.** A verifier can reach the
-  anchor on-chain, or off-chain only as far as a certificate reaches. The fully
-  off-chain walk from grant records and their inclusion proofs remains open.
+- **The off-chain grant-chain walk is unimplemented.** A verifier reaches the
+  anchor on-chain, or off-chain only as far as a certificate reaches; see
+  [receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what each
+  trust root can answer without it.
 - **The `logId` padding comment in the Solidity leaf-encoding library is
   inverted** — it says right-padded; every producer left-pads. The hashes
   agree; the comment misleads.

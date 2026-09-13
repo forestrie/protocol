@@ -173,18 +173,17 @@ logRootKey(logId) on-chain  (= grantData, committed in the parent auth log)
           receipted idtimestamp within the endorsement's validity window
 ```
 
-**The endorsement travels inside the leaf it authorises.** This is the design's
-load-bearing choice, and it is an auditability choice rather than a
-cryptographic one. An endorsement held only in operator storage, or served from
-an export endpoint, would be cryptographically sound and still useless to an
-independent verifier: the one artifact linking the log's on-chain root to every
-entry's signer would be a thing you had to *ask the operator for*. Carried in
-the leaf's unprotected header it is committed by the leaf's own content hash,
-so it costs nothing extra to prove and cannot go missing.
-
-Tampering is closed in both directions. Editing the endorsement changes the
-content hash, so inclusion fails. Substituting a different valid endorsement
-changes the session key, so the leaf signature fails.
+**The endorsement travels inside the leaf it authorises**, in the leaf's
+unprotected header, so it is committed by the leaf's own content hash. That is
+an auditability choice rather than a cryptographic one: it keeps the single
+artifact linking the log's on-chain root to every entry's signer out of operator
+storage, where an independent verifier would have to ask for it. Tampering is
+closed in both directions — editing the endorsement changes the content hash, so
+inclusion fails; substituting a different valid endorsement changes the session
+key, so the leaf signature fails. The reasoning, and the alternatives it was
+chosen over, are in
+[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+§2.
 
 The window matters because it retires the otherwise-unbounded life of a
 superseded session key: once the window lapses the endorsement stops being
@@ -378,9 +377,9 @@ registration, is required to be that party.
   fully off-chain walk from grant records and their inclusion proofs remains
   open.
 - **Succinct absence is not available.** Non-presence is provable against a
-  replicated log; a *succinct* absence proof needs an authenticated secondary
-  index, because the exclusion trie's root is not currently anchored. Do not
-  design against succinct absence as if it exists.
+  replicated log; the succinct form is not. Stated in full in
+  [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+  §6.
 
 ## References
 

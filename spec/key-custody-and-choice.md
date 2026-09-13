@@ -28,7 +28,7 @@ every key in the system, who holds it, what it can sign, how long it lives, and
 | **Instance bootstrap key** | The forest curator | The root log's authority | Set once at contract construction, immutable |
 | **Log root key** | The log's owner | Grants it issues; its sealing delegations | The life of the log — cannot be changed |
 | **Session key** | The owner's browser, non-extractable | Per-turn entries | Rotatable, bounded by its endorsement window |
-| **Delegated sealing key** | The operator's sealer, in memory | Checkpoints, within one log and MMR range | A lease, hours; never persisted, discarded on restart |
+| **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; no long-lived private key is persisted at rest |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
 
 The last row is the one people misread. The publisher pays gas. It is **never
@@ -186,7 +186,7 @@ committed hashes stand for.
 | Script injection in the page | Can sign turns while open; cannot steal the key | Same; cannot seal or delegate without a gesture | Same | Same |
 | Loss of the browser profile | **Log frozen, unrecoverable** | Recovers via keychain sync | Unaffected | Unaffected |
 | Compromised hosting operator | Cannot forge | Cannot forge | Cannot sign at all | Can sign within policy until revoked |
-| Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state | Same | Same | Same |
+| Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state (see [receipt-trust-model.md](./receipt-trust-model.md), question 2) | Same | Same | Same |
 | Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit |
 
 The attacks that defeat any of these options require **collusion** between the

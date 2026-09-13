@@ -97,10 +97,10 @@ assignment is not yet settled.
 > both are private-use and they occupy different registries. It is not a wire
 > ambiguity: the algorithm appears as a *value* under protected label `1`, the
 > envelope as a *key* in the unprotected map, and the two never collide at a
-> parse position. It is still wrong, and it costs real clarity — the envelope's
-> legality is conditional on the algorithm, the canopy constant is literally an
+> parse position. It is nonetheless incorrect, and it has a cost: the
+> envelope's legality is conditional on the algorithm, the canopy constant is an
 > alias of the algorithm constant, and every definition of the session-key
-> endorsement label has to carry a "this is not the envelope" disclaimer. The
+> endorsement label carries a "this is not the envelope" disclaimer. The
 > two concepts are being separated; `TBD1` is the envelope, and the algorithm
 > keeps the number it has.
 
@@ -143,7 +143,7 @@ lease cadence and surfaced in the UI rather than hidden.
 
 Both artifacts bind the same facts — *this root delegates to this key, for
 this log, over this MMR range* — but they **do not share a payload encoding**,
-and confusing the two is the most likely implementation error here.
+and the two must not be confused.
 
 | | On-chain delegation proof | Delegation certificate |
 |---|---|---|
@@ -282,8 +282,8 @@ Two different CBOR canonicalisations are in play across the system: the
 certificate builder uses core-deterministic ordering (RFC 8949 §4.2) while the
 checkpoint envelope uses the older length-first canonical ordering. They agree
 byte-for-byte only while every map label is single-byte — and the checkpoint
-envelope carries multi-byte labels. This has not bitten yet; it is recorded
-because it is the kind of thing that fails once, obscurely.
+envelope carries multi-byte labels. No failure has been observed; it is
+recorded because the divergence is latent.
 
 ### 5.2 The WebAuthn envelope
 
@@ -389,14 +389,14 @@ algorithm dispatch is a two-way branch: a KS256 trust root takes a KS256 path;
 curve check on that path compares an uppercased *string* against the literal
 `"ES256"`, so `-65800` cannot even be expressed there.
 
-Two things make this worse than a missing branch:
+Two properties compound this:
 
 - **The certificate verifier never reads the certificate's declared
   algorithm.** It unconditionally builds an ES256 `Sig_structure`, SHA-256s it,
   and verifies. Any algorithm label — `-7`, `-65800`, or garbage — is verified
   as plain ES256. It also takes a `curve` parameter that its body never uses.
-  The honest answer to "which algorithms does the certificate verifier
-  support?" is: **ES256 only, by construction, unchecked.**
+  The certificate verifier therefore supports **ES256 only, by construction and
+  unchecked.**
 - **The failure is therefore misattributed.** A passkey root is an ordinary
   64-byte P-256 point, and the trust-root resolver infers the algorithm from
   **key length alone** — 64 bytes means ES256. So a passkey root is advertised
@@ -417,8 +417,8 @@ an ordinary P-256 point, and only the certificate's *signature envelope* is
 WebAuthn. A trust root should never be advertised as `-65800`.
 
 The consequence: **a passkey-rooted log cannot currently be sealed end to
-end.** The refusal is by omission rather than by an explicit check — which is
-why searching the sealer for "webauthn" finds nothing.
+end.** The refusal is by omission rather than by an explicit check; the sealer
+contains no reference to the WebAuthn algorithm at all.
 
 This is a **known bug**, tracked with the codepoint reuse in §2. Fixing it
 means adding a real algorithm dispatch — ideally by having the certificate
@@ -430,8 +430,8 @@ self-describing even before WebAuthn support lands — not flipping a flag.
 A single real-authenticator capture is the cross-implementation anchor: one
 genuine gesture, exercised by the Solidity, Go and TypeScript verifiers. The
 fixture is **byte-identical in all three repositories**, verified by digest.
-That is the strongest available evidence that the three implementations agree
-about what a delegation assertion is.
+That is the cross-implementation evidence that the three verifiers agree about
+what a delegation assertion is.
 
 The fixture exposes `challengeIndex` and `typeIndex` as separate JSON fields
 rather than as the packed 16-byte `algData[2]` blob, so a consumer must pack

@@ -16,8 +16,9 @@ terms used below.
 
 A receipt is a COSE proof that **a leaf is included in a transparency log's
 sealed state**. A relying party may care about up to four *independent*
-questions about that state. Keeping them apart is the whole model — most
-confusion comes from collapsing them into one "the receipt is valid".
+questions about that state. Keeping them apart is the model: collapsing them
+into a single "the receipt is valid" discards the distinction the receipt is
+evidence for.
 
 Three of those questions concern the **log**: is the history un-forked, who
 sealed it, and is the log authorised. The fourth concerns the **leaf**: who was
@@ -51,7 +52,8 @@ Two sources supply a trusted accumulator:
 - `--rpc-url` — a live read; the same guarantee, plus "as of now".
 
 Never source the accumulator unauthenticated from the log operator's own tile
-store — that re-internalises the operator trust this anchor exists to remove.
+store — that re-internalises the operator trust an accumulator root exists to
+remove.
 
 **Why the operator cannot defeat this.** Non-equivocation is structural, not
 observational: the contract refuses to anchor a checkpoint inconsistent with
@@ -73,8 +75,7 @@ authorised sealer signed is, by your own choice, irrelevant — the signature is
 checks that it chains to the owner.
 
 **What the operator holds here.** The sealing key is the one hot-path private
-key the Forestrie operator does hold. Stated precisely, because the loose
-version is misleading:
+key the Forestrie operator does hold. Precisely:
 
 - **No long-lived private key is persisted at rest.** That is the property.
 - The key is **not** merely ephemeral-and-lost. It is HKDF-derived

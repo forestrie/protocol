@@ -15,7 +15,7 @@ _Avoid_: "the Merkle root" — an MMR has a set of peaks, not one root.
 **Accumulator (peak set)**:
 The set of MMR peaks at a given log size: the log's committed state at that
 size. Every published accumulator is a committed prefix of every later one, so
-matching an old one is not a weaker check, only a narrower one. A checkpoint's
+matching an old one is a narrower check, never a lesser one. A checkpoint's
 detached payload is exactly these peaks, concatenated raw.
 _Avoid_: "the log root"; treating an older accumulator as less valid.
 

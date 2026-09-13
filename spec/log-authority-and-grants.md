@@ -20,7 +20,7 @@ is provable — a **grant**. This document specifies the grant's wire format, th
 commitment the chain holds, and the rules that make one grant unable to
 impersonate another.
 
-The single invariant that generates the whole model:
+The single invariant the model follows from:
 
 > A grant is **signed by the authority of its owner**, and **establishes the
 > authority key for its target**.
@@ -53,7 +53,7 @@ read from the chain carries the authority answer with it.
 
 ### 1.1 `logId` versus `ownerLogId`
 
-Two identifiers, routinely confused:
+Two identifiers, easily conflated:
 
 - **`logId`** — the log this grant *authorises*. The target.
 - **`ownerLogId`** — the log whose authority *issued* it. The owner.
@@ -67,8 +67,7 @@ verify the grant envelope against `grantData`.
 
 ### 2.1 The inner grant
 
-A CBOR map with integer keys. Verified against the codec; an earlier catalogue
-pass recorded this mapping incorrectly.
+A CBOR map with integer keys, verified against the codec.
 
 | Key | Field | Wire type | Notes |
 |---|---|---|---|
@@ -152,7 +151,7 @@ inner       = logId(32) ‖ grant(32) ‖ maxHeight(8) ‖ minGrowth(8)
 commitment  = SHA-256( idtimestamp(8, big-endian) ‖ SHA-256( inner ) )
 ```
 
-Three things are easy to get wrong here:
+Three properties of the commitment to note:
 
 - **The flags widen.** `grant` is 8 bytes on the wire and **32 bytes** in the
   commitment preimage. The request-code band in the high bits is therefore

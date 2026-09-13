@@ -41,8 +41,8 @@ from the operator re-internalises the trust the log removes.
 ### P4 — Non-equivocation is enforced by the immutable contract, not watchers
 Split-view protection is structural on-chain: the contract refuses to anchor an
 inconsistent checkpoint. Security MUST NOT depend on a live honest-majority of
-monitors. **Why:** transparency logs that rely on external watchers as a public
-good fail; the anchor makes divergence impossible *by contract*.
+monitors. **Why:** security that depends on a live watcher population degrades
+when nobody is watching; the anchor makes divergence impossible *by contract*.
 [receipt trust model](../spec/receipt-trust-model.md) (question 1)
 · [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §4.1.

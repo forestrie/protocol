@@ -14,8 +14,8 @@ links to.
 
 ## Summary
 
-Every codepoint Forestrie uses, what defines it, and — because this is where
-drift actually happens — **who is authoritative and who merely copies**. Values
+Every codepoint Forestrie uses, what defines it, and **who is authoritative and
+who copies** — the distinction that governs drift. Values
 in the COSE private-use space (below `-65535`) are unregistered by definition;
 they are conventions this system agrees on, and the agreement is only as good
 as the table below.
@@ -151,8 +151,8 @@ the grant.
 
 ## 6. Who is authoritative
 
-The load-bearing table. "Definition" means the value is written once; "literal"
-means the number is typed again somewhere it could have been imported.
+"Definition" means the value is written once; "literal" means the number is
+typed again somewhere it could have been imported.
 
 | Value | Authoritative | Declaration sites | Agree? | Weakest link |
 |---|---|---|---|---|

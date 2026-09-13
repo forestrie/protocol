@@ -13,8 +13,8 @@ trusting a Forestrie operator would actually mean.
 Forestrie's design goal is not that the operator is honest. It is that the
 operator's honesty **does not need to be assumed** for the record to mean
 something. This document states where the boundaries are, what crosses them,
-what an operator can still do, and — the part usually left vague — what it
-cannot do and what it can do that we have not prevented.
+what an operator can still do, what it cannot do, and what it can do that is not
+prevented.
 
 The short version: an operator can **decline to act**, and that is visible. It
 cannot forge, rewrite, re-root, equivocate, or make any of those survive
@@ -71,8 +71,8 @@ The crossings that matter:
 
 ## 3. What the operator can do
 
-Stated without softening, because a threat model that only lists defeats is
-marketing.
+These are real capabilities, stated without softening. A threat model that lists
+only defeats is incomplete.
 
 | Capability | Bound |
 |---|---|
@@ -106,18 +106,17 @@ same as being discarded, is in
 | **Extract a user root** | It never holds one, in any custody shape |
 | **Make verification depend on itself** | Verification is pure over bytes; a network call inside verify is prohibited, not merely discouraged |
 
-The last row is the load-bearing one. Every other guarantee would be worth
-little if checking it required asking the operator.
+The last row is the load-bearing one: every other guarantee depends on being
+checkable without asking the operator.
 
 ### 4.1 Non-equivocation is structural
 
-Most transparency logs make split-view detection depend on a live population of
-monitors gossiping. Forestrie does not: the contract refuses the inconsistent
-checkpoint at publish. Security does not degrade when nobody is watching.
+Split-view detection here does not depend on a live population of gossiping
+monitors: the contract refuses the inconsistent checkpoint at publish. Security
+does not degrade when nobody is watching.
 
 Monitors remain useful — they notice unexpected entries and anchor lag — but
-they are not a security dependency, which means the system does not rely on a
-public good that historically fails to materialise.
+they are not a security dependency.
 
 ## 5. Adversary analysis
 
@@ -131,9 +130,9 @@ public good that historically fails to materialise.
 | **Another tenant** | Cross-log abuse | Everything is log-scoped: certificates bind a log id, grants bind logId and ownerLogId, leases bind an MMR range |
 | **A malicious publisher** | Submits transactions | Pays gas and gains nothing. Publishing is permissionless precisely because it confers no authority |
 
-## 6. The honest limits
+## 6. The limits
 
-Things a careful reader should hold against this design.
+Limits a careful reader should hold against this design.
 
 **Censorship at admission is real.** The edge can refuse a well-formed entry.
 The client sees the refusal immediately, so this is *detectable* rather than

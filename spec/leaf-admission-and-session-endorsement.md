@@ -50,11 +50,10 @@ re-root the log, or extend its authority.
 `TBD2`.**
 
 This is the design's load-bearing decision, and it is an **auditability**
-choice rather than a cryptographic one. The artifact was already sound when it
-lived in operator storage and a `/receipts` export; it was still useless to an
-independent verifier, because the one link from the log's on-chain root to
-every entry's signer was a thing you had to ask the operator for. That is not a
-verification story — it is a request.
+choice rather than a cryptographic one. The artifact was already cryptographically sound when it
+lived in operator storage and a `/receipts` export, and still unusable by an
+independent verifier: the one link from the log's on-chain root to every entry's
+signer had to be requested from the operator.
 
 Carried in the entry, three things follow:
 
@@ -338,8 +337,8 @@ entry it is attached to. Recorded as accepted.
   per-entry signers — and a *starting* index makes the check a bounded forward
   count rather than a scan, which is what the rejected *range* form could not
   offer. The open part is not the check but the carrier: the grant map is
-  closed, so such a permission needs a derived-policy home. Worth a recorded decision under
-  `decisions/` before anything depends on it.
+  closed, so such a permission needs a derived-policy home. Worth a recorded
+  decision under `decisions/` before anything depends on it.
 - **Registering the endorsement as the log's first entry** was also deferred.
   It is admissible today with no change and would give a receipted succession
   record. Not needed once every entry carries its own endorsement, and it adds

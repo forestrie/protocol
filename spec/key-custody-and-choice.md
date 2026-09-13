@@ -19,7 +19,7 @@ offline by anyone, forever.
 
 Everything in this document is judged against that one property. It describes
 every key in the system, who holds it, what it can sign, how long it lives, and
-— the part that makes the choice real — how to leave.
+how to leave.
 
 ## 1. Every key, and who holds it
 
@@ -31,8 +31,8 @@ every key in the system, who holds it, what it can sign, how long it lives, and
 | **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; no long-lived private key is persisted at rest |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
 
-The last row is the one people misread. The publisher pays gas. It is **never
-authoritative** — submission is permissionless, and the contract does not check
+The publisher row is the one most often misread. The publisher pays gas and is
+**never authoritative** — submission is permissionless, and the contract does not check
 who sent the transaction. Anyone can publish a well-formed checkpoint, which is
 exactly why no operator can censor or stall one.
 
@@ -45,10 +45,10 @@ than any cryptographic consideration.
 A conversational log writes an entry per turn. If the root key signed entries,
 either every turn costs a biometric prompt or the entries go unsigned. Neither
 is acceptable, so the root signs *arrangements* — delegations and endorsements
-— and a silent key signs entries. That indirection is not a compromise bolted
-on; it is the only shape that satisfies both constraints.
+— and a silent key signs entries. That indirection is what satisfies both
+constraints; no arrangement without it does.
 
-It also explains why the obvious browser-wallet routes fail:
+It also rules out the two browser-wallet routes:
 
 - **A browser extension wallet will never export a private key**, so it cannot
   produce the delegation signature the sealing path needs.
@@ -68,7 +68,7 @@ that comparison adversary by adversary.
 |---|---|---|---|---|
 | **Software root** | The browser profile, non-extractable to script | No | No | The default; one-way upgrade path |
 | **Passkey root** | Platform authenticator hardware | Yes | No | Syncs via the platform keychain |
-| **BYOK, user-operated signer** | Wholly with the user, off-platform | Per policy | No | The purist form |
+| **BYOK, user-operated signer** | Wholly with the user, off-platform | Per policy | No | The reference form of the property |
 | **BYOK, hosted convenience** | A user-owned wallet in a custodial enclave | Per policy | No, but the enclave provider could | Revocable, with a user-held stop |
 
 ### 3.1 Software root
@@ -144,9 +144,8 @@ under. There is no re-rooting operation.
 
 The consequence users notice is that **upgrading custody is one-way**: moving
 from a software root to a passkey means starting a fresh log, because the old
-log's root cannot be swapped. That is not a missing feature. The immovability
-is precisely what stops anyone *else* swapping it — an operator, a compromised
-page, or a support process.
+log's root cannot be swapped. The immovability is what stops anyone *else*
+swapping it — an operator, a compromised page, or a support process.
 
 It also bounds what a compromise can achieve. An attacker who fully controls
 the page can attest content while it is open; they cannot re-root the log,

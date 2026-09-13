@@ -1,12 +1,14 @@
 # ARC-0019: Grant verification (receipt-based inclusion, grant-statement signature, and signer binding)
 
-**Status**: DRAFT  
+**Status**: ACCEPTED — one of the accepted decisions the specification under
+[`spec/`](../spec/) rests on. (Recorded as DRAFT while it was written; the model
+below is the one every implementation verifies against.)  
 **Date**: 2026-03-19 (§6.3 revised 2026-08-09 — the issuer/endorsed-signer split is implemented, not planned)  
-**Related**: [Plan 0005](https://github.com/forestrie/canopy/blob/main/docs/plans/plan-0005-grant-receipt-unified-resolve.md), [Statement COSE encoding](https://github.com/forestrie/canopy/blob/main/docs/arc/arc-statement-cose-encoding.md), [canopy implementation map](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)
+**Related**: [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md) (the grant wire format and the three checks, as specified today), [Statement COSE encoding](https://github.com/forestrie/canopy/blob/main/docs/arc/arc-statement-cose-encoding.md), [canopy implementation map](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)
 
 ## Purpose
 
-This document is the **platform reference** for how Forestrie verifies that an auth grant is allowed for a request. It is referenced by subplans, plans, and API docs wherever grant auth or inclusion is specified.
+This document is the **platform reference** for how Forestrie verifies that an auth grant is allowed for a request. The wire format and the three checks as the specification states them now are in [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md); this document records the model behind them.
 
 **§0** states the **logical model**. **§§1–6** state **verification obligations** (when they apply, circularity, checkpoint signer, grant-statement signature, receipts, register-entry binding). **§6.3** documents the **implemented** split of **issuance (envelope) signer** vs **endorsed statement signer**: parent **K(P)** issues grants whose **`grantData`** names a **different** party allowed to sign **`POST …/entries`** — this is live and enforced today (revised 2026-08-09; the earlier "planned evolution" framing was stale). **§7** is **summary pseudocode**. Canopy implementation map: [canopy grant verification implementation](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md).
 
@@ -121,14 +123,11 @@ $$
 
 Thus, grants expire via index exhaustion rather than revocation.
 
-> **Consolidated in ARC-0028 (private, cited by name).** This
-> line, ARC-0017 §3.4 and ARC-0016 §4.2 together settle the question of grant
-> lifecycle; ARC-0028 §4 records refundable grants as a non-goal on that basis
-> and derives what irrevocability buys. ARC-0028 §3.3 is also a **consumer of
-> §6.3 below** — the issuance-signer / endorsed-statement-signer split that lets
-> a grant be funded by one party and drawn down by another. That split is
-> **implemented** (§6.3, revised 2026-08-09), so ARC-0028's dependency on it is
-> already met on the platform-capability axis.
+> **Grant lifecycle.** Grants are irrevocable: capacity ends by exhaustion of
+> the `maxHeight` ceiling or by a parent declining to renew, never by
+> revocation, and refundable grants are a non-goal. The issuance-signer /
+> endorsed-statement-signer split of §6.3 is what lets a grant be funded by one
+> party and drawn down by another; that split is **implemented**.
 
 #### Global consistency
 
@@ -187,14 +186,14 @@ $$
 
 | Model (§0.1)                                         | Role in Canopy                                                                                                                                                                                                                                                                                                                                                                                           |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AUTH_LOG $A_n$                                       | The **owner authority log** identified by the grant’s **`ownerLogId`**. New grant leaves are appended to **that** log’s authority MMR (Subplan 03 / ranger). **`logId`** is the **target** of the grant (e.g. data log or child auth log UUID); **`ownerLogId`** is where the **grant leaf** lives.                                                                                                      |
+| AUTH_LOG $A_n$                                       | The **owner authority log** identified by the grant’s **`ownerLogId`**. New grant leaves are appended to **that** log’s authority MMR by the sequencer. **`logId`** is the **target** of the grant (e.g. data log or child auth log UUID); **`ownerLogId`** is where the **grant leaf** lives.                                                                                                      |
 | Checkpoint signer **K(L)**                           | For authority log **L**, the key material Univocity uses to validate **checkpoints** for **L** (root case: **ES256** key in bootstrap **`grantData`**). **Register-grant** MUST verify the **transparent statement** is signed by **K(L)** or a **delegate** (§4), where **L** is **`bytesToUuid(ownerLogId)`** for the inner grant.                                                                     |
-| Grant $G_i^{(n)}$                                    | **`PublishGrant`** commitment + Forestrie-Grant wire **v0** (keys **1–6**; **`GrantAssembly` = `Grant`**) (Plan 0007 (private, cited by name)). **Issuance** of $G$ is the signed transparent statement; **membership** of the leaf is §5. For **register-statement**, **`isStatementRegistrationGrant`** (**`GF_*`**) and **`grantData`** vs **`kid`** apply (**§6**). |
+| Grant $G_i^{(n)}$                                    | **`PublishGrant`** commitment + Forestrie-Grant wire **v0** (keys **1–6**; **`GrantAssembly` = `Grant`**) . **Issuance** of $G$ is the signed transparent statement; **membership** of the leaf is §5. For **register-statement**, **`isStatementRegistrationGrant`** (**`GF_*`**) and **`grantData`** vs **`kid`** apply (**§6**). |
 | $\operatorname{range}$, $\operatorname{granularity}$ | On-chain **`maxHeight`**, **`minGrowth`**; contract-enforced at checkpoint publish.                                                                                                                                                                                                                                                                                                                      |
 | Receipt $C_j$                                        | Unprotected header **396**; §5.                                                                                                                                                                                                                                                                                                                                                                          |
 | $G \vdash \operatorname{publish}(C, S)$              | Canopy does not call the contract; **issuance** of $G$ is still gated by §4 + §5 as below.                                                                                                                                                                                                                                                                                                               |
 
-**Bootstrap** (Subplan 08): log not yet initialised — **K(L)** is not yet on-chain; the **Custodian** (via per-log delegation API) acts as an **operational delegate** to sign the **root** transparent statement (current `verifyBootstrapCoseSign1`). After sequencing, **grantData** establishes **K(L)** for future §4 checks on grants whose **`ownerLogId`** is **L**.
+**Bootstrap**: log not yet initialised — **K(L)** is not yet on-chain; the **Custodian** (via per-log delegation API) acts as an **operational delegate** to sign the **root** transparent statement (current `verifyBootstrapCoseSign1`). After sequencing, **grantData** establishes **K(L)** for future §4 checks on grants whose **`ownerLogId`** is **L**.
 
 ---
 
@@ -206,7 +205,7 @@ $$
 
 1. **§4 — Grant statement signature:** Verify the **`Authorization: Forestrie-Grant`** COSE Sign1 (transparent statement) using **§4** (signer is **K(L)** or delegate, **L** = authority log the grant appends under = inner **`ownerLogId`**).
 2. **§5 — Receipt / bootstrap branch:** Either
-   - **Bootstrap:** log not initialised; satisfy Subplan 08 bootstrap checks (including existing bootstrap signature verification), **or**
+   - **Bootstrap:** log not initialised; satisfy the bootstrap checks of §4.3 (including the bootstrap signature verification), **or**
    - **Non-bootstrap:** completed grant with **idtimestamp** + receipt; **§5** inclusion holds.
 
 **Ordering:** §4 should run on every path that accepts the artifact (before or after §5 per efficiency); both must pass where applicable.
@@ -283,7 +282,7 @@ This section realises the **receipt** side of §0: we treat the supplied artifac
 ### 5.1 Prerequisites
 
 - The grant must be **completed** for the non-bootstrap path: **idtimestamp** (8 bytes) in header **-65537**. **Callers supply** **`Authorization: Forestrie-Grant <base64>`** with payload = grant CBOR, receipt in **396**.
-- **Leaf commitment** uses header **idtimestamp** + **grant commitment hash** (`PublishGrant` preimage; Plan 0007).
+- **Leaf commitment** uses header **idtimestamp** + **grant commitment hash** (the `PublishGrant` preimage; [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) §1).
 
 ### 5.2 Receipt format ($C_j$ wire shape)
 
@@ -314,7 +313,7 @@ FUNCTION verify_grant_receipt(grant_assembly, idtimestamp, receipt_bytes [, opti
 
 ### 5.5 Obtaining the receipt
 
-Per Plan 0005 (private, cited by name), receipt is embedded in the grant artifact; no `X-Grant-Receipt-Location` in this phase.
+The receipt is embedded in the grant artifact; there is no `X-Grant-Receipt-Location` indirection.
 
 ---
 
@@ -342,15 +341,15 @@ After **§5** (when required):
 
 **Plain language (data log, POST `/register/entries`):** The owning **AUTH** log (via **§4** + **§5**) has placed a grant leaf that says, in effect: **checkpoints we publish for this data log may carry transparency statements signed by the key named in `grantData`.** The API enforces **`isStatementRegistrationGrant`** plus **`kid` ↔ `grantData`** (**§6.0**, §6 items 1–2).
 
-**`GF_*` vs `GC_*` (univocity `constants.sol`, summarized in brainstorm-0001 §3.4 (private, cited by name)):** **`PublishGrant.grant`** is an 8-byte wire bitmap of **`GF_*`** flags (create/extend, auth vs data log, …). **`PublishGrant.request`** holds high-level **`GC_*`** codes used at **`publishCheckpoint`** time (e.g. log kind at **creation**); it is **not** in the leaf commitment preimage. For **register-signed-statement** alignment with the contract, the relevant discriminator is **`GF_DATA_LOG`** in **`grant`**, not **`GC_DATA_LOG`** in **`request`**.
+**`GF_*` vs `GC_*` (univocity `constants.sol`):** **`PublishGrant.grant`** is an 8-byte wire bitmap of **`GF_*`** flags (create/extend, auth vs data log, …). **`PublishGrant.request`** holds high-level **`GC_*`** codes used at **`publishCheckpoint`** time (e.g. log kind at **creation**); it is **not** in the leaf commitment preimage. For **register-signed-statement** alignment with the contract, the relevant discriminator is **`GF_DATA_LOG`** in **`grant`**, not **`GC_DATA_LOG`** in **`request`**.
 
 **Suggested flag rule for this endpoint (normative target once bit tests exist in Canopy):** For grants authorizing **statement registration on a data log**, **`grant`** SHOULD include **`GF_EXTEND`** and **`GF_DATA_LOG`**. **In practice, `GF_CREATE` is also set** on the **first** grant for that log (first checkpoint): expect **`GF_CREATE \| GF_EXTEND`** together with **`GF_DATA_LOG`**. **Later** grants for the same log may omit **`GF_CREATE`** and carry **`GF_EXTEND`** (and **`GF_DATA_LOG`**) only, if policy allows extend-only follow-up grants. Grants meant for **AUTH** log checkpoint keys (bootstrap, new auth log) use **`GF_AUTH_LOG`** (and typically **GF_CREATE \| GF_EXTEND** for root bootstrap)—those are **register-grant** / checkpoint flows, not a substitute shape for arbitrary **data-log** **register-statement** grants.
 
 **Authorizing log signer:** The party that **issues** the grant (proves the leaf is legitimate) MUST be the **checkpoint signer** for **`ownerLogId`** per **§4** (verify the **transparent statement** COSE signature). **§4** is the sole issuance check; inner CBOR convenience fields that are **not** in the **`PublishGrant`** commitment do not replace it.
 
-**Model consistency:** Wire **v0** drops **`kind`** / **`signer`**; **`GF_*`** / **`GC_*`** remain **on-chain `PublishGrant`** fields. **`grantData` vs `kid`** is the **statement-signer** binding. Tighter **`request`/`GF_*`** matrix checks remain **P3** (**§9.8**) when univocity constants are in-repo.
+**Model consistency:** Wire **v0** drops **`kind`** / **`signer`**; **`GF_*`** / **`GC_*`** remain **on-chain `PublishGrant`** fields. **`grantData` vs `kid`** is the **statement-signer** binding. Tighter **`request`/`GF_*`** matrix checks remain a low-priority follow-up, available once the univocity constants are consumed directly.
 
-See arc-grant-statement-signer-binding (private, cited by name).
+The flag bands, with their values, are in [spec/label-registry.md](../spec/label-registry.md) §5.
 
 ### 6.3 Issuance signer vs endorsed statement signer (**implemented** — the split is live)
 
@@ -360,9 +359,9 @@ See arc-grant-statement-signer-binding (private, cited by name).
 > the specific coupling this section used to assert (old §6.3.2, "envelope
 > signer ≡ grantData identity on child first-grant paths") is **false against
 > current code**. The text below is corrected against the implementation (canopy
-> `main`, verified 2026-08-09 by file:line). Consumers that were sequenced
-> "behind" this split — notably ARC-0028
-> §3.3 and §9 Phase 0 — are unblocked on the platform-capability axis.
+> `main`, verified 2026-08-09 by file:line). Work that was sequenced
+> "behind" this split — grant-funded provability, where one party buys capacity
+> and another draws it down — is unblocked on the platform-capability axis.
 
 **Intent (unchanged):** `register-signed-statement` allows any child auth or
 data log (except the bootstrap root) to receive a statement when a
@@ -448,7 +447,7 @@ The old "planned deltas" table is retired. Against current code:
 - **Yes (recommended):** Once univocity documents **compatibility rules** (e.g. which **`GC_*`** values may accompany which **`GF_*`** patterns, auth vs data log, create vs extend), Canopy **should** validate **`grant.request`** (when present) against **`grant.grant`** the same way a careful **`publishCheckpoint`** caller would—so off-chain auth does not accept artifacts the contract would treat as ill-formed or misleading.
 - **Wire v0:** Maps that include obsolete keys **7**/**8** or unknown extensions **must** be **rejected** at decode. There is **no** parallel **`signer`** field on the wire; **`grantData`** is the only issuer attestation for statement-signer binding (**§6**).
 
-**Summary:** The preimage discussion **does not** mean “re-validate `logId` twice.” It **does** imply that **`Grant.request`** (when hydrated) **should** be checked for **contract-consistent** combinations with the **`grant`** bitmap (and with HTTP context such as path **`logId`**) when those rules are codified—**§9.8** (bitmap) plus a future **`request`/`GF_*` matrix** sourced from univocity.
+**Summary:** The preimage discussion **does not** mean “re-validate `logId` twice.” It **does** imply that **`Grant.request`** (when hydrated) **should** be checked for **contract-consistent** combinations with the **`grant`** bitmap (and with HTTP context such as path **`logId`**) when those rules are codified—the bitmap check of §6, plus a future **`request`/`GF_*` matrix** sourced from univocity.
 
 ---
 
@@ -487,3 +486,16 @@ enqueue_statement(…)
 ```
 
 ---
+
+---
+
+## References
+
+- [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md) — the
+  grant wire format, the flag bands, and the three checks as specified today.
+- [spec/label-registry.md](../spec/label-registry.md) — the CBOR keys and the
+  `GF_*` bands, with values.
+- [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) — the
+  leaf commitment, with cross-language vectors.
+- [ADR-0065](./adr-0065-endorsed-session-key-admission.md) — the endorsed
+  session key that §6.3's statement signer may now be.

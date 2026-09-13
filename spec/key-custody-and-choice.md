@@ -4,10 +4,11 @@
 **Date:** 2026-08-30
 **Audience:** anyone deciding where their log's root of trust should live, and
 implementers of the custody paths.
-**Related:** protocol/README.md (private, cited by name),
+**Related:**
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md),
 [receipt-trust-model.md](./receipt-trust-model.md) (question 4),
-[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md).
+[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -208,12 +209,11 @@ and in the hosted option, collusion with the enclave provider too.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
   — the adversary analysis these options sit inside.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
   — the endorsement mechanism behind the passkey option.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
   — how a passkey signs a delegation at all.
-- ARC-0022 — the BYOK modes, security invariants, kill switch and exit, in
-  full.
+- [glossary.md](../glossary.md) — the BYOK delegation modes, the delegation
+  certificate, and the terms used in §3.

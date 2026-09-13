@@ -4,11 +4,14 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier or signer, and reviewers
 assessing what a delegation actually proves.
-**Related:** protocol/README.md (private, cited by name) (internal index and source
-map), [receipt-trust-model.md](./receipt-trust-model.md) (question 2,
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md) (question 2,
 sealing attestation), [label-registry.md](./label-registry.md),
-ADR-0063 (private, cited by name),
-univocity ADR-0006 / ADR-0008.
+[key-custody-and-choice.md](./key-custody-and-choice.md),
+[glossary.md](../glossary.md), and the univocity contract decisions
+[ADR-0006](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0006-cose-shaped-delegation-proof.md) (COSE-shaped delegation
+proof without on-chain certificate parsing) and
+[ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md) (the on-chain
+algorithm, `algData`, and the policy band).
 
 ## Summary
 
@@ -459,15 +462,14 @@ the fixture; the certificate vector is already present and unused.
 
 ## References
 
-- protocol/README.md — source map with `path:line` citations
-  for every claim above, and current implementation status.
 - [label-registry.md](./label-registry.md) — all codepoints in one table.
 - [key-custody-and-choice.md](./key-custody-and-choice.md) — why a passkey is
   the root, and what else can be.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — what the
   delegated key goes on to sign.
-- ADR-0063 — the two-assertion decision and the
-  envelope.
-- univocity ADR-0008 (the on-chain algorithm, `algData`, the policy band),
-  ADR-0006 (COSE-shaped delegation proof without on-chain certificate
-  parsing).
+- [ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md) — the
+  custody split that reuses this envelope for the session-key endorsement.
+- univocity [ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md) (the
+  on-chain algorithm, `algData`, the policy band) and
+  [ADR-0006](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0006-cose-shaped-delegation-proof.md) (COSE-shaped
+  delegation proof without on-chain certificate parsing).

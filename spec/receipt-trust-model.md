@@ -1,50 +1,16 @@
 # Forestrie receipt trust model
 
-**Status:** LIVE (promoted 2026-08-30 from `forestrie-cli/TRUST-MODEL.md`,
-where it was written by plan-2607-33 (private, cited by name)
-as a repo-local doc. It is cited as normative by **three rules-of-the-road
-files** — `platform.md` (header and P3), `univocity.md` (U1) — which is the
-whole of the case for moving it: a document the guardrail set cites is a
-platform document, and devdocs owns those. plan-2607-33 sited it in
-forestrie-cli and said it should become an **ARC** if it ever became a durable
-architecture citation; it is sited under `protocol/` instead, because that
-directory is not swept into `archive/YYMM/` at month end and an ARC would be.
-forestrie-cli keeps a stub redirect.)
-
-> **Substantive edits made during promotion**, beyond adding question 4 —
-> disclosed because this is no longer a verbatim port:
-> - Question 1 gained the claim that non-equivocation is **structural**, with
->   no dependence on an honest majority of monitors (rules-of-the-road P4).
-> - Question 2 gained a paragraph on the operator's sealing-key custody,
->   re-verified against arbor source for this document (see the note there).
-> - Three sections are new: question 4, the vocabulary note, and open
->   questions.
-> - Nothing was removed. The `--allow-new-signer` rationale and the
->   plan-2607-24 provenance were dropped in the first draft and have been
->   restored.
+**Status:** LIVE
 **Date:** 2026-08-30
 **Audience:** relying parties, monitors, assessors, and anyone deciding what a
 Forestrie receipt lets them conclude without trusting the log operator.
-**Related:** protocol/README.md (private, cited by name) (internal index and
-implementation status), [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md)
-(§4 — the attribution question), ADR-0045 (offline verify contract, layers
-A–C), ADR-0046 (the checkpoint *is* a consistency receipt), ADR-0056
-(consistency proof spans the massif entry boundary), rules-of-the-road
-P2/P3/P4.
-
-> **Anchors are preserved from the original.** The per-question headings keep
-> their wording, and `## Freshen and the attestor` keeps its exact text
-> because `forestrie-cli/README.md` deep-links
-> `TRUST-MODEL.md#freshen-and-the-attestor` — the anchor lives on *this*
-> document, and the stub left behind forwards to it.
->
-> One anchor did change: `#the-three-questions` is now
-> `#the-four-questions`. Nothing outside the archive linked to it.
->
-> The only other citations are two plain-text "Sources:" notes in a single
-> internal onboarding deck. They are not links and
-> carry no anchors, so they were never a constraint — an earlier draft of
-> this block overstated them as "two product decks" that deep-link here.
+**Related:**
+[ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) (the
+offline verify contract, layers A–C),
+[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (§4 — the
+attribution question), the platform invariants
+[P2, P3 and P4](../rules/platform.md), and [glossary.md](../glossary.md) for the
+terms used below.
 
 ## Summary
 
@@ -65,9 +31,10 @@ passkey/WebAuthn work added.
 
 Answered by the **accumulator** (the log's peak set). Recompute the leaf's
 inclusion path to a peak and match it against a *trusted* accumulator. Because
-every published accumulator is consistency-gated forward (each is a committed
-prefix of every later one — ADR-0056), matching one proves the log has not
-forked or rewritten history under you.
+every published accumulator is consistency-gated forward — each is a committed
+prefix of every later one, and the consistency proof spans the massif entry
+boundary — matching one proves the log has not forked or rewritten history under
+you.
 
 This property is **independent of currency.** Any accumulator is a genuine,
 non-equivocal commitment up to its own tree size, so an older one is not "less
@@ -89,7 +56,7 @@ store — that re-internalises the operator trust this anchor exists to remove.
 **Why the operator cannot defeat this.** Non-equivocation is structural, not
 observational: the contract refuses to anchor a checkpoint inconsistent with
 what it already holds. Security does not depend on a live honest majority of
-monitors watching for divergence (rules-of-the-road P4).
+monitors watching for divergence ([platform invariant P4](../rules/platform.md)).
 
 ### 2. Sealing attestation — *who sealed this state?*
 
@@ -124,11 +91,6 @@ it can sign within an unexpired lease for the log and range that lease names,
 and cannot mint authority for any other key or log. A compromise is
 neutralised definitively only by the owner rotating their root and
 re-delegating.
-
-*(An earlier draft of this document said the key was "generated in-process…
-discarded on restart", carried over from ARC-0022. That predates the
-delegation-in-advance work; re-verified against arbor's derivation code for
-this revision.)*
 
 ### 3. Authority — *is this log authorised, back to the genesis / bootstrap key?*
 
@@ -187,7 +149,8 @@ Nothing on the chain inspects a leaf signer. The sequencer content-hashes
 leaves, the sealer verifies delegation leases, the publisher lifts proofs, and
 the contract verifies the root and the delegation. **Admission at the SCRAPI
 edge is the only enforcement point for who may sign a leaf**, for every custody
-shape (ADR-0065 §1). A design that asks any other component to be authoritative
+shape ([ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) §1).
+A design that asks any other component to be authoritative
 for the leaf signer fails open for every client that is not that component,
 because the SCRAPI is permissionless and the grant is the only credential.
 
@@ -398,7 +361,7 @@ the generic one hides a distinction that matters here:
 - **Monitor** — a party that watches a log for unexpected entries or for
   divergence. In Forestrie a monitor is a *convenience*, not a security
   dependency: non-equivocation is enforced by the contract at publish, not by a
-  quorum of watchers (P4).
+  quorum of watchers ([platform invariant P4](../rules/platform.md)).
 - **Assessor** — a party whose standing is itself recorded and staked, in the
   incentivisation and reputation model. This is design direction, not shipped
   behaviour.
@@ -417,29 +380,24 @@ registration, is required to be that party.
 - **Succinct absence is not available.** Non-presence is provable against a
   replicated log; a *succinct* absence proof needs an authenticated secondary
   index, because the exclusion trie's root is not currently anchored. Do not
-  design against succinct absence as if it exists (P13).
-- **ADR-0045's status is still PROPOSED** although rules-of-the-road P2 cites
-  it as the authority for the offline-verify contract. The contract is
-  implemented and enforced; the status label lags.
+  design against succinct absence as if it exists.
 
 ## References
 
-- protocol/README.md — internal index, implementation status,
-  and the section-to-source map for everything above.
 - [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
   — what each party holds, and what a compromised one can and cannot do.
 - [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody
   options behind question 4, and how to leave.
-- [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the receipt
-  and checkpoint wire formats.
+- [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the receipt and
+  checkpoint wire formats, and why the sealed checkpoint *is* a consistency
+  receipt.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
   — the attribution chain at wire level.
-- ADR-0046 (the checkpoint *is* a consistency receipt), ADR-0056 (consistency
-  proof spans the massif entry boundary), ADR-0045 (offline verify contract),
-  [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (attribution).
-- plan-2607-24 (private, cited by name)
-  — the four named verify trust anchors this document maps onto the questions
-  (FOR-297); the provenance of the ladder above.
-- plan-2607-33
-  — where this document was originally written, and the three-way split
-  between the conceptual model, the per-command recipes, and the CLI help.
+- [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
+  hierarchy question 3 walks.
+- [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
+  offline verify contract, layers A–C.
+- [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) —
+  attribution, and the admission rules that enforce it.
+- [rules/platform.md](../rules/platform.md) — the platform invariants that cite
+  this document.

@@ -4,9 +4,9 @@
 **Date:** 2026-08-30
 **Audience:** relying parties, security reviewers, and anyone assessing what
 trusting a Forestrie operator would actually mean.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md),
-[key-custody-and-choice.md](./key-custody-and-choice.md).
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md),
+[key-custody-and-choice.md](./key-custody-and-choice.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -180,13 +180,11 @@ and tracked.
 
 ## References
 
-- protocol/README.md — `path:line` citations, status, and the
-  tracked issues behind the open questions above.
 - [receipt-trust-model.md](./receipt-trust-model.md) — the four questions a
-  receipt answers.
+  receipt answers, and the trust roots that answer them.
 - [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody options
-  referenced throughout.
+  referenced throughout, including the BYOK modes and the exit path.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — why anyone can
   mint a receipt.
-- ARC-0022 — the BYOK trust boundaries and invariants this extends from
-  hosting scope to platform scope.
+- [rules/platform.md](../rules/platform.md) — the invariants these boundaries
+  hold up.

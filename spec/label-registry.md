@@ -5,11 +5,12 @@
 **Audience:** anyone implementing or reviewing a Forestrie encoder or
 verifier. This is the lookup table; the reasoning lives in the documents it
 links to.
-**Related:** protocol/README.md (private, cited by name),
+**Related:**
 [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md),
 [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md),
 [log-authority-and-grants.md](./log-authority-and-grants.md),
-[checkpoints-and-receipts.md](./checkpoints-and-receipts.md).
+[checkpoints-and-receipts.md](./checkpoints-and-receipts.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -194,4 +195,4 @@ except the one fork-sync test and the one bit-40 equivalence assertion.
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
   labels.
-- protocol/README.md — `path:line` citations for every row.
+- [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

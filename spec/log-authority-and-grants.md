@@ -4,10 +4,13 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie client or verifier, and reviewers
 tracing where a log's authority comes from.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md) (question 3, authority),
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md)
+(question 3, authority),
+[ARC-0019](../decisions/arc-0019-grant-verification-model.md) (the accepted
+grant verification model),
 [label-registry.md](./label-registry.md),
-[checkpoints-and-receipts.md](./checkpoints-and-receipts.md).
+[checkpoints-and-receipts.md](./checkpoints-and-receipts.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -255,9 +258,12 @@ own receipt.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [receipt-trust-model.md](./receipt-trust-model.md) — how authority sits
   among the four trust questions.
+- [ARC-0019](../decisions/arc-0019-grant-verification-model.md) — the three
+  verification obligations in full, with the pseudocode.
+- [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) — the
+  leaf commitment with cross-language vectors.
 - [label-registry.md](./label-registry.md) — the CBOR keys and flag bands.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
   — how `grantData` anchors an endorsed signer.

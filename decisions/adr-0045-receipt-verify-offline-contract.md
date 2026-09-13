@@ -1,36 +1,36 @@
 # ADR-0045: Offline receipt verify contract (`@forestrie/receipt-verify`)
 
-**Status:** ACCEPTED  
-Accepted 2026-09-12 on promotion to forestrie/protocol; the contract had been treated as normative by every implementation since it was written.  
+**Status:** ACCEPTED — one of the accepted decisions the specification under
+[`spec/`](../spec/) rests on.  
+Accepted 2026-09-12; the contract had been treated as normative by every
+implementation since it was written.  
 **Date:** 2026-07-04  
 **Related:** [ARC-0019](./arc-0019-grant-verification-model.md),
-ARC-0025 (private, cited by name),
-ADR-0030 (private, cited by name),
-plan-0030 (private, cited by name),
-[canopy grant verification implementation](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md),
-FOR-279
+[spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) (§4, the
+layers as specified today),
+[canopy grant verification implementation](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)
 
 ## Context
 
-Forestrie promotion gates today prove that SCRAPI **returns** SCITT receipts on
-live lanes. They do not prove that a relying party can **verify** those receipts
-offline against the forest genesis trust anchor — the headline product claim in
-the decentralised brief.
+Deployment gates today prove that SCRAPI **returns** SCITT receipts on live
+lanes. They do not prove that a relying party can **verify** those receipts
+offline against the forest genesis trust anchor, which is the claim the system
+is built on.
 
 Server-side grant receipt verification already exists in
 [receipt-verify.ts](https://github.com/forestrie/canopy/blob/main/packages/apps/canopy-api/src/grant/receipt-verify.ts).
 This ADR defines the **public contract** for a shared
 `@forestrie/receipt-verify` package (canopy monorepo workspace) consumed by
-`@canopy/api`, `@forestrie/canopy-e2e-kit`, CLI tooling, and T3 system tests.
-Implementation is tracked separately (Grant receipt offline verify).
+`@canopy/api`, `@forestrie/canopy-e2e-kit`, CLI tooling, and the integration
+test suites.
 
 ## Decision
 
 ### 1. Package and scope
 
 - **Package name:** `@forestrie/receipt-verify` (canopy workspace package;
-  publish policy TBD — kit re-export may suffice for the estate's
-  integration test suite).
+  publish policy TBD — a kit re-export may suffice for the integration test
+  suite).
 - **In scope:** verify layers **A–C** (see below) over captured bytes only.
 - **Out of scope (layer D):** on-chain accumulator / burial / tip
   canonicality — separate “on-chain loop” initiative; not mixed into offline
@@ -45,8 +45,8 @@ Implementation is tracked separately (Grant receipt offline verify).
 | **C** | Leaf binding | Leaf hash matches receipt subject (grant commitment or statement content hash + idtimestamp) | Caller-supplied grant / statement context |
 
 Layer **D** (on-chain canonicality) is **explicitly deferred**. Offline verify
-may succeed while the tip is not yet buried on-chain; product FAQ treats A–C
-vs D separately.
+may succeed while the tip is not yet buried on-chain; A–C and D are separate
+claims and must be presented as such.
 
 ### 3. Offline boundary
 
@@ -61,7 +61,7 @@ Verify functions are **pure over bytes**. During verify they **must not**:
 
 - one-time `GET /api/forest/{R}/genesis` (or genesis from provision / test
   fixture);
-- loading `genesis.cbor` from disk in CLI or T3 artefact capture.
+- loading `genesis.cbor` from disk in the CLI, or from a captured test artefact.
 
 Trust keys for layer A come from **genesis COSE trust root only**, mirroring
 [decode-trust-root-cbor.ts](https://github.com/forestrie/canopy/blob/main/packages/apps/canopy-api/src/env/decode-trust-root-cbor.ts)
@@ -128,7 +128,8 @@ leaf  = SHA-256(idtimestampBe8 || inner)
 ```
 
 Matches [leaf-commitment.ts](https://github.com/forestrie/canopy/blob/main/packages/apps/canopy-api/src/grant/leaf-commitment.ts)
-and ADR-0030.
+and the leaf commitment in
+[vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) §1.
 
 #### 4.4 Statement verify input (phase 3)
 
@@ -155,9 +156,9 @@ leaf        = SHA-256(idtimestampBe8 || contentHash)
 Enqueue path in
 [register-signed-statement.ts](https://github.com/forestrie/canopy/blob/main/packages/apps/canopy-api/src/scrapi/register-signed-statement.ts)
 uses `contentHash = SHA-256(statementData)` where `statementData` is the COSE
-Sign1 bytes. **Open question (flag before phase 3 coding):** confirm the ranger
-commit / sealer path uses the same `contentHash` and idtimestamp assignment as
-canopy enqueue (sign-off from arbor owner or linked issue).
+Sign1 bytes. **Open question (flag before phase 3 coding):** confirm the
+sequencer and sealer path uses the same `contentHash` and idtimestamp assignment
+as canopy enqueue.
 
 #### 4.5 Verify algorithm (grant)
 
@@ -185,7 +186,7 @@ On success: `{ ok: true, stage: "binding" }` (final stage reached).
 
 Each control **must** fail with an identifiable `stage` and stable `reason`:
 
-| Control | Expected stage | Example `reason` | Future test name (T0) |
+| Control | Expected stage | Example `reason` | Test name |
 |---------|------------------|------------------|------------------------|
 | Tampered receipt byte | `parse` or `signature` | `receipt_malformed` / `signature_invalid` | `rejects_tampered_receipt` |
 | Wrong genesis trust key | `signature` | `signature_invalid` | `rejects_wrong_genesis_key` |
@@ -200,15 +201,14 @@ Each control **must** fail with an identifiable `stage` and stable `reason`:
 
 - depends on workspace `@forestrie/receipt-verify`;
 - re-exports `verifyGrantReceiptOffline` (and later `verifyStatementReceiptOffline`);
-- the estate's integration test suite lane manifests pin **exact**
-  `canopy-e2e-kit-v0.4.0` (or later)
-  when offline grant T3 specs are enabled (ADR-0041 (private, cited by name)).
+- integration-suite lane manifests pin **exact** `canopy-e2e-kit-v0.4.0` (or
+  later) when the offline grant specs are enabled.
 
 Prior kit versions do not guarantee offline verify exports.
 
 ### 7. CLI contract (tracer)
 
-`canopy/scripts/verify-grant-receipt` (implementation in Grant receipt project):
+`canopy/scripts/verify-grant-receipt`:
 
 ```text
 verify-grant-receipt --genesis PATH --receipt PATH \
@@ -220,16 +220,16 @@ Exit **0** on `{ ok: true }`, **1** otherwise; stderr prints `stage` and
 
 ## Consequences
 
-- One implementation per artifact ([canopy plan-0003](https://github.com/forestrie/canopy/blob/main/docs/plans/plan-0003-encoding-redux.md)):
-  extract from api → package → kit + CLI.
-- T3 lane B promotion will require at least one offline grant receipt spec
-  (ARC-0025,
-  ops-0015 (private, cited by name)).
+- One implementation per artifact: extract from api → package → kit + CLI.
+- Lane promotion requires at least one offline grant receipt spec.
 - Statement and BYOK surfaces implement against this contract without changing
   layer A–C definitions.
 
 ## References
 
-- [COSE receipts MMR profile](https://robinbryce.github.io/draft-bryce-cose-receipts-mmr-profile/draft-bryce-cose-receipts-mmr-profile.html)
-- [scitt-hackathon step 7](https://github.com/forestrie/canopy/blob/main/docs/demo/scitt-hackathon.md)
-- the decentralised FAQ (layers A–C vs D)
+- [COSE receipts MMR profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/)
+  — the receipt and proof profile these layers verify.
+- [spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4 —
+  the layers, and the offline boundary, as the specification states them now.
+- [spec/receipt-trust-model.md](../spec/receipt-trust-model.md) — which trust
+  root answers which question.

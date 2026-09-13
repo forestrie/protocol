@@ -4,10 +4,11 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier, and anyone assessing what
 can be checked without contacting the operator.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md) (questions 1 and 2),
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md)
+(questions 1 and 2),
 [label-registry.md](./label-registry.md),
-[log-authority-and-grants.md](./log-authority-and-grants.md).
+[log-authority-and-grants.md](./log-authority-and-grants.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -207,9 +208,10 @@ this policy exists to prevent.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [receipt-trust-model.md](./receipt-trust-model.md) — what a receipt proves,
-  and the anchors that answer each question.
+  and the trust roots that answer each question.
+- [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
+  accepted contract for layers A–C and the offline boundary.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   commitment that layer C checks for a grant receipt.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)

@@ -124,7 +124,7 @@ grant (root = passkey x‖y)
       → plain-ES256 per-turn leaves (unchanged 4a profile)
 ```
 
-Grill ruling 4 (stronger than proposed): this rung lands in
+Grill ruling 4 (stronger than proposed): this verification path lands in
 **`@forestrie/receipt-verify` 0.12.0, released before plan task 4.1
 merges** — third-party offline verification of endorsed logs is real
 from day one, not a thinker-local script. The leaf profile is untouched:
@@ -142,7 +142,7 @@ zero per-leaf format change anywhere in the platform.
 > bytes gain the endorsement in the unprotected header (label
 > `-65801`), committed via `contentHash`**, and the chain above is
 > verified from the leaf bytes alone (`receipt-verify`
-> `verifyEndorsedLeaf`); the export-fed rung described here is removed.
+> `verifyEndorsedLeaf`); the export-fed path described here is removed.
 
 ## Accepted risks (explicit, from the grill)
 
@@ -196,7 +196,7 @@ re-endorsement gesture per lease for no custody gain.
 - Onboarding costs **one** extra gesture; rotation costs one gesture;
   recovery rides passkey sync (PRD §5b) — session-key loss is just a
   rotation, passkey loss is covered by the platform sync story.
-- `receipt-verify` grows the endorsement rung (0.12.0) — a release
+- `receipt-verify` grows the endorsement path (0.12.0) — a release
   train ahead of thinker 4.1 on the critical path.
 - The DO's `POST /user-root` grows three enforcement rules (root-TOFU,
   endorsed rotation, downgrade rejection) and a UV config knob.
@@ -218,6 +218,6 @@ re-endorsement gesture per lease for no custody gain.
   Q5 text; tasks 4.0 (this ADR), 4.1 (onboarding), 4.2 (ceremony).
 - Verifier: canopy `packages/shared/encoding/src/verify-cose-sign1.ts`
   (`-65800` branch, `requireUserVerification`); offline:
-  `libs/receipt-verify` (0.12.0 rung).
+  `libs/receipt-verify` (0.12.0).
 - DO surface: thinker Scribe DO `POST /user-root`; profile: ARC-0019 §6
   (kid = root x), think-scribe ES256 user-envelope builders.

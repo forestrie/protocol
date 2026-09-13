@@ -31,7 +31,7 @@ load-bearing: the strongest attacks require them to **collude**.
 | **Transparency operator** — admission edge | Sequences entries, enforces who may sign one | No private keys authoritative for any log |
 | **Transparency operator** — sealer | Signs checkpoints under an issued lease | A short-lived delegated sealing key, in memory only |
 | **Hosting / payment operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. **Never** a user root; **never** the owner of a user's wallet |
-| **Enclave provider** | Optional signing backend for the hosted custody rung | In that rung only, the user-owned wallet key |
+| **Enclave provider** | Optional signing backend for the hosted custody option | In that option only, the user-owned wallet key |
 | **The contract** | Anchors roots, accepts checkpoints | On-chain state; no secrets |
 | **Anyone** | Replicates, verifies, publishes | Public data — which is sufficient |
 
@@ -121,8 +121,8 @@ public good that historically fails to materialise.
 | Adversary | Capability | Bounded by |
 |---|---|---|
 | **Compromised transparency operator** | Holds the leased sealing key; runs the admission edge | Signs only within an unexpired lease and consistently with anchored state. Cannot mint authority for an unauthorised key or log, cannot exceed lease bounds, cannot obtain the root. Restart discards the key. Can censor at admission. Neutralised definitively by the owner's exit |
-| **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted custody rung is an additional signer | Cannot sign at all in the user-operated rung. In the hosted rung, signs only within policy until revoked; cannot entrench, export or rotate the user's key |
-| **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that rung. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
+| **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted custody option is an additional signer | Cannot sign at all in the user-operated option. In the hosted option, signs only within policy until revoked; cannot entrench, export or rotate the user's key |
+| **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that option. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
 | **Script injection in the owner's page** | Can ask the session key to sign | Can attest turn content while the page is open. Cannot steal either key, re-root, extend authority, or persist beyond the session |
 | **Network / replay** | Replays artifacts | Delegations bound by expiry and id; endorsements bound by their window; grants are non-replayable credentials whose signature proves possession |
 | **Another tenant** | Cross-log abuse | Everything is log-scoped: certificates bind a log id, grants bind logId and ownerLogId, leases bind an MMR range |
@@ -158,8 +158,8 @@ gesture would be honest about content and unusable in practice.
 **Metadata is not private.** Content stays with the customer; sizes, timing and
 volume do not.
 
-**The hosted custody rung trusts an enclave.** That residual is why the
-user-operated rung exists, and it should be stated to users rather than
+**The hosted custody option trusts an enclave.** That residual is why the
+user-operated option exists, and it should be stated to users rather than
 implied.
 
 **Some invariants are held by convention.** Several constants must agree across
@@ -184,7 +184,7 @@ and tracked.
   tracked issues behind the open questions above.
 - [receipt-trust-model.md](./receipt-trust-model.md) — the four questions a
   receipt answers.
-- [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody rungs
+- [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody options
   referenced throughout.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — why anyone can
   mint a receipt.

@@ -247,8 +247,8 @@ logRootKey(logId) on-chain  (= grantData, committed in the parent auth log)
           receipted idtimestamp ∈ [notBefore, notAfter]
 ```
 
-`@forestrie/receipt-verify` owns this rung (`verifyEndorsedLeaf`), a
-**major** release (v2 payload). The export-fed rung of ADR-0064 §4
+`@forestrie/receipt-verify` owns this path (`verifyEndorsedLeaf`), a
+**major** release (v2 payload). The export-fed path of ADR-0064 §4
 (`resolveEndorsedSessionKey` over `userRootEndorsementB64`) is
 **removed, not kept as a fallback** — there is exactly one way to
 verify an endorsed leaf and no route back to verifying it under the
@@ -347,7 +347,7 @@ budget.
   onboarding endorsement moves to v2 with a scheduled re-endorsement
   gesture as the window nears lapse (surfaced like the sealing-lease
   countdown); the DO pre-flight mirrors canopy's exact check and
-  forwards bytes untouched; the export-fed offline rung is removed from
+  forwards bytes untouched; the export-fed offline path is removed from
   `verify-receipts.mjs` and the ProofPanel; `/goldens` captures a v2
   endorsement golden from a real authenticator.
 - **arbor / univocity**: no change — confirmed in-source; nothing

@@ -447,7 +447,7 @@ the fixture; the certificate vector is already present and unused.
 - **The codepoint reuse (§2) is unresolved.** `TBD1` needs a real assignment
   distinct from the algorithm's number, and the shipped constants need to stop
   aliasing.
-- **The sealer gap (§8) is unfixed**, so the passkey custody rung is not yet
+- **The sealer gap (§8) is unfixed**, so the passkey custody option is not yet
   end to end.
 - **Origin pinning has no policy channel.** The verifier supports it; nothing
   can turn it on per log.

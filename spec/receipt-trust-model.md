@@ -73,15 +73,15 @@ This property is **independent of currency.** Any accumulator is a genuine,
 non-equivocal commitment up to its own tree size, so an older one is not "less
 valid" — staleness only limits *coverage* (whether the snapshot reaches the leaf,
 and how much newer history it attests), never the validity of what it does cover.
-"Freshness" — *is this the latest accumulator* — is therefore a weaker, separate
-axis that bears only on coverage; do not collapse it into split-view. Split-view
-is the load-bearing property here; currency is at most the `--rpc-url` "as of
-now" delta below.
+"Freshness" — *is this the latest accumulator* — is a separate axis that bears
+on coverage alone; do not collapse it into split-view. Split-view is the
+load-bearing property here; currency is at most the `--rpc-url` "as of now"
+delta below.
 
-Trusted-accumulator sources, in ascending currency:
+Two sources supply a trusted accumulator:
 
 - `--known-accumulator` — a cached, auditable chain read (`fetch-accumulator`).
-- `--rpc-url` — a live read; same guarantee plus "as of now".
+- `--rpc-url` — a live read; the same guarantee, plus "as of now".
 
 Never source the accumulator unauthenticated from the log operator's own tile
 store — that re-internalises the operator trust this anchor exists to remove.
@@ -99,11 +99,11 @@ peak receipts (COSE label `-65931`) and its owner→sealer delegation cert (labe
 finer — the log authorises a *set* of sealers (see below), it does not rank them.
 
 This signature is **load-bearing only when you do not already hold the
-accumulator from a trusted source.** At the accumulator rung you have
+accumulator from a trusted source.** Under an accumulator root you have
 explicitly chosen to trust the chain-read state over any signature, so *which*
 authorised sealer signed is, by your own choice, irrelevant — the signature is
-**vestigial there.** It still matters at the signature rungs below, where verify
-checks it chains to the owner.
+**vestigial there.** It still matters under a signature root, where verify
+checks that it chains to the owner.
 
 **What the operator holds here.** The sealing key is the one hot-path private
 key the Forestrie operator does hold. Stated precisely, because the loose
@@ -147,15 +147,15 @@ document.
 
 To establish a child log's authority you follow its grant to its parent, that
 grant's inclusion proof, and so on up to the bootstrap key — the "grant-chain
-walk". Three ways to obtain that, strongest first:
+walk". Three ways to obtain it:
 
-- **On-chain (chain trust) — the strong, available path.** The contract already
+- **On-chain (chain trust) — the path available today.** The contract already
   did the walk at publish, so reading the accumulator from chain
   (`--known-accumulator` / `--rpc-url`) inherits it (see below). No off-chain
   walk needed.
 - **Off-chain grant-chain walk** from the grant records + their inclusion proofs
   (rooted at `genesis.cbor`). This is a genuine tile-/receipt-level proof — but
-  it is **not yet implemented** (the open verify rung); do not assume it today.
+  it is **not yet implemented**; do not assume it today.
 - **Operator storage / APIs surfacing the chain — forestrie-operator trust.**
   Convenient, but re-internalises the very operator trust the log system exists
   to remove; not a trust source.
@@ -172,7 +172,7 @@ verifies, on-chain:
 
 So **any state read from the chain** (an accumulator snapshot, `publishCheckpoint`
 calldata, a `CheckpointPublished` event) inherits the contract's sealing *and*
-authority checks for free. That is *why* the accumulator rung needs no genesis
+authority checks for free. That is *why* an accumulator root needs no genesis
 walk: the authority question was already answered, on-chain, when the state was
 published.
 
@@ -234,34 +234,53 @@ receipt — so the window is checkable from public artifacts alone.
 Wire-level detail — header labels, payload shape, the exact failure
 vocabulary — is in
 [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md).
+## The trust roots, mapped onto the questions
 
-## The verify trust ladder, mapped onto the questions
+`verify` does not offer degrees of verification. It offers four **trust roots**,
+and the caller says which one they hold. Two are **signature roots**: they rest
+on a key, and the operator's signature over the sealed state is checked locally
+against it. Two are **accumulator roots**: they match the peak recomputed from
+the leaf and its inclusion path against an accumulator the operator does not
+control.
 
-`verify` offers four named anchors. They are not a single "more vs less trust"
-line — each answers a different subset:
+The roots are alternatives, not an ordering. Each answers a different subset of
+the four questions, and which root is right depends on what the caller already
+holds and on what they need to know. A result must therefore say which root it
+used and which questions that root did not answer: "valid", on its own, names no
+question.
 
-| Anchor | Split-view (1) | Sealing (2) | Authority (3) |
-|---|---|---|---|
-| `--known-log-key` | — | signature under a caller-known owner key | key→log binding **asserted** (out-of-band), not proven |
-| `--genesis` | — | signature chains to the **root** owner (root log / direct delegation) | root only; a child log needs the grant-chain walk (still open) |
-| `--known-accumulator` | covered entries root into a trusted chain read | (not checked — subsumed by the chain) | (not checked — discharged by the contract at publish) |
-| `--rpc-url` | as `--known-accumulator`, live | (subsumed) | (discharged at publish) |
+| Trust root | Split-view (1) | Sealing (2) | Authority (3) | Attribution (4) |
+|---|---|---|---|---|
+| **`--genesis`** — signature root: the forest's genesis document | **Not answered.** A signature root sees only the state the receipt itself carries | **Answered** locally: the signature chains to the root owner key recorded in genesis | **Answered for the root log or a direct delegation** under it; a deeper child log needs the grant-chain walk, which is unimplemented | **Answered** from the leaf bytes and the log's root key, independently of the root in use |
+| **`--known-log-key`** — signature root: an owner key the caller holds out of band | **Not answered**, as above | **Answered** locally: the signature verifies under the caller-known owner key | **Asserted, not proven.** The key-to-log binding rests on the channel the key arrived on | **Answered**, as above |
+| **`--known-accumulator`** — accumulator root: a snapshot of the log's peaks from an authenticated chain read | **Answered.** The recomputed peak is matched against a state the operator does not control | **Not checked locally.** Implied by the match: the contract refuses to anchor a checkpoint whose signature does not verify | **Not checked locally.** Discharged by the contract at publish, for any log — see question 3 | **Answered**, as above |
+| **checkpoint chain** — accumulator root: a retained chain of signed checkpoints, with `--genesis` or a known log key for its base | **Answered** against the caller's own retention: each link's signed consistency proof commits the earlier accumulator forward, so a match at any link holds | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answered**, as above |
 
-The signature rungs (`--known-log-key`, `--genesis`) answer question 2 offline by
-checking the signature — and question 3 only as far as the cert reaches
-(`--genesis` covers the root log / a direct delegation; a deeper child's
-question 3 is the grant-chain walk, still open). The accumulator rungs
-(`--known-accumulator`, `--rpc-url`) answer question 1 and let the contract's
-publish-time checks stand in for 2 and 3 for *any* log — which is why, in
-practice, the on-chain path is the strong authority anchor for an arbitrary
-log, not `genesis.cbor`. A receipt never expires and the anchor never needs to
-be current — only trusted.
+`--rpc-url` is not a fifth root. It is a live chain read supplying the
+`--known-accumulator` root: the same guarantee, plus "as of now".
 
-**Question 4 is orthogonal to this ladder.** Attribution is checked from the
-leaf bytes and the log's root key, not from a verify anchor, so it composes with
-any rung above. A verifier can establish that an entry was signed by a key the
-log's owner endorsed while holding no opinion at all about which sealer sealed
-the state it sits in.
+The signature roots answer question 2 offline by checking the signature, and
+question 3 only as far as the certificate reaches. The accumulator roots answer
+question 1, and let the contract's publish-time checks stand in for questions 2
+and 3 for *any* log — which is why, for an arbitrary child log, the on-chain
+path and not `genesis.cbor` is the route to an authority answer today. A receipt
+never expires and a root never needs to be current, only trusted.
+
+A caller who wants both a local signature check and a split-view answer runs the
+same bytes under one root of each kind; the arithmetic does not change between
+them. Verifying under one root and failing under another is not a contradiction:
+the two answer different questions.
+
+**Question 4 composes with every root.** Attribution is checked from the leaf
+bytes and the log's root key, not from the root a verifier was given, so a
+verifier can establish that an entry was signed by a key the log's owner
+endorsed while holding no opinion at all about which sealer sealed the state it
+sits in.
+
+The checkpoint-chain root is the fully offline route for a receipt whose peak
+later log growth has buried; the retained chain that root consumes is the same
+material the freshen path below uses, and the golden set under
+[`vectors/golden/burial/`](../vectors/golden/burial/) is a worked example.
 
 ## Freshen and the attestor
 
@@ -298,8 +317,8 @@ freshened receipt, leaf@1 @ size 7
 │
 ├─ peak receipt over node 6, signed by the size-7 sealer
 │    SEALING   (2) : "an authorised sealer sealed size 7"
-│                    CHECKED at verify's signature rung (--genesis / --known-log-key)
-│                    IGNORED at the accumulator rung        <- vestigial here only
+│                    CHECKED under a signature root (--genesis / --known-log-key)
+│                    NOT CHECKED under an accumulator root  <- vestigial there only
 │
 ├─ label-1000 delegation cert  (owner --> sealer)
 │    AUTHORITY (3) : owner/grant chain to the bootstrap key
@@ -323,9 +342,9 @@ signature it can legitimately carry is one over a checkpoint at the current size
 — i.e. the latest checkpoint's signer. Attaching any other signer's signature
 would be forgery. Hence the `.sth` is **load-bearing for emission**: it supplies
 the pre-signed peak receipts and the delegation cert that make the freshened
-receipt a native, signature-rung-verifiable receipt. "Vestigial" (question 2)
-describes the signature *at accumulator-rung verification*, never the freshen
-build step.
+receipt a native, signature-root-verifiable receipt. "Vestigial" (question 2)
+describes the signature *under an accumulator root*, never the freshen build
+step.
 
 (For the calldata source the `.sth` must be supplied separately: calldata
 carries a *checkpoint-level* COSE signature over the whole accumulator, not the
@@ -343,10 +362,10 @@ than `K1`:
   `K1` and `K2` are equally authorised. Any preference between them is
   out-of-band relying-party policy, which the log system never promised to
   uphold.
-- A relying party who cares about the specific signer is, by definition, at a
-  **signature rung**, where verify checks it: an *unauthorised* signer fails
+- A relying party who cares about the specific signer is, by definition, under a
+  **signature root**, where verify checks it: an *unauthorised* signer fails
   closed; a *rotated-but-authorised* one (the routine case) passes — correctly.
-- A relying party at the **accumulator rung** has chosen not to check the
+- A relying party under an **accumulator root** has chosen not to check the
   signature at all, so the signer identity cannot matter to them.
 
 There is no coherent configuration where the identity distinction both matters
@@ -359,12 +378,12 @@ distinction the log never promised to uphold).
 
 ## "Known-accumulator-verifiable but not genesis-verifiable" is not a gap
 
-A receipt anchored purely at the accumulator rung authenticates the **state**
-(the leaf roots into the genuine canonical accumulator) but says nothing, by
-itself, about **signer provenance** (that the sealer chains to genesis). These
-are the two *different* questions 1 and 2/3 — not a strong check and a weak
-one. The state question is answered by the accumulator; the provenance question,
-if you want it, is answered at a signature rung or was already discharged by the
+A receipt verified under an accumulator root authenticates the **state** (the
+leaf roots into the genuine canonical accumulator) but says nothing, by itself,
+about **signer provenance** (that the sealer chains to genesis). These are the
+two *different* questions 1 and 2/3, not two degrees of one check. The state
+question is answered by the accumulator; the provenance question, if you want
+it, is answered under a signature root, or was already discharged by the
 contract at publish. Separating them is the design, not a shortfall.
 
 ## A note on vocabulary: monitor, assessor, auditor
@@ -394,7 +413,7 @@ registration, is required to be that party.
 - **The off-chain grant-chain walk is unimplemented.** Question 3 is answerable
   today either on-chain, or off-chain only as far as a certificate reaches. The
   fully off-chain walk from grant records and their inclusion proofs remains
-  the open verify rung.
+  open.
 - **Succinct absence is not available.** Non-presence is provable against a
   replicated log; a *succinct* absence proof needs an authenticated secondary
   index, because the exclusion trie's root is not currently anchored. Do not

@@ -55,10 +55,13 @@ It also explains why the obvious browser-wallet routes fail:
   on-chain predicate, and verifying it requires chain state at a block height —
   which directly contradicts *offline, forever*.
 
-## 3. The custody ladder
+## 3. The four custody options
 
-Four shapes, in ascending custody strength. All four produce logs that verify
-identically; they differ in who could forge the authorisation.
+Four shapes. All four produce logs that verify identically; they differ in who
+holds the root, in who could forge the authorisation, and in what the user has
+to operate. They are alternatives, not a progression: which one is right depends
+on what the owner can hold and what they need to be protected against. §6 gives
+that comparison adversary by adversary.
 
 | | Root key lives in | Biometric | Operator can forge? | Notes |
 |---|---|---|---|---|
@@ -80,7 +83,7 @@ verifiable but can no longer be extended or re-delegated.
 An earlier demo form of this — a raw exportable key in browser storage — was
 self-custodied only in the narrowest sense, since any script injection could
 read it and forge the log's authorisation permanently. Non-extractability is
-what makes this rung meaningful.
+what makes this option meaningful.
 
 ### 3.2 Passkey root with an endorsed session key
 
@@ -128,9 +131,9 @@ Two structural rules make this a custody choice rather than a surrender:
   user-enable and an operator-enable. The user can clear theirs unilaterally
   and the operator cannot bypass it.
 
-The residual risk is real and should be stated to users plainly: this rung
+The residual risk is real and should be stated to users plainly: this option
 trusts the enclave provider for confidentiality and for the integrity of its
-ownership model. That residual is the documented reason a purist chooses §3.3.
+ownership model. That residual is the reason to choose §3.3 instead.
 
 ## 4. The root cannot be changed, and that is the feature
 
@@ -157,9 +160,9 @@ so rotation needs no revocation mechanism.
 
 **Recovery** is deliberately *not* solved by changing the signature format. A
 passkey recovers through platform keychain sync — the same mechanism that syncs
-any other passkey. Where stronger recovery is wanted, the answer is for the
-authority to endorse **more than one key** per log, not to make the root
-mutable. Losing a software root, by contrast, is unrecoverable: the log stays
+any other passkey. Where recovery must survive more than platform sync, the
+answer is for the authority to endorse **more than one key** per log, not to
+make the root mutable. Losing a software root, by contrast, is unrecoverable: the log stays
 verifiable but frozen.
 
 **Exit needs no operator cooperation.** A user can re-assign their registered
@@ -175,7 +178,7 @@ text. It does not and cannot delete entries already committed; those are
 permanent by design. Without the local copy, though, nobody can show what the
 committed hashes stand for.
 
-## 6. What each rung actually protects against
+## 6. What each option actually protects against
 
 | Adversary | Software root | Passkey | BYOK user-operated | BYOK hosted |
 |---|---|---|---|---|
@@ -185,13 +188,13 @@ committed hashes stand for.
 | Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state | Same | Same | Same |
 | Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit |
 
-The strongest attacks require **collusion** between the hosting operator and
-the log operator, because they are distinct trust domains — and in the hosted
-rung, collusion with the enclave provider too.
+The attacks that defeat any of these options require **collusion** between the
+hosting operator and the log operator, because they are distinct trust domains —
+and in the hosted option, collusion with the enclave provider too.
 
 ## Open questions
 
-- **The passkey rung is not yet end to end.** The sealer cannot verify a
+- **The passkey option is not yet end to end.** The sealer cannot verify a
   passkey-signed delegation certificate, so a passkey-rooted log cannot
   currently be sealed. Tracked as a bug.
 - **Origin pinning has no policy channel.** The on-chain verifier implements
@@ -207,9 +210,9 @@ rung, collusion with the enclave provider too.
 
 - protocol/README.md — `path:line` citations and status.
 - [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-  — the adversary analysis these rungs sit inside.
+  — the adversary analysis these options sit inside.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
-  — the endorsement mechanism behind the passkey rung.
+  — the endorsement mechanism behind the passkey option.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
   — how a passkey signs a delegation at all.
 - ARC-0022 — the BYOK modes, security invariants, kill switch and exit, in

@@ -203,7 +203,7 @@ consulted**.
 
 **A present-but-invalid endorsement is a refusal, and admission never falls
 back to the `grantData` binding.** Falling back would let anyone strip a valid
-endorsement and be judged by the weaker rule.
+endorsement and be admitted under the `grantData` binding instead.
 
 | Reason | Fires when |
 |---|---|

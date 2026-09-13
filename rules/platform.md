@@ -28,8 +28,8 @@ Split-view (accumulator) / sealing (signer) / authority (grant chain) /
 **attribution** (who was authorised to sign THIS leaf) are **independent**;
 "the receipt is valid" is meaningless without saying which. The first three
 concern the log, the fourth the leaf, and it is answered from the leaf's own
-bytes plus the on-chain root — so it composes with any verify anchor rather
-than sitting on the ladder. Never source the accumulator unauthenticated from
+bytes plus the on-chain root — so it composes with every trust root rather than
+belonging to any one of them. Never source the accumulator unauthenticated from
 the operator's own tile store.
 **Why:** most trust confusion comes from collapsing them, and sourcing state
 from the operator re-internalises the trust the log removes.

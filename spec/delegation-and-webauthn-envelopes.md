@@ -4,11 +4,14 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier or signer, and reviewers
 assessing what a delegation actually proves.
-**Related:** protocol/README.md (private, cited by name) (internal index and source
-map), [receipt-trust-model.md](./receipt-trust-model.md) (question 2,
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md) (question 2,
 sealing attestation), [label-registry.md](./label-registry.md),
-ADR-0063 (private, cited by name),
-univocity ADR-0006 / ADR-0008.
+[key-custody-and-choice.md](./key-custody-and-choice.md),
+[glossary.md](../glossary.md), and the univocity contract decisions
+[ADR-0006](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0006-cose-shaped-delegation-proof.md) (COSE-shaped delegation
+proof without on-chain certificate parsing) and
+[ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md) (the on-chain
+algorithm, `algData`, and the policy band).
 
 ## Summary
 
@@ -94,10 +97,10 @@ assignment is not yet settled.
 > both are private-use and they occupy different registries. It is not a wire
 > ambiguity: the algorithm appears as a *value* under protected label `1`, the
 > envelope as a *key* in the unprotected map, and the two never collide at a
-> parse position. It is still wrong, and it costs real clarity — the envelope's
-> legality is conditional on the algorithm, the canopy constant is literally an
+> parse position. It is nonetheless incorrect, and it has a cost: the
+> envelope's legality is conditional on the algorithm, the canopy constant is an
 > alias of the algorithm constant, and every definition of the session-key
-> endorsement label has to carry a "this is not the envelope" disclaimer. The
+> endorsement label carries a "this is not the envelope" disclaimer. The
 > two concepts are being separated; `TBD1` is the envelope, and the algorithm
 > keeps the number it has.
 
@@ -140,7 +143,7 @@ lease cadence and surfaced in the UI rather than hidden.
 
 Both artifacts bind the same facts — *this root delegates to this key, for
 this log, over this MMR range* — but they **do not share a payload encoding**,
-and confusing the two is the most likely implementation error here.
+and the two must not be confused.
 
 | | On-chain delegation proof | Delegation certificate |
 |---|---|---|
@@ -279,8 +282,8 @@ Two different CBOR canonicalisations are in play across the system: the
 certificate builder uses core-deterministic ordering (RFC 8949 §4.2) while the
 checkpoint envelope uses the older length-first canonical ordering. They agree
 byte-for-byte only while every map label is single-byte — and the checkpoint
-envelope carries multi-byte labels. This has not bitten yet; it is recorded
-because it is the kind of thing that fails once, obscurely.
+envelope carries multi-byte labels. No failure has been observed; it is
+recorded because the divergence is latent.
 
 ### 5.2 The WebAuthn envelope
 
@@ -366,14 +369,14 @@ These hold in every implementation and in both directions.
 
 | Component | Delegation proof (`algData`) | Certificate envelope (`TBD1`) | Notes |
 |---|---|---|---|
-| univocity (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
-| canopy (TypeScript) | Builds it | **Yes** — builds and verifies | The single verification chokepoint off-chain |
-| thinker (browser) | Builds it | Builds it | Produces both assertions of the ceremony |
-| arbor (Go) — publish path | **Decodes and forwards** `algData` into calldata | No | Has no *name* for the algorithm; it appears only as test hex |
-| arbor (Go) — builder | **Cannot produce one.** The Go on-chain-proof builder never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
-| arbor (Go) — sealer | n/a | **No** — see below | The gap |
+| univocity — the contract (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
+| canopy — the admission and verification libraries (TypeScript) | Builds it | **Yes** — builds and verifies | The single verification chokepoint off-chain |
+| the browser client | Builds it | Builds it | Produces both assertions of the ceremony |
+| arbor — the operator services (Go), publish path | **Decodes and forwards** `algData` into calldata | No | Has no *name* for the algorithm; it appears only as test hex |
+| arbor — builder | **Cannot produce one.** The Go on-chain-proof builder never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
+| arbor — sealer | n/a | **No** — see below | The gap |
 
-Note the asymmetry within arbor: the publish path already speaks `-65800`
+There is an asymmetry within arbor: the publish path already speaks `-65800`
 end-to-end and the publisher even classifies the contract's WebAuthn reverts,
 while the sealer — the one component that must *accept* such a certificate —
 has no awareness of it at all.
@@ -386,14 +389,14 @@ algorithm dispatch is a two-way branch: a KS256 trust root takes a KS256 path;
 curve check on that path compares an uppercased *string* against the literal
 `"ES256"`, so `-65800` cannot even be expressed there.
 
-Two things make this worse than a missing branch:
+Two properties compound this:
 
 - **The certificate verifier never reads the certificate's declared
   algorithm.** It unconditionally builds an ES256 `Sig_structure`, SHA-256s it,
   and verifies. Any algorithm label — `-7`, `-65800`, or garbage — is verified
   as plain ES256. It also takes a `curve` parameter that its body never uses.
-  The honest answer to "which algorithms does the certificate verifier
-  support?" is: **ES256 only, by construction, unchecked.**
+  The certificate verifier therefore supports **ES256 only, by construction and
+  unchecked.**
 - **The failure is therefore misattributed.** A passkey root is an ordinary
   64-byte P-256 point, and the trust-root resolver infers the algorithm from
   **key length alone** — 64 bytes means ES256. So a passkey root is advertised
@@ -414,8 +417,8 @@ an ordinary P-256 point, and only the certificate's *signature envelope* is
 WebAuthn. A trust root should never be advertised as `-65800`.
 
 The consequence: **a passkey-rooted log cannot currently be sealed end to
-end.** The refusal is by omission rather than by an explicit check — which is
-why searching the sealer for "webauthn" finds nothing.
+end.** The refusal is by omission rather than by an explicit check; the sealer
+contains no reference to the WebAuthn algorithm at all.
 
 This is a **known bug**, tracked with the codepoint reuse in §2. Fixing it
 means adding a real algorithm dispatch — ideally by having the certificate
@@ -427,8 +430,8 @@ self-describing even before WebAuthn support lands — not flipping a flag.
 A single real-authenticator capture is the cross-implementation anchor: one
 genuine gesture, exercised by the Solidity, Go and TypeScript verifiers. The
 fixture is **byte-identical in all three repositories**, verified by digest.
-That is the strongest available evidence that the three implementations agree
-about what a delegation assertion is.
+That is the cross-implementation evidence that the three verifiers agree about
+what a delegation assertion is.
 
 The fixture exposes `challengeIndex` and `typeIndex` as separate JSON fields
 rather than as the packed 16-byte `algData[2]` blob, so a consumer must pack
@@ -447,7 +450,7 @@ the fixture; the certificate vector is already present and unused.
 - **The codepoint reuse (§2) is unresolved.** `TBD1` needs a real assignment
   distinct from the algorithm's number, and the shipped constants need to stop
   aliasing.
-- **The sealer gap (§8) is unfixed**, so the passkey custody rung is not yet
+- **The sealer gap (§8) is unfixed**, so the passkey custody option is not yet
   end to end.
 - **Origin pinning has no policy channel.** The verifier supports it; nothing
   can turn it on per log.
@@ -459,15 +462,14 @@ the fixture; the certificate vector is already present and unused.
 
 ## References
 
-- protocol/README.md — source map with `path:line` citations
-  for every claim above, and current implementation status.
 - [label-registry.md](./label-registry.md) — all codepoints in one table.
 - [key-custody-and-choice.md](./key-custody-and-choice.md) — why a passkey is
   the root, and what else can be.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — what the
   delegated key goes on to sign.
-- ADR-0063 — the two-assertion decision and the
-  envelope.
-- univocity ADR-0008 (the on-chain algorithm, `algData`, the policy band),
-  ADR-0006 (COSE-shaped delegation proof without on-chain certificate
-  parsing).
+- [ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md) — the
+  custody split that reuses this envelope for the session-key endorsement.
+- univocity [ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md) (the
+  on-chain algorithm, `algData`, the policy band) and
+  [ADR-0006](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0006-cose-shaped-delegation-proof.md) (COSE-shaped
+  delegation proof without on-chain certificate parsing).

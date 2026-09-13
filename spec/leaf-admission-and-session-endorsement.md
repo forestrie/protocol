@@ -5,13 +5,14 @@
 **Audience:** implementers of a Forestrie client or verifier, and anyone
 checking that an entry in a self-custodied log was signed by a key its owner
 authorised.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md) (question 4, attribution),
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md)
+(question 4, attribution),
 [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
 (the assertion envelope this artifact reuses),
 [label-registry.md](./label-registry.md),
 [ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md),
-[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md).
+[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -49,11 +50,10 @@ re-root the log, or extend its authority.
 `TBD2`.**
 
 This is the design's load-bearing decision, and it is an **auditability**
-choice rather than a cryptographic one. The artifact was already sound when it
-lived in operator storage and a `/receipts` export; it was still useless to an
-independent verifier, because the one link from the log's on-chain root to
-every entry's signer was a thing you had to ask the operator for. That is not a
-verification story — it is a request.
+choice rather than a cryptographic one. The artifact was already cryptographically sound when it
+lived in operator storage and a `/receipts` export, and still unusable by an
+independent verifier: the one link from the log's on-chain root to every entry's
+signer had to be requested from the operator.
 
 Carried in the entry, three things follow:
 
@@ -203,7 +203,7 @@ consulted**.
 
 **A present-but-invalid endorsement is a refusal, and admission never falls
 back to the `grantData` binding.** Falling back would let anyone strip a valid
-endorsement and be judged by the weaker rule.
+endorsement and be admitted under the `grantData` binding instead.
 
 | Reason | Fires when |
 |---|---|
@@ -324,8 +324,7 @@ entry it is attached to. Recorded as accepted.
   The observation that made it tractable — a browser does know its own indices
   — is what produced the idtimestamp window instead, as the contained form of
   the same idea. It buys tighter scoping than a time window; it is not needed
-  for auditability, which the current design already delivers, and it does not
-  affect the product claims in the briefs.
+  for auditability, which the current design already delivers.
 
   What has changed is the *motivation*. Grant-funded work — one party buying
   bounded provability that a second party draws down — needs an allowance
@@ -338,8 +337,8 @@ entry it is attached to. Recorded as accepted.
   per-entry signers — and a *starting* index makes the check a bounded forward
   count rather than a scan, which is what the rejected *range* form could not
   offer. The open part is not the check but the carrier: the grant map is
-  closed, so such a permission needs a derived-policy home. Worth an ARC before
-  anything depends on it.
+  closed, so such a permission needs a derived-policy home. Worth a recorded
+  decision under `decisions/` before anything depends on it.
 - **Registering the endorsement as the log's first entry** was also deferred.
   It is admissible today with no change and would give a receipted succession
   record. Not needed once every entry carries its own endorsement, and it adds
@@ -347,8 +346,6 @@ entry it is attached to. Recorded as accepted.
 
 ## References
 
-- protocol/README.md — `path:line` citations and current
-  implementation status.
 - [receipt-trust-model.md](./receipt-trust-model.md) — where this fits among
   the four trust questions.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)

@@ -4,10 +4,11 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier, and anyone assessing what
 can be checked without contacting the operator.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md) (questions 1 and 2),
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md)
+(questions 1 and 2),
 [label-registry.md](./label-registry.md),
-[log-authority-and-grants.md](./log-authority-and-grants.md).
+[log-authority-and-grants.md](./log-authority-and-grants.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -68,7 +69,7 @@ boundary.
 At seal time the sealer signs **one detached-payload Sign1 per accumulator
 peak** and attaches them at `-65931`.
 
-That is the whole trick. A peak receipt says "this peak was sealed" — signed
+That is the mechanism. A peak receipt says "this peak was sealed" — signed
 once, by the key that had authority at that moment. Anyone who later holds the
 checkpoint and the replicated log data can:
 
@@ -141,7 +142,7 @@ registration API, the coordinator, an RPC endpoint, a wallet, or any secret
 store. A single trust bootstrap is allowed *before* verification — fetching or
 loading the genesis document — and is not part of the verify step.
 
-This boundary is the headline product claim in mechanical form. A hidden fetch
+This boundary is what "verifiable offline" means mechanically. A hidden fetch
 inside verify would falsify it silently, which is why it is stated as a
 prohibition rather than a preference.
 
@@ -158,8 +159,8 @@ unixMs = (idtimestamp >> TimeShift) + epochBaseMs(epoch)
 The identifier packs a time component, a sequence number and a device or shard
 id into 8 bytes, big-endian.
 
-Two properties are worth stating plainly, because they are frequently assumed
-in the wrong direction:
+Two properties are stated here because they are commonly assumed in the wrong
+direction:
 
 - **A signature never establishes ordering.** Only the sequencer's monotone
   idtimestamp does, and only checkpoint anchoring bounds it. Anything deriving
@@ -192,8 +193,7 @@ this policy exists to prevent.
   core-deterministic ordering while the checkpoint envelope uses the older
   length-first canonical ordering. They agree byte-for-byte only while every
   map label is single-byte, and the checkpoint envelope carries multi-byte
-  labels. This has not caused a failure; it is the kind of thing that fails
-  once, obscurely.
+  labels. No failure has been observed; the divergence is latent.
 - **The epoch base calculation is off by one millisecond** relative to the
   obvious reading of the constant. It is self-consistent across producer and
   verifier, so nothing breaks; it would matter to a third-party implementer
@@ -207,9 +207,10 @@ this policy exists to prevent.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [receipt-trust-model.md](./receipt-trust-model.md) — what a receipt proves,
-  and the anchors that answer each question.
+  and the trust roots that answer each question.
+- [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
+  accepted contract for layers A–C and the offline boundary.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   commitment that layer C checks for a grant receipt.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)

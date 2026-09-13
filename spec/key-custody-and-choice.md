@@ -4,10 +4,11 @@
 **Date:** 2026-08-30
 **Audience:** anyone deciding where their log's root of trust should live, and
 implementers of the custody paths.
-**Related:** protocol/README.md (private, cited by name),
+**Related:**
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md),
 [receipt-trust-model.md](./receipt-trust-model.md) (question 4),
-[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md).
+[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -18,7 +19,7 @@ offline by anyone, forever.
 
 Everything in this document is judged against that one property. It describes
 every key in the system, who holds it, what it can sign, how long it lives, and
-— the part that makes the choice real — how to leave.
+how to leave.
 
 ## 1. Every key, and who holds it
 
@@ -27,11 +28,11 @@ every key in the system, who holds it, what it can sign, how long it lives, and
 | **Instance bootstrap key** | The forest curator | The root log's authority | Set once at contract construction, immutable |
 | **Log root key** | The log's owner | Grants it issues; its sealing delegations | The life of the log — cannot be changed |
 | **Session key** | The owner's browser, non-extractable | Per-turn entries | Rotatable, bounded by its endorsement window |
-| **Delegated sealing key** | The operator's sealer, in memory | Checkpoints, within one log and MMR range | A lease, hours; never persisted, discarded on restart |
+| **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; no long-lived private key is persisted at rest |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
 
-The last row is the one people misread. The publisher pays gas. It is **never
-authoritative** — submission is permissionless, and the contract does not check
+The publisher row is the one most often misread. The publisher pays gas and is
+**never authoritative** — submission is permissionless, and the contract does not check
 who sent the transaction. Anyone can publish a well-formed checkpoint, which is
 exactly why no operator can censor or stall one.
 
@@ -44,10 +45,10 @@ than any cryptographic consideration.
 A conversational log writes an entry per turn. If the root key signed entries,
 either every turn costs a biometric prompt or the entries go unsigned. Neither
 is acceptable, so the root signs *arrangements* — delegations and endorsements
-— and a silent key signs entries. That indirection is not a compromise bolted
-on; it is the only shape that satisfies both constraints.
+— and a silent key signs entries. That indirection is what satisfies both
+constraints; no arrangement without it does.
 
-It also explains why the obvious browser-wallet routes fail:
+It also rules out the two browser-wallet routes:
 
 - **A browser extension wallet will never export a private key**, so it cannot
   produce the delegation signature the sealing path needs.
@@ -55,16 +56,19 @@ It also explains why the obvious browser-wallet routes fail:
   on-chain predicate, and verifying it requires chain state at a block height —
   which directly contradicts *offline, forever*.
 
-## 3. The custody ladder
+## 3. The four custody options
 
-Four shapes, in ascending custody strength. All four produce logs that verify
-identically; they differ in who could forge the authorisation.
+Four shapes. All four produce logs that verify identically; they differ in who
+holds the root, in who could forge the authorisation, and in what the user has
+to operate. They are alternatives, not a progression: which one is right depends
+on what the owner can hold and what they need to be protected against. §6 gives
+that comparison adversary by adversary.
 
 | | Root key lives in | Biometric | Operator can forge? | Notes |
 |---|---|---|---|---|
 | **Software root** | The browser profile, non-extractable to script | No | No | The default; one-way upgrade path |
 | **Passkey root** | Platform authenticator hardware | Yes | No | Syncs via the platform keychain |
-| **BYOK, user-operated signer** | Wholly with the user, off-platform | Per policy | No | The purist form |
+| **BYOK, user-operated signer** | Wholly with the user, off-platform | Per policy | No | The reference form of the property |
 | **BYOK, hosted convenience** | A user-owned wallet in a custodial enclave | Per policy | No, but the enclave provider could | Revocable, with a user-held stop |
 
 ### 3.1 Software root
@@ -80,7 +84,7 @@ verifiable but can no longer be extended or re-delegated.
 An earlier demo form of this — a raw exportable key in browser storage — was
 self-custodied only in the narrowest sense, since any script injection could
 read it and forge the log's authorisation permanently. Non-extractability is
-what makes this rung meaningful.
+what makes this option meaningful.
 
 ### 3.2 Passkey root with an endorsed session key
 
@@ -128,9 +132,9 @@ Two structural rules make this a custody choice rather than a surrender:
   user-enable and an operator-enable. The user can clear theirs unilaterally
   and the operator cannot bypass it.
 
-The residual risk is real and should be stated to users plainly: this rung
+The residual risk is real and should be stated to users plainly: this option
 trusts the enclave provider for confidentiality and for the integrity of its
-ownership model. That residual is the documented reason a purist chooses §3.3.
+ownership model. That residual is the reason to choose §3.3 instead.
 
 ## 4. The root cannot be changed, and that is the feature
 
@@ -140,9 +144,8 @@ under. There is no re-rooting operation.
 
 The consequence users notice is that **upgrading custody is one-way**: moving
 from a software root to a passkey means starting a fresh log, because the old
-log's root cannot be swapped. That is not a missing feature. The immovability
-is precisely what stops anyone *else* swapping it — an operator, a compromised
-page, or a support process.
+log's root cannot be swapped. The immovability is what stops anyone *else*
+swapping it — an operator, a compromised page, or a support process.
 
 It also bounds what a compromise can achieve. An attacker who fully controls
 the page can attest content while it is open; they cannot re-root the log,
@@ -157,9 +160,9 @@ so rotation needs no revocation mechanism.
 
 **Recovery** is deliberately *not* solved by changing the signature format. A
 passkey recovers through platform keychain sync — the same mechanism that syncs
-any other passkey. Where stronger recovery is wanted, the answer is for the
-authority to endorse **more than one key** per log, not to make the root
-mutable. Losing a software root, by contrast, is unrecoverable: the log stays
+any other passkey. Where recovery must survive more than platform sync, the
+answer is for the authority to endorse **more than one key** per log, not to
+make the root mutable. Losing a software root, by contrast, is unrecoverable: the log stays
 verifiable but frozen.
 
 **Exit needs no operator cooperation.** A user can re-assign their registered
@@ -175,23 +178,23 @@ text. It does not and cannot delete entries already committed; those are
 permanent by design. Without the local copy, though, nobody can show what the
 committed hashes stand for.
 
-## 6. What each rung actually protects against
+## 6. What each option actually protects against
 
 | Adversary | Software root | Passkey | BYOK user-operated | BYOK hosted |
 |---|---|---|---|---|
 | Script injection in the page | Can sign turns while open; cannot steal the key | Same; cannot seal or delegate without a gesture | Same | Same |
 | Loss of the browser profile | **Log frozen, unrecoverable** | Recovers via keychain sync | Unaffected | Unaffected |
 | Compromised hosting operator | Cannot forge | Cannot forge | Cannot sign at all | Can sign within policy until revoked |
-| Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state | Same | Same | Same |
+| Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state (see [receipt-trust-model.md](./receipt-trust-model.md), question 2) | Same | Same | Same |
 | Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit |
 
-The strongest attacks require **collusion** between the hosting operator and
-the log operator, because they are distinct trust domains — and in the hosted
-rung, collusion with the enclave provider too.
+The attacks that defeat any of these options require **collusion** between the
+hosting operator and the log operator, because they are distinct trust domains —
+and in the hosted option, collusion with the enclave provider too.
 
 ## Open questions
 
-- **The passkey rung is not yet end to end.** The sealer cannot verify a
+- **The passkey option is not yet end to end.** The sealer cannot verify a
   passkey-signed delegation certificate, so a passkey-rooted log cannot
   currently be sealed. Tracked as a bug.
 - **Origin pinning has no policy channel.** The on-chain verifier implements
@@ -205,12 +208,11 @@ rung, collusion with the enclave provider too.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-  — the adversary analysis these rungs sit inside.
+  — the adversary analysis these options sit inside.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
-  — the endorsement mechanism behind the passkey rung.
+  — the endorsement mechanism behind the passkey option.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
   — how a passkey signs a delegation at all.
-- ARC-0022 — the BYOK modes, security invariants, kill switch and exit, in
-  full.
+- [glossary.md](../glossary.md) — the BYOK delegation modes, the delegation
+  certificate, and the terms used in §3.

@@ -1,23 +1,21 @@
 # ADR-0065: Endorsed session-key admission (the endorsement rides every leaf)
 
-**Status:** ACCEPTED (records the plan-2608-13 task 5.2 live-run finding
-of 2026-08-29 and the grill-with-docs session of the same day, in which
-Robin ratified every ruling below; delivered by
-plan-2608-14 (private, cited by name))
+**Status:** ACCEPTED — one of the accepted decisions the specification under
+[`spec/`](../spec/) rests on. Records the live-run finding of 2026-08-29 and
+the review of the same day, in which every ruling below was ratified.
 **Date:** 2026-08-29
 **Categories:** [DELEGATION, WEBAUTHN, CUSTODY, VERIFICATION, ADMISSION,
 WIRE-FORMAT]
 **Related:** [ADR-0064](./adr-0064-passkey-session-key-endorsement.md)
 (the endorsement artifact this ADR admits and moves to payload v2 —
-amended by this ADR), ADR-0063 (private, cited by name)
-(the `-65800` envelope and its §4 policy split),
-ADR-0062 (private, cited by name)
-(`GF_REQUIRES_USER_VERIFICATION`), ARC-0019 §6 (statement signer
+amended by this ADR), [spec/delegation-and-webauthn-envelopes.md](../spec/delegation-and-webauthn-envelopes.md)
+(the `-65800` envelope and its user-presence / user-verification policy split),
+[ARC-0019](./arc-0019-grant-verification-model.md) §6 (statement signer
 binding = `grantData`), univocity
-[ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md),
-rules-of-the-road C3, plan-2608-13 (private, cited by name)
-(task 5.2, blocked on this), FOR-547,
-FOR-544
+[ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md)
+(the on-chain algorithm and the `GF_REQUIRES_USER_VERIFICATION` policy band),
+[spec/leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
+(the shipped wire-level rules)
 
 ## Context
 
@@ -28,8 +26,8 @@ WebCrypto session key, endorsed once by the passkey, signs the per-turn
 leaves. ADR-0064 §4 stated the offline chain root → endorsement → leaves
 and promised zero per-leaf format change.
 
-The first live run of that design (2026-08-29, the deployed `thinker-dev`
-estate against lane A) proved every ceremony half — passkey root
+The first live run of that design (2026-08-29, the deployed browser client
+against a live lane) proved every ceremony half — passkey root
 pinned, session key endorsed at the deployed origin (assertion flags
 UP|UV|BE|BS), the two-gesture WebAuthn sealing delegation accepted by
 the live coordinator, the UV grant issued, the agent leaf receipted —
@@ -63,7 +61,7 @@ bug:
 
 ### 1. canopy admission is THE enforcement point — for everything
 
-Architectural principle, recorded here and in rules-of-the-road: **canopy
+Architectural principle, recorded here and in the platform invariants: **canopy
 SCRAPI admission is the enforcement point for who may sign a leaf of a
 log, for every custody shape.** The scribe DO's own check is a
 client-side pre-flight that must agree with canopy, never a substitute
@@ -93,7 +91,7 @@ endorsed-leaf = COSE_Sign1<
 ```
 
 - **Label `-65801`** is reserved for the session-key endorsement.
-  **`-65800` is the WebAuthn assertion envelope (ADR-0063) and MUST NOT
+  **`-65800` is the WebAuthn assertion envelope and MUST NOT
   be reused**: a `-65800` entry on a plain-ES256 leaf is a fail-closed
   rejection by the `@forestrie/encoding` envelope branch
   (`unexpected_webauthn_envelope`), never an endorsement.
@@ -180,7 +178,7 @@ verify key) from exactly one source**:
    artifact under the **`grantData` root** — the verifier's trust anchor
    is the coordinate pair *from `grantData`*, so `kid == root x` is
    pinned, with `requireUserVerification` iff `grant_user` carries
-   `GF_REQUIRES_USER_VERIFICATION` (ADR-0063 §4: the grant is in
+   `GF_REQUIRES_USER_VERIFICATION` (the grant is in
    evidence at admission, unlike the DO at onboarding). The window is
    checked against canopy's clock. The binding then becomes the
    endorsed `sessionKey`'s x, and the statement signature is verified
@@ -216,7 +214,7 @@ Rules:
 > `endorsement_expired`. Offline verifiers do distinguish the two, since
 > they check the receipted idtimestamp with no skew. Found by verifying
 > the shipped code against this ADR during the protocol documentation
-> pass (FOR-549); wire-level detail in
+> pass; wire-level detail in
 > [`spec/leaf-admission-and-session-endorsement.md`](../spec/leaf-admission-and-session-endorsement.md)
 > §5.3.
 - The custodian 16-byte branch is **not consulted** when an endorsement
@@ -229,7 +227,8 @@ Rules:
 - UV policy has one declaration — the grant flag committed in the parent
   auth log — read identically by the chain (`_checkDelegationAlgConstraints`),
   canopy admission, and offline verifiers. The DO's onboarding
-  `USER_ROOT_REQUIRE_UV` (ADR-0064 ruling 3) remains its own pre-flight
+  `USER_ROOT_REQUIRE_UV` ([ADR-0064](./adr-0064-passkey-session-key-endorsement.md)
+  ruling 3) remains its own pre-flight
   knob because at onboarding no grant exists yet.
 
 ### 5. One verification path, from public artifacts only
@@ -247,8 +246,8 @@ logRootKey(logId) on-chain  (= grantData, committed in the parent auth log)
           receipted idtimestamp ∈ [notBefore, notAfter]
 ```
 
-`@forestrie/receipt-verify` owns this rung (`verifyEndorsedLeaf`), a
-**major** release (v2 payload). The export-fed rung of ADR-0064 §4
+`@forestrie/receipt-verify` owns this path (`verifyEndorsedLeaf`), a
+**major** release (v2 payload). The export-fed path of ADR-0064 §4
 (`resolveEndorsedSessionKey` over `userRootEndorsementB64`) is
 **removed, not kept as a fallback** — there is exactly one way to
 verify an endorsed leaf and no route back to verifying it under the
@@ -286,7 +285,7 @@ session key, so the leaf signature fails — closed both ways.
 
 **A request header (`Forestrie-Signer-Endorsement`) beside the grant.**
 Stateless and zero per-leaf bytes — and the first recommendation. Rejected
-in the grill as a fussier API than necessary and, decisively, because the
+as a fussier API than necessary and, decisively, because the
 endorsement would then live outside the committed leaf: auditors would
 again depend on an export for the link from root to signer.
 
@@ -316,11 +315,11 @@ log is fully transparent, and it adds a second artifact type to
 register, order, and hold turns behind.
 
 **Epoch/freshness binding to the current grant; an MMR index range in
-the endorsement.** Both assessed during the grill. Freshness against a
+the endorsement.** Both assessed and set aside. Freshness against a
 per-batch `grant_user` costs a gesture per batch (breaking the
 one-gesture-ever budget); binding to a long-lived grant loses the
 freshness meaning. An index range cannot be enforced at admission (the
-sequencer assigns the index afterwards) — though, as Robin observed, the
+sequencer assigns the index afterwards) — though the
 browser does know its own indices (its first statement is index 0 and
 every receipt returns an index), which is what made the
 **idtimestamp window (§3) the contained form of the same idea**.
@@ -330,9 +329,9 @@ index scoping appears.
 **`grantData` = session key; authority-issued second grant over the
 session key; on-chain per-log signer set; countersigned leaves; the
 passkey signing every leaf.** Rejected for the reasons in ADR-0064
-§Alternatives and the grill chain map: the session key must never be
+§Alternatives: the session key must never be
 the on-chain root; the authority must not mint leaf signers; leaf policy
-does not belong on the chain (P5, U8); a gesture per leaf breaks the
+does not belong on the chain; a gesture per leaf breaks the
 budget.
 
 ## Consequences
@@ -347,38 +346,32 @@ budget.
   onboarding endorsement moves to v2 with a scheduled re-endorsement
   gesture as the window nears lapse (surfaced like the sealing-lease
   countdown); the DO pre-flight mirrors canopy's exact check and
-  forwards bytes untouched; the export-fed offline rung is removed from
+  forwards bytes untouched; the export-fed offline path is removed from
   `verify-receipts.mjs` and the ProofPanel; `/goldens` captures a v2
   endorsement golden from a real authenticator.
 - **arbor / univocity**: no change — confirmed in-source; nothing
   downstream of admission inspects a leaf signer, and the chain's
   `logRootKey`, delegation verification and UV policy are untouched.
-- **rules-of-the-road**: C3 reworded (the grant is verified under the
-  owner authority; the statement under `grantData` **or** a session key
-  the `grantData` root has endorsed within the endorsement's validity
-  window) and the §1 principle recorded.
-- **plan-2608-13** is blocked at 5.2 on plan-2608-14; its 5.2/5.3
-  evidence (attested turns > 0, an anchored checkpoint carrying
-  3-element `algData`) is that plan's phase 4.
+- **platform invariants**: the grant-verification rule reworded (the grant is
+  verified under the owner authority; the statement under `grantData` **or** a
+  session key the `grantData` root has endorsed within the endorsement's
+  validity window) and the §1 principle recorded — see
+  [rules/platform.md](../rules/platform.md) P10.
 
 ## References
 
 - [ADR-0064](./adr-0064-passkey-session-key-endorsement.md) — the
   endorsement artifact (v1), DO pin semantics, accepted risks.
-- ADR-0063 —
-  the `-65800` envelope, challenge binding, §4 UP/UV policy, §5
-  fail-closed rules.
+- [spec/delegation-and-webauthn-envelopes.md](../spec/delegation-and-webauthn-envelopes.md)
+  — the `-65800` envelope, the challenge binding, the user-presence /
+  user-verification policy, and the fail-closed rules.
+- [spec/leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
+  — the shipped admission rules, failure vocabulary and offline route.
 - canopy: `packages/apps/canopy-api/src/scrapi/register-signed-statement.ts`
   (admission, `contentHash`), `src/scrapi/grant-auth.ts`,
   `src/grant/statement-signer-binding.ts`, `src/grant/grant-commitment.ts`;
   `packages/shared/encoding/src/verify-cose-sign1.ts` (`-65800` branch);
   `packages/libs/receipt-verify/src/session-key-endorsement.ts` (v1 →
   v2).
-- go-merklelog `massifs/idtimestamp.go` — the idtimestamp time
-  component.
-- The 5.2 evidence: proof bundle for principal
-  `0xec1bdbcff8b085d90f643c324c06c255344efd72`, user log
-  `0f604c32-80f5-46c9-89af-831466b54012` (2026-08-29).
-- Grill record: agentfiles
-  `scopes/forestrie/incubator/grill-0064-admission-gap/` (chain map,
-  rulings Q1–Q14).
+- [go-merklelog](https://github.com/forestrie/go-merklelog)
+  `massifs/idtimestamp.go` — the idtimestamp time component.

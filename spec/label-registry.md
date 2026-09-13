@@ -5,16 +5,17 @@
 **Audience:** anyone implementing or reviewing a Forestrie encoder or
 verifier. This is the lookup table; the reasoning lives in the documents it
 links to.
-**Related:** protocol/README.md (private, cited by name),
+**Related:**
 [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md),
 [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md),
 [log-authority-and-grants.md](./log-authority-and-grants.md),
-[checkpoints-and-receipts.md](./checkpoints-and-receipts.md).
+[checkpoints-and-receipts.md](./checkpoints-and-receipts.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
-Every codepoint Forestrie uses, what defines it, and — because this is where
-drift actually happens — **who is authoritative and who merely copies**. Values
+Every codepoint Forestrie uses, what defines it, and **who is authoritative and
+who copies** — the distinction that governs drift. Values
 in the COSE private-use space (below `-65535`) are unregistered by definition;
 they are conventions this system agrees on, and the agreement is only as good
 as the table below.
@@ -150,13 +151,13 @@ the grant.
 
 ## 6. Who is authoritative
 
-The load-bearing table. "Definition" means the value is written once; "literal"
-means the number is typed again somewhere it could have been imported.
+"Definition" means the value is written once; "literal" means the number is
+typed again somewhere it could have been imported.
 
 | Value | Authoritative | Declaration sites | Agree? | Weakest link |
 |---|---|---|---|---|
 | `-7` | RFC 9053 | many | Yes | — |
-| `-65799` | Solidity constants (chain) + the TypeScript encoding package | 13 named, 4 bare | **Yes** | Two thinker call sites put a **bare `-65799`** in a request body with no named constant at all |
+| `-65799` | Solidity constants (chain) + the TypeScript encoding package | 13 named, 4 bare | **Yes** | Two browser-client call sites put a **bare `-65799`** in a request body with no named constant at all |
 | `-65800` | Solidity constants (chain) + the TypeScript encoding package | 3 named | **Yes** | One canopy library re-types the literal instead of importing it; **arbor has no name for it at all** — it exists there only as test hex |
 | `-65801` (`TBD2`) | The TypeScript encoding package | **1** | **Yes** | None. This is the only codepoint with clean single-definition hygiene |
 | Bit 40 / UV | Solidity constants (chain) | 1 chain, 3 hand-derived TypeScript, 2 test literals | **Yes** | The bit-40 → byte-2/`0x01` translation is hand-derived in four independent places; a text-comparison test covers two of them, and only one assertion anywhere ties the wire encoding back to the on-chain bit |
@@ -164,7 +165,7 @@ means the number is typed again somewhere it could have been imported.
 Two related constants deserve the same treatment and do not currently get it:
 
 - **The endorsement not-before skew** (5 minutes) is declared independently in
-  canopy admission and in the thinker Durable Object, with only a comment
+  canopy admission and in the browser client's session component, with only a comment
   asserting they must match.
 - **The browser's not-before backdate** (60 seconds) is sized against that
   5-minute skew with no code linkage at all.
@@ -194,4 +195,4 @@ except the one fork-sync test and the one bit-40 equivalence assertion.
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
   labels.
-- protocol/README.md — `path:line` citations for every row.
+- [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

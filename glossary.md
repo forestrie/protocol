@@ -1,8 +1,72 @@
 # Forestrie platform glossary
 
 Shared domain language for Forestrie transparency logs, Univocity contracts,
-and operational services. Repo-specific API names belong in each repo's
-`docs/agents/domain.md`.
+and the operational services around them. Terms are defined once here; the
+documents under [`spec/`](spec/) link to this file rather than restating them.
+
+## Log structure
+
+**MMR (Merkle Mountain Range)**:
+The append-only tree a Forestrie log is. Entries are leaves; the tree is never
+rewritten, only extended. The receipt and proof profile is
+[draft-bryce-cose-receipts-mmr-profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/).
+_Avoid_: "the Merkle root" — an MMR has a set of peaks, not one root.
+
+**Accumulator (peak set)**:
+The set of MMR peaks at a given log size: the log's committed state at that
+size. Every published accumulator is a committed prefix of every later one, so
+matching an old one is a narrower check, never a lesser one. A checkpoint's
+detached payload is exactly these peaks, concatenated raw.
+_Avoid_: "the log root"; treating an older accumulator as less valid.
+
+**Peak**:
+One of the roots of the perfect subtrees an MMR decomposes into at a given size.
+An inclusion path runs from a leaf up to whichever peak covers it.
+
+**Massif**:
+The fixed-size block the log's storage and checkpointing are organised in
+(roughly 16k entries). Checkpoint bases snap to massif entry boundaries, so a
+chain of consistency proofs verifies boundary to boundary. A complete massif is
+immutable and cacheable; the head massif is not.
+
+**Buried peak**:
+A peak a receipt commits to that later log growth has replaced, so the receipt
+no longer matches the current accumulator. The receipt is still valid; reaching
+the current state needs a freshen, or a retained checkpoint chain.
+
+**Freshen**:
+Re-anchoring a stale receipt to the current sealed state by extending its
+inclusion path from the buried peak to the current accumulator, without tiles.
+See [receipt-trust-model.md](spec/receipt-trust-model.md).
+
+**Trust root**:
+The thing a caller already holds and evaluates a receipt against: the forest's
+genesis document, a known log key, a known accumulator, or a retained checkpoint
+chain. The four are alternatives, not levels — each answers a different subset
+of the four trust questions.
+_Avoid_: "verification level"; ranking the roots by strength.
+
+**idtimestamp**:
+The 8-byte big-endian identifier the sequencer assigns each entry, packing a
+time component, a sequence number and a device or shard id. Monotone and
+time-ordered; `unixMs = (idtimestamp >> TimeShift) + epochBaseMs(epoch)`. It is
+what an endorsement's validity window is checked against offline.
+_Avoid_: deriving ordering from a signature time — only the idtimestamp orders.
+
+**SCRAPI**:
+The SCITT reference HTTP API a Forestrie forest exposes — `register/…` for
+grants and signed statements, `logs/…` for reads. Permissionless: the grant is
+the only credential, which is why admission is the sole leaf-signer enforcement
+point.
+
+**Sequencer**:
+The component that assigns idtimestamps and content-hashes entries into the log
+(`ranger` in the arbor services). It never inspects an entry's signer.
+
+**Sealer**:
+The component that signs a checkpoint over the accumulator, under a delegation
+lease from the log's root key. It holds a delegated sealing key, never a log
+root.
 
 ## Core identity
 
@@ -82,8 +146,7 @@ For user logs hosted by a mandate operator, the user owns the root authority
 as a **revocable additional signer** (Privy-custodied, user-authorized — **not**
 full BYOK). Both are single-hop certs verified against the registered
 `publicRoot`; the user keeps a kill switch and a protocol-level exit (rotate
-`K(L)`). See
-ARC-0022 (private, cited by name).
+`K(L)`). See [key-custody-and-choice.md](spec/key-custody-and-choice.md) §3.
 _Avoid_: calling Mode C "full BYOK"; placing the operator in the wallet **owner**
 quorum (defeats the kill switch).
 
@@ -91,7 +154,7 @@ quorum (defeats the kill switch).
 COSE_Sign1 object signed by the log's root authority `K(L)` authorizing a
 short-lived delegated sealing key for an MMR window. Submitted via
 `POST /api/delegations/certificate`; verified against the **registered
-publicRoot** (ARC-0022 I5). Distinct from **KMS signing material** (custody
+publicRoot**. Distinct from **KMS signing material** (custody
 keys used to mint certs in operator-hosted modes) and from **control-plane
 session** tokens.
 _Avoid_: "material", "delegation material"; conflating with checkpoint COSE
@@ -100,8 +163,8 @@ receipts or custody private keys.
 **Delegation control plane**:
 HTTP user-management APIs on the delegation-coordinator (`pending`, `enabled`,
 `signing-route`) authenticated by wallet-challenge session. Distinct from the
-**operator plane** (`/admin/api/…`), **registration control plane** (ARC-021),
-and **public sealing** (certificate submit + verify, ARC-0022 I5).
+**operator plane** (`/admin/api/…`), the **registration control plane**,
+and **public sealing** (certificate submit and verify).
 _Avoid_: conflating with `COORDINATOR_APP_TOKEN` or per-log `issuerToken`.
 
 **Operator plane**:
@@ -125,7 +188,7 @@ _Avoid_: treating `authLogId` as an unauthenticated query filter.
 
 **Registered publicRoot**:
 Root key material stored on the delegation-coordinator at genesis. Verification
-anchor for certificate acceptance (ARC-0022 I5) and control-plane ownership (v1).
+anchor for certificate acceptance and control-plane ownership (v1).
 _Avoid_: live Univocity lookup for UX auth in v1.
 
 **Proof-of-possession (control plane)**:
@@ -136,8 +199,8 @@ registered publicRoot.
 **Volumetric abuse protection**:
 Rate limiting or WAF rules at the Cloudflare edge (or equivalent ingress) to
 block sustained request floods before worker CPU or upstream RPC amplification.
-Used on public self-verifying routes such as `POST /api/delegations/certificate`
-(see canopy ADR-0008). Distinct from application idempotency (`requestKey`
+Used on public self-verifying routes such as `POST /api/delegations/certificate`.
+Distinct from application idempotency (`requestKey`
 reservation on the mandate agent) and per-credential signer rate limits.
 
 **Delegated grant validation (univocity)**:
@@ -154,9 +217,11 @@ atomic index enforces it and canopy surfaces 409 at the edge.
 
 ## Delegation in advance (standing keys)
 
-Terms from the FOR-390 delegation-in-advance design cycle. See
-ADR-0050 (private, cited by name) (esp. §"Trust model and
-genesis topology") and ARC-0022.
+Terms from the delegation-in-advance design. The sealing key they describe is
+the one hot-path private key the operator holds; what bounds it is in
+[receipt-trust-model.md](spec/receipt-trust-model.md) (question 2) and
+[trust-boundaries-and-operator-powers.md](spec/trust-boundaries-and-operator-powers.md)
+§3.
 
 **Standing delegate key**:
 A sealer-held checkpoint-signing key **shared across all logs a sealer seals**,
@@ -166,7 +231,7 @@ boot and never persisted. Deterministic, so advance certificates outlive the
 process. Distinct from the legacy **per-log ephemeral delegated key** (generated
 in RAM per log, dies with the process). Authority is still per-certificate —
 `K(L)` signs `(logId, range, key, expiry)` — so a shared key confers nothing
-across logs (ADR-0050 Q1).
+across logs.
 _Avoid_: "the sealer's key" without a standing/ephemeral qualifier; implying the
 shared key widens blast radius (authority is per-certificate).
 
@@ -292,7 +357,7 @@ carrying `{"object": {"key": "<massif object key>"}}` — the same shape whateve
 the transport (R2 event notification, ranger-published queue message, or
 long-poll coordinator). A hint is **at-least-once and carries no authority**:
 the sealer always re-derives its work from R2 state, so a lost, duplicate, or
-spurious hint is harmless and never affects correctness (ADR-0007).
+spurious hint is harmless and never affects correctness.
 _Avoid_: treating a hint as a command or as the source of truth; "seal event"
 (reserve "R2 event notification" for the specific Cloudflare-delivered backstop).
 
@@ -306,20 +371,20 @@ different semantics from a hint on another transport.
 ## Checkpoints and on-chain anchoring
 
 **Checkpoint (format v3) / consistency receipt**:
-The sealed checkpoint object (`…/checkpoints/…/{massif}.sth`), from ADR-0046 a
-tagged `COSE_Sign1` (CBOR tag 18) draft-bryce **Receipt of Consistency**:
+The sealed checkpoint object (`…/checkpoints/…/{massif}.sth`): a tagged
+`COSE_Sign1` (CBOR tag 18) draft-bryce **Receipt of Consistency**,
 protected header `{1: alg, 395: vds=3}`, a detached payload, one consistency
 proof (previous checkpoint → this seal), and (in the unprotected header)
 pre-signed peak receipts and, when delegated, the on-chain delegation proof.
 It is directly publishable — the publisher submits it with no sibling document.
-_Avoid_: "sibling proof document" (superseded by ADR-0046); "MMRState checkpoint"
-(the v2 format, removed).
+_Avoid_: "sibling proof document" (there is none — the checkpoint is directly
+publishable); "MMRState checkpoint" (the v2 format, removed).
 
 **Detached payload (raw-concat accumulator)**:
 The bytes a checkpoint signature is over: the raw concatenation of the MMR
 accumulator peaks (descending height), no hashing. The univocity contract
 recomputes it from the proof and verifies the signature against it
-(`buildDetachedPayloadCommitment`, raw concat since **v0.1.6**; FOR-321).
+(`buildDetachedPayloadCommitment`, raw concat since **v0.1.6**).
 _Avoid_: "sha256 commitment" (the pre-v0.1.6 form).
 
 **Peak inclusion receipt**:
@@ -330,12 +395,12 @@ receipt for any entry without the signing key (MMR low-update-frequency).
 _Avoid_: conflating with the checkpoint's own consistency receipt.
 
 **On-chain delegation proof**:
-The COSE-shaped `DelegationProof` (plan-0003 `OnchainDelegationProof`) the
+The COSE-shaped `DelegationProof` (`OnchainDelegationProof`) the
 custodian issues, binding the sealing key to `(logId, mmrStart, mmrEnd)`. It
 rides the checkpoint (`SealDelegationProofLabel`, surfaced via
 `CheckpointReceipt.Extras`); the publisher wires it into the `publishCheckpoint`
-`delegationProof` calldata. FOR-314 Outcome B — distinct from the label-1000
-delegation **certificate**.
+`delegationProof` calldata. Distinct from the label-1000 delegation
+**certificate**; see [label-registry.md](spec/label-registry.md) §2.2.
 _Avoid_: reusing the label-1000 cert as the on-chain proof (they differ).
 
 **Publisher / anchoring**:
@@ -352,7 +417,7 @@ sealed checkpoint into a single `publishCheckpoint` call.
 ## Payments and registration
 
 **Univocity instance account**:
-Every deployed Univocity instance is its own fee account (ADR-0059): the
+Every deployed Univocity instance is its own fee account: the
 account id is the `univocityInstanceId` — the canonical CAIP-10 lowercased
 rendering of the chain binding. Admission (paid or vetted redeem, or ops
 break-glass mint) **reserves** the instance; genesis completes the
@@ -368,21 +433,20 @@ The chain head observed when an instance's reservation completes to
 account's **metering floor**: the accrual indexer's first-sight scan starts
 there (inclusive), so checkpoints anchored between registration and first
 sight are counted, and nothing before the service relationship is billed.
-Best-effort (`null` on RPC failure; ops-repairable). Canopy
-plan-2607-04 / FOR-477.
+Best-effort (`null` on RPC failure; ops-repairable).
 _Avoid_: "deployment block" — a rejected earlier framing; the operator does
 not bill pre-registration self-anchored checkpoints, so the contract's
 deployment height is not the billing fact.
 
 **Payment-authoritative registration** _(retired)_:
-Pre-ADR-0059 class marking a root as backed by an onboard token, with
-"regular" forests inheriting coverage through `endorsedBy` edges. Retired in
-plan-2607-43 slice 02: every instance root is its own account, the class and
-edge are never written, and legacy records are read-tolerated only.
+A retired class that marked a root as backed by an onboard token, with
+"regular" forests inheriting coverage through `endorsedBy` edges. Every
+instance root is now its own account; the class and edge are never written, and
+legacy records are read-tolerated only.
 _Avoid_: any use in new designs.
 
 **Regular registration** _(retired)_:
-Pre-ADR-0059 class for a forest whose payment coverage was inherited from a
+A retired class for a forest whose payment coverage was inherited from a
 payment-authoritative ancestor via an endorsement grant. Retired with the
 class split (see above).
 _Avoid_: any use in new designs.
@@ -396,7 +460,7 @@ registration record.
 
 **`CANOPY_PAYMENTS_ONBOARD_TOKEN`**:
 A canopy-issued bearer that is the **operating credential for one reserved
-univocity instance** (ADR-0059 decision 8): every token carries a mandatory
+univocity instance**: every token carries a mandatory
 chain binding, its admission (`admittedBy: ops | payment | auto`) is
 recorded, and the one-off onboard fee — where charged — purchases the
 instance reservation, not any ongoing liability. Ongoing checkpoint fees are
@@ -422,8 +486,8 @@ after canopy ops approval. Stored at rest as a hash only.
 _Avoid_: conflating with the onboard token or wallet-challenge session bearer.
 
 **Payment-registration graph** _(retired)_:
-The pre-ADR-0059 cross-forest `endorsedBy` graph by which canopy tracked
-payment coverage. Retired in plan-2607-43 slice 02: there is no cross-forest
+The retired cross-forest `endorsedBy` graph by which canopy tracked
+payment coverage. There is no cross-forest
 payment structure — each instance is its own account, and a sponsor simply
 pays another account's bills. The per-forest Univocity authority hierarchy
 is unrelated and unchanged.
@@ -438,35 +502,9 @@ append remain available for non-payment attestation uses.
 _Avoid_: presenting one at genesis — it is refused with a pointer at the
 onboarding flow.
 
-## Orchestrator and system testing
-
-**Release product**:
-The immutable artefact captured once at orchestrator **release**: exact service
-refs, kit npm versions, and Univocity **release pins**. Stored as
-`release-manifest.jsonc` with `kind: release-manifest`.
-_Avoid_: lane manifest, wire manifest.
-
-**Lane test envelope**:
-Tier-specific test context merged at promote: `catalog`, `secretsProfile`.
-Stored as `lane-test-manifest.jsonc`. "Tier" here means the promotion target
-(`dev` / `stage`) — its only meaning since the numbered test tiers were retired
-(ARC-0025, FOR-531).
-_Avoid_: full wire manifest, release template.
-
-**Promote merge**:
-Combining release product + lane test envelope into a wire manifest for
-preflight and the **lane suite**'s Playwright runs.
-_Avoid_: template hydration, lane YAML graft.
-
-**Release pin**:
-Exact version or tag of a build artefact (kit version, Univocity
-`releaseTag`, service git ref) — not a lane-local deploy output.
-_Avoid_: imutableAddress at capture time (that is preflight deploy output).
-
 ## Passkey custody and leaf attribution
 
-Full treatment: protocol/README.md (private, cited by name), in particular
-[key-custody-and-choice.md](spec/key-custody-and-choice.md) and
+Full treatment: [key-custody-and-choice.md](spec/key-custody-and-choice.md) and
 [leaf-admission-and-session-endorsement.md](spec/leaf-admission-and-session-endorsement.md).
 
 **Passkey root**:
@@ -544,20 +582,22 @@ declaration.
 **Offline receipt verification**:
 Cryptographic verification of a SCITT COSE receipt using only captured bytes
 (genesis document, receipt CBOR, grant or statement context). Layers A–C:
-receipt signature vs genesis trust anchor, MMR inclusion (header 396), leaf
-binding (grant commitment or statement content hash + idtimestamp). No SCRAPI,
-coordinator, or univocity HTTP during the verify step. Layer D (on-chain tip
-canonicality) is out of scope. See [ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md).
+receipt signature vs the trust root the caller holds, MMR inclusion (header
+396), leaf binding (grant commitment or statement content hash + idtimestamp).
+No SCRAPI, coordinator, or univocity HTTP during the verify step. Layer D
+(on-chain tip canonicality) is out of scope. See
+[checkpoints-and-receipts.md](spec/checkpoints-and-receipts.md) §4 and
+[ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md).
 _Avoid_: conflating with server-side register-grant receipt verify (live trust
 root resolution).
 
 **@forestrie/receipt-verify**:
 Shared TypeScript package (canopy monorepo workspace) implementing offline
-receipt verify per ADR-0045. Consumed by `@canopy/api`, `@forestrie/canopy-e2e-kit`,
+receipt verify per [ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md). Consumed by `@canopy/api`, `@forestrie/canopy-e2e-kit`,
 and operator CLI tooling. `@forestrie/canopy-e2e-kit` **0.4.0** is the offline
 verify slice (exports + dependency on this package).
-_Avoid_: duplicating verify logic in the estate's integration test suite
-specs or one-off scripts.
+_Avoid_: duplicating verify logic in integration-test specs or one-off
+scripts.
 
 ## Example dialogues
 
@@ -584,13 +624,15 @@ address unless it chooses to read optional CBOR fields later.
 
 ## Related documentation
 
-- protocol/README.md — wire formats, the trust model, and key
-  custody; the authoritative source for every term in the passkey-custody
-  section above
-- architecture.md (private, cited by name) — platform overview
-- [decisions/arc-0019-grant-verification-model.md](decisions/arc-0019-grant-verification-model.md) — grant auth model
-- adr/adr-0034-forest-genesis-chain-binding-required.md (private, cited by name) — genesis POST requires chain binding
-- adr/adr-0035-univocity-owned-grant-store-and-authority-correspondence.md (private, cited by name)
-- adr/adr-0036-global-logid-r-uniqueness.md (private, cited by name)
-- adr/adr-0037-forests-storage-and-uuid-log-ids.md (private, cited by name)
-- [decisions/adr-0045-receipt-verify-offline-contract.md](decisions/adr-0045-receipt-verify-offline-contract.md) — offline receipt verify API
+- [spec/receipt-trust-model.md](spec/receipt-trust-model.md) — the four
+  questions and the trust roots that answer them
+- [spec/checkpoints-and-receipts.md](spec/checkpoints-and-receipts.md) — the
+  checkpoint and receipt wire formats
+- [spec/log-authority-and-grants.md](spec/log-authority-and-grants.md) — the
+  grant wire format and the authority hierarchy
+- [spec/key-custody-and-choice.md](spec/key-custody-and-choice.md) and
+  [spec/leaf-admission-and-session-endorsement.md](spec/leaf-admission-and-session-endorsement.md)
+  — the source for every term in the passkey-custody section above
+- [spec/label-registry.md](spec/label-registry.md) — every codepoint, with values
+- [decisions/arc-0019-grant-verification-model.md](decisions/arc-0019-grant-verification-model.md) — the grant verification model
+- [decisions/adr-0045-receipt-verify-offline-contract.md](decisions/adr-0045-receipt-verify-offline-contract.md) — the offline receipt verify contract

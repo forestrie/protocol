@@ -4,10 +4,13 @@
 **Date:** 2026-08-30
 **Audience:** implementers of a Forestrie client or verifier, and reviewers
 tracing where a log's authority comes from.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md) (question 3, authority),
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md)
+(question 3, authority),
+[ARC-0019](../decisions/arc-0019-grant-verification-model.md) (the accepted
+grant verification model),
 [label-registry.md](./label-registry.md),
-[checkpoints-and-receipts.md](./checkpoints-and-receipts.md).
+[checkpoints-and-receipts.md](./checkpoints-and-receipts.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
@@ -17,7 +20,7 @@ is provable — a **grant**. This document specifies the grant's wire format, th
 commitment the chain holds, and the rules that make one grant unable to
 impersonate another.
 
-The single invariant that generates the whole model:
+The single invariant the model follows from:
 
 > A grant is **signed by the authority of its owner**, and **establishes the
 > authority key for its target**.
@@ -50,7 +53,7 @@ read from the chain carries the authority answer with it.
 
 ### 1.1 `logId` versus `ownerLogId`
 
-Two identifiers, routinely confused:
+Two identifiers, easily conflated:
 
 - **`logId`** — the log this grant *authorises*. The target.
 - **`ownerLogId`** — the log whose authority *issued* it. The owner.
@@ -64,8 +67,7 @@ verify the grant envelope against `grantData`.
 
 ### 2.1 The inner grant
 
-A CBOR map with integer keys. Verified against the codec; an earlier catalogue
-pass recorded this mapping incorrectly.
+A CBOR map with integer keys, verified against the codec.
 
 | Key | Field | Wire type | Notes |
 |---|---|---|---|
@@ -149,7 +151,7 @@ inner       = logId(32) ‖ grant(32) ‖ maxHeight(8) ‖ minGrowth(8)
 commitment  = SHA-256( idtimestamp(8, big-endian) ‖ SHA-256( inner ) )
 ```
 
-Three things are easy to get wrong here:
+Three properties of the commitment to note:
 
 - **The flags widen.** `grant` is 8 bytes on the wire and **32 bytes** in the
   commitment preimage. The request-code band in the high bits is therefore
@@ -246,18 +248,22 @@ own receipt.
 - **Bits 35–39 are reserved by comment only.** No mask, no constant, no test
   asserts the algorithm band stays clear of them. A future widening of the
   algorithm band downward would break the reservation silently.
-- **The off-chain grant-chain walk is unimplemented.** A verifier can reach the
-  anchor on-chain, or off-chain only as far as a certificate reaches. The fully
-  off-chain walk from grant records and their inclusion proofs remains open.
+- **The off-chain grant-chain walk is unimplemented.** A verifier reaches the
+  anchor on-chain, or off-chain only as far as a certificate reaches; see
+  [receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what each
+  trust root can answer without it.
 - **The `logId` padding comment in the Solidity leaf-encoding library is
   inverted** — it says right-padded; every producer left-pads. The hashes
   agree; the comment misleads.
 
 ## References
 
-- protocol/README.md — `path:line` citations and status.
 - [receipt-trust-model.md](./receipt-trust-model.md) — how authority sits
   among the four trust questions.
+- [ARC-0019](../decisions/arc-0019-grant-verification-model.md) — the three
+  verification obligations in full, with the pseudocode.
+- [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) — the
+  leaf commitment with cross-language vectors.
 - [label-registry.md](./label-registry.md) — the CBOR keys and flag bands.
 - [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
   — how `grantData` anchors an endorsed signer.

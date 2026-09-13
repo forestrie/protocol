@@ -4,17 +4,17 @@
 **Date:** 2026-08-30
 **Audience:** relying parties, security reviewers, and anyone assessing what
 trusting a Forestrie operator would actually mean.
-**Related:** protocol/README.md (private, cited by name),
-[receipt-trust-model.md](./receipt-trust-model.md),
-[key-custody-and-choice.md](./key-custody-and-choice.md).
+**Related:** [receipt-trust-model.md](./receipt-trust-model.md),
+[key-custody-and-choice.md](./key-custody-and-choice.md),
+[glossary.md](../glossary.md).
 
 ## Summary
 
 Forestrie's design goal is not that the operator is honest. It is that the
 operator's honesty **does not need to be assumed** for the record to mean
 something. This document states where the boundaries are, what crosses them,
-what an operator can still do, and — the part usually left vague — what it
-cannot do and what it can do that we have not prevented.
+what an operator can still do, what it cannot do, and what it can do that is not
+prevented.
 
 The short version: an operator can **decline to act**, and that is visible. It
 cannot forge, rewrite, re-root, equivocate, or make any of those survive
@@ -29,9 +29,9 @@ load-bearing: the strongest attacks require them to **collude**.
 |---|---|---|
 | **The log owner** (user) | Owns the log's root authority | The root key, in one of the custody shapes |
 | **Transparency operator** — admission edge | Sequences entries, enforces who may sign one | No private keys authoritative for any log |
-| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A short-lived delegated sealing key, in memory only |
+| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A delegated sealing key, scoped by the lease and not persisted at rest |
 | **Hosting / payment operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. **Never** a user root; **never** the owner of a user's wallet |
-| **Enclave provider** | Optional signing backend for the hosted custody rung | In that rung only, the user-owned wallet key |
+| **Enclave provider** | Optional signing backend for the hosted custody option | In that option only, the user-owned wallet key |
 | **The contract** | Anchors roots, accepts checkpoints | On-chain state; no secrets |
 | **Anyone** | Replicates, verifies, publishes | Public data — which is sufficient |
 
@@ -71,8 +71,8 @@ The crossings that matter:
 
 ## 3. What the operator can do
 
-Stated without softening, because a threat model that only lists defeats is
-marketing.
+These are real capabilities, stated without softening. A threat model that lists
+only defeats is incomplete.
 
 | Capability | Bound |
 |---|---|
@@ -85,9 +85,12 @@ marketing.
 
 The sealing key is the one hot-path private key the operator holds. It exists
 only because the owner's root signed a lease authorising **that specific key**,
-scoped by log, MMR range and expiry, held in memory and discarded on restart.
-A compromise of it is bounded by those scopes and is neutralised definitively
-only by the owner rotating their root and re-delegating.
+scoped by log, MMR range and expiry, and no long-lived private key is persisted
+at rest. What bounds a compromise is therefore the lease, not the key's
+lifetime; a compromise is neutralised definitively only by the owner rotating
+their root and re-delegating. How the key is derived, and why that is not the
+same as being discarded, is in
+[receipt-trust-model.md](./receipt-trust-model.md) (question 2).
 
 ## 4. What the operator cannot do
 
@@ -103,34 +106,33 @@ only by the owner rotating their root and re-delegating.
 | **Extract a user root** | It never holds one, in any custody shape |
 | **Make verification depend on itself** | Verification is pure over bytes; a network call inside verify is prohibited, not merely discouraged |
 
-The last row is the load-bearing one. Every other guarantee would be worth
-little if checking it required asking the operator.
+The last row is the load-bearing one: every other guarantee depends on being
+checkable without asking the operator.
 
 ### 4.1 Non-equivocation is structural
 
-Most transparency logs make split-view detection depend on a live population of
-monitors gossiping. Forestrie does not: the contract refuses the inconsistent
-checkpoint at publish. Security does not degrade when nobody is watching.
+Split-view detection here does not depend on a live population of gossiping
+monitors: the contract refuses the inconsistent checkpoint at publish. Security
+does not degrade when nobody is watching.
 
 Monitors remain useful — they notice unexpected entries and anchor lag — but
-they are not a security dependency, which means the system does not rely on a
-public good that historically fails to materialise.
+they are not a security dependency.
 
 ## 5. Adversary analysis
 
 | Adversary | Capability | Bounded by |
 |---|---|---|
-| **Compromised transparency operator** | Holds the leased sealing key; runs the admission edge | Signs only within an unexpired lease and consistently with anchored state. Cannot mint authority for an unauthorised key or log, cannot exceed lease bounds, cannot obtain the root. Restart discards the key. Can censor at admission. Neutralised definitively by the owner's exit |
-| **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted custody rung is an additional signer | Cannot sign at all in the user-operated rung. In the hosted rung, signs only within policy until revoked; cannot entrench, export or rotate the user's key |
-| **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that rung. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
+| **Compromised transparency operator** | Holds the leased sealing key; runs the admission edge | Signs only within an unexpired lease and consistently with anchored state. Cannot mint authority for an unauthorised key or log, cannot exceed lease bounds, cannot obtain the root. Can censor at admission. Neutralised definitively by the owner's exit |
+| **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted custody option is an additional signer | Cannot sign at all in the user-operated option. In the hosted option, signs only within policy until revoked; cannot entrench, export or rotate the user's key |
+| **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that option. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
 | **Script injection in the owner's page** | Can ask the session key to sign | Can attest turn content while the page is open. Cannot steal either key, re-root, extend authority, or persist beyond the session |
 | **Network / replay** | Replays artifacts | Delegations bound by expiry and id; endorsements bound by their window; grants are non-replayable credentials whose signature proves possession |
 | **Another tenant** | Cross-log abuse | Everything is log-scoped: certificates bind a log id, grants bind logId and ownerLogId, leases bind an MMR range |
 | **A malicious publisher** | Submits transactions | Pays gas and gains nothing. Publishing is permissionless precisely because it confers no authority |
 
-## 6. The honest limits
+## 6. The limits
 
-Things a careful reader should hold against this design.
+Limits a careful reader should hold against this design.
 
 **Censorship at admission is real.** The edge can refuse a well-formed entry.
 The client sees the refusal immediately, so this is *detectable* rather than
@@ -142,14 +144,17 @@ a replicated log. A *succinct* absence proof needs an authenticated secondary
 index that does not exist, because the exclusion trie's root is not currently
 anchored. Do not design against succinct absence as though it were available.
 
-**Offline verification is not finality.** Layers A–C prove inclusion in a
-sealed state. Whether that state is anchored on-chain is a separate question
+**Offline verification is not finality.** Layers A–C
+([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §4) prove
+inclusion in a sealed state. Whether that state is anchored on-chain is a separate question
 answered by reading the chain. A user interface that merges "verified" and
 "final" is overstating.
 
 **The off-chain authority walk is unimplemented.** Authority reaches the anchor
 on-chain, or off-chain only as far as a certificate reaches. The fully
-off-chain walk from grant records remains open.
+off-chain walk from grant records remains open — see
+[receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what that
+leaves answerable.
 
 **In-page compromise can attest content.** Accepted and retained: the passkey
 gates authorisation, not per-turn content. A design where every turn needed a
@@ -158,8 +163,8 @@ gesture would be honest about content and unusable in practice.
 **Metadata is not private.** Content stays with the customer; sizes, timing and
 volume do not.
 
-**The hosted custody rung trusts an enclave.** That residual is why the
-user-operated rung exists, and it should be stated to users rather than
+**The hosted custody option trusts an enclave.** That residual is why the
+user-operated option exists, and it should be stated to users rather than
 implied.
 
 **Some invariants are held by convention.** Several constants must agree across
@@ -180,13 +185,11 @@ and tracked.
 
 ## References
 
-- protocol/README.md — `path:line` citations, status, and the
-  tracked issues behind the open questions above.
 - [receipt-trust-model.md](./receipt-trust-model.md) — the four questions a
-  receipt answers.
-- [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody rungs
-  referenced throughout.
+  receipt answers, and the trust roots that answer them.
+- [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody options
+  referenced throughout, including the BYOK modes and the exit path.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — why anyone can
   mint a receipt.
-- ARC-0022 — the BYOK trust boundaries and invariants this extends from
-  hosting scope to platform scope.
+- [rules/platform.md](../rules/platform.md) — the invariants these boundaries
+  hold up.

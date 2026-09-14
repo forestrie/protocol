@@ -223,7 +223,13 @@ question.
 | **checkpoint chain** — accumulator root: a retained chain of signed checkpoints, with `--genesis` or a known log key for its base | **Answered** against the caller's own retention: each link's signed consistency proof commits the earlier accumulator forward, so a match at any link holds | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answered**, as above |
 
 `--rpc-url` is not a fifth root. It is a live chain read supplying the
-`--known-accumulator` root: the same guarantee, plus "as of now".
+`--known-accumulator` root: the same guarantee, plus "as of now". It requires
+`--univocity` and `--log-id`, reads the contract's anchored peaks and MMR size,
+and matches the peak recomputed from the receipt against those peaks — the same
+check `--known-accumulator` runs against a cached copy of that read. Note that
+the CLI reports this route as `mode: "chain-anchored"` (and the cached snapshot
+as `accumulator-anchored`); both names denote the accumulator root, one read
+live and one read earlier.
 
 The signature roots answer question 2 offline by checking the signature, and
 question 3 only as far as the certificate reaches. The accumulator roots answer

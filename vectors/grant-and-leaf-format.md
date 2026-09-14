@@ -2,7 +2,7 @@
 
 This document specifies the **leaf commitment** hashing and **PublishGrant** (grant) format used by the univocity Solidity contracts and by canopy/arbor. It is the authoritative spec for [go-univocity](https://github.com/forestrie/go-univocity).
 
-**References**: univocity `LibLogState.sol` (`_leafCommitment`), `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`), `src/interfaces/types.sol` (PublishGrant); canopy [register-grant API](https://github.com/forestrie/canopy/blob/main/docs/api/register-grant.md), Plan 0001 grant codec.
+**References**: univocity `LibLogState.sol` (`_leafCommitment`), `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`), `src/interfaces/types.sol` (PublishGrant); canopy [register-grant API](https://github.com/forestrie/canopy/blob/main/docs/api/register-grant.md), canopy [grant codec](https://github.com/forestrie/canopy/blob/main/packages/shared/encoding/src/grant-codec.ts).
 
 ---
 
@@ -27,7 +27,7 @@ Fixed-length fields match Solidity `PublishGrant` and `abi.encodePacked`: **logI
 
 Concatenation is **without length prefixes** (Solidity `abi.encodePacked` style). Left-padding is used so that the original bytes occupy the least-significant (right) positions, consistent with big-endian layout for fixed-size fields. The **request** (GC_AUTH_LOG / GC_DATA_LOG) is **not** in the leaf; it is supplied at `publishCheckpoint` time.
 
-**Grant-sequencing (Plan 0004 subplan 03).** When enqueueing a grant for sequencing, the value used as **ContentHash** (fed to the DO and to ranger) is the **inner hash** = `sha256(inner preimage)`. Idtimestamp is **not** included; ranger assigns it and computes `leafHash = H(idTimestampBE || ContentHash)`. So implementations must expose or compute the 32-byte inner hash for the grant-sequencing path (e.g. go-univocity `InnerHash` / `InnerHashFromGrant`).
+**Grant sequencing.** When enqueueing a grant for sequencing, the value used as **ContentHash** (fed to the DO and to ranger) is the **inner hash** = `sha256(inner preimage)`. Idtimestamp is **not** included; ranger assigns it and computes `leafHash = H(idTimestampBE || ContentHash)`. So implementations must expose or compute the 32-byte inner hash for the grant-sequencing path (e.g. go-univocity `InnerHash` / `InnerHashFromGrant`).
 
 ---
 
@@ -222,7 +222,7 @@ Example (vector 1):
 
 ## 5. Alignment (canopy vs univocity)
 
-| Canopy (Plan 0001) | Univocity (Solidity) | In leaf inner preimage |
+| Canopy              | Univocity (Solidity) | In leaf inner preimage |
 |--------------------|----------------------|-------------------------|
 | idtimestamp (8)    | grantIDTimestampBe   | Outer only              |
 | logId (16)         | logId bytes32       | Left-pad to 32          |

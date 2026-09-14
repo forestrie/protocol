@@ -9,4 +9,4 @@
 008382cc541cba950795d47f3dad435179ba04c7d360daee81fe037b841afc5c  vectors/golden/grant-genesis.cbor
 dd9df1853e268fbc52aa9f36902fd96d389cb4ae9ea63833639a0191de4889e9  vectors/golden/grant-receipt.cbor
 d755034ff216cad6f7320044dec08678310c3fca05a3d36995dd7b8d7230f51e  vectors/golden/manifest.json
-daab91fa94e5514f9ae62faf7ff8352ce6631a7e3a7eb5de90ae3863da079fbf  vectors/grant-and-leaf-format.md
+ddbf4a5c0f1e382f38db65f5cc7af3d47f63c24338f959541caf558ad5384e8f  vectors/grant-and-leaf-format.md

@@ -77,12 +77,15 @@ checks that it chains to the owner.
 **What the operator holds here.** The sealing key is the one hot-path private
 key the Forestrie operator does hold. Precisely:
 
-- **No long-lived private key is persisted at rest.** That is the property.
-- The key is **not** merely ephemeral-and-lost. It is HKDF-derived
-  deterministically from a KMS-held seed, keyed by `(epoch, index)`, so the
-  *same* key re-derives after a restart or pod churn rather than being
-  discarded. That is deliberate: certificates outlive restarts without
-  needing an on-demand signer round trip.
+- **No long-lived private key is persisted at rest.** That is the property,
+  and the custody boundary is the KMS.
+- The key is **not** merely ephemeral-and-lost. It is derived deterministically
+  with **HKDF-SHA256** from a seed the operator's KMS re-derives at boot, keyed
+  by `(epoch, index)`, so the *same* key re-derives after a restart or pod
+  churn rather than being discarded. That is deliberate: certificates outlive
+  restarts without needing an on-demand signer round trip. The seed itself is
+  never written to a secret store or to disk — see
+  [glossary.md](../glossary.md) ("standing delegate key").
 - **Scope comes from the certificate, not the key.** The lease certificate
   binds one log, one MMR range and an expiry, and it exists only because the
   log's root key signed it.
@@ -220,7 +223,13 @@ question.
 | **checkpoint chain** — accumulator root: a retained chain of signed checkpoints, with `--genesis` or a known log key for its base | **Answered** against the caller's own retention: each link's signed consistency proof commits the earlier accumulator forward, so a match at any link holds | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answered**, as above |
 
 `--rpc-url` is not a fifth root. It is a live chain read supplying the
-`--known-accumulator` root: the same guarantee, plus "as of now".
+`--known-accumulator` root: the same guarantee, plus "as of now". It requires
+`--univocity` and `--log-id`, reads the contract's anchored peaks and MMR size,
+and matches the peak recomputed from the receipt against those peaks — the same
+check `--known-accumulator` runs against a cached copy of that read. Note that
+the CLI reports this route as `mode: "chain-anchored"` (and the cached snapshot
+as `accumulator-anchored`); both names denote the accumulator root, one read
+live and one read earlier.
 
 The signature roots answer question 2 offline by checking the signature, and
 question 3 only as far as the certificate reaches. The accumulator roots answer

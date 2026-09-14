@@ -28,7 +28,7 @@ how to leave.
 | **Instance bootstrap key** | The forest curator | The root log's authority | Set once at contract construction, immutable |
 | **Log root key** | The log's owner | Grants it issues; its sealing delegations | The life of the log — cannot be changed |
 | **Session key** | The owner's browser, non-extractable | Per-turn entries | Rotatable, bounded by its endorsement window |
-| **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; no long-lived private key is persisted at rest |
+| **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; HKDF-derived at boot from a KMS-held seed, so a restart re-derives it — no long-lived private key is persisted at rest |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
 
 The publisher row is the one most often misread. The publisher pays gas and is

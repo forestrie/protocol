@@ -29,7 +29,7 @@ load-bearing: the strongest attacks require them to **collude**.
 |---|---|---|
 | **The log owner** (user) | Owns the log's root authority | The root key, in one of the custody shapes |
 | **Transparency operator** — admission edge | Sequences entries, enforces who may sign one | No private keys authoritative for any log |
-| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A delegated sealing key, scoped by the lease and not persisted at rest |
+| **Transparency operator** — sealer | Signs checkpoints under an issued lease | A delegated sealing key, scoped by the lease — derived at boot from a KMS-held seed, never persisted at rest |
 | **Hosting / payment operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. **Never** a user root; **never** the owner of a user's wallet |
 | **Enclave provider** | Optional signing backend for the hosted custody option | In that option only, the user-owned wallet key |
 | **The contract** | Anchors roots, accepts checkpoints | On-chain state; no secrets |
@@ -41,7 +41,7 @@ load-bearing: the strongest attacks require them to **collude**.
 flowchart TB
   user["Owner's device<br/>root key, session key"]
   edge["Admission edge<br/>the ONLY leaf-signer enforcement"]
-  sealer["Sealer<br/>ephemeral leased key"]
+  sealer["Sealer<br/>leased delegate key<br/>derived, never at rest"]
   store["Public storage<br/>massifs, checkpoints, genesis"]
   chain["Contract<br/>immutable root, permissionless publish"]
   anyone["Any replica / verifier"]
@@ -86,10 +86,12 @@ only defeats is incomplete.
 The sealing key is the one hot-path private key the operator holds. It exists
 only because the owner's root signed a lease authorising **that specific key**,
 scoped by log, MMR range and expiry, and no long-lived private key is persisted
-at rest. What bounds a compromise is therefore the lease, not the key's
+at rest. It is **derived, not generated-and-discarded**: an HKDF over a seed the
+operator's KMS re-derives at boot, so a restart re-derives the *same* key
+instead of losing it, and the custody boundary is the KMS rather than any
+stored key file. What bounds a compromise is therefore the lease, not the key's
 lifetime; a compromise is neutralised definitively only by the owner rotating
-their root and re-delegating. How the key is derived, and why that is not the
-same as being discarded, is in
+their root and re-delegating. The derivation is set out in
 [receipt-trust-model.md](./receipt-trust-model.md) (question 2).
 
 ## 4. What the operator cannot do

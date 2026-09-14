@@ -77,12 +77,15 @@ checks that it chains to the owner.
 **What the operator holds here.** The sealing key is the one hot-path private
 key the Forestrie operator does hold. Precisely:
 
-- **No long-lived private key is persisted at rest.** That is the property.
-- The key is **not** merely ephemeral-and-lost. It is HKDF-derived
-  deterministically from a KMS-held seed, keyed by `(epoch, index)`, so the
-  *same* key re-derives after a restart or pod churn rather than being
-  discarded. That is deliberate: certificates outlive restarts without
-  needing an on-demand signer round trip.
+- **No long-lived private key is persisted at rest.** That is the property,
+  and the custody boundary is the KMS.
+- The key is **not** merely ephemeral-and-lost. It is derived deterministically
+  with **HKDF-SHA256** from a seed the operator's KMS re-derives at boot, keyed
+  by `(epoch, index)`, so the *same* key re-derives after a restart or pod
+  churn rather than being discarded. That is deliberate: certificates outlive
+  restarts without needing an on-demand signer round trip. The seed itself is
+  never written to a secret store or to disk — see
+  [glossary.md](../glossary.md) ("standing delegate key").
 - **Scope comes from the certificate, not the key.** The lease certificate
   binds one log, one MMR range and an expiry, and it exists only because the
   log's root key signed it.

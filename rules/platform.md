@@ -1,11 +1,8 @@
-# Rules of the road — platform (general)
+# Platform invariants
 
-Cross-repo invariants. Load this file for **every** Forestrie review or plan,
-alongside the one repo file that matches the code. Repo files specialise these
-into concrete checks — they never restate them.
-
-Reasoning links go to the Forestrie protocol repository (this repository) and the
-[receipt trust model](../spec/receipt-trust-model.md).
+The invariants the protocol rests on: what a change must not break. Each
+links to the document under `spec/` that carries its reasoning; none adds a
+fact those documents do not state.
 
 ---
 
@@ -58,7 +55,10 @@ One checkpoint anchors a whole massif (~16k entries); nothing on the write/read
 hot path may gate on a chain read. **Why:** entries write at internet speed and
 gas amortises to fractions of a cent per entry — per-entry anchoring destroys
 both.
-[checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.2.
+[checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.2
+(one proof per massif boundary) · [glossary.md](../glossary.md) (massif)
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4.1
+(nothing in verification reads the chain).
 
 ### P6 — Authority is receipt-based; submission is permissionless
 Authority = a valid **grant inclusion proof** + a correctly **signed
@@ -68,11 +68,17 @@ proof of authority is portable, not identity-held.
 [ARC-0019](../decisions/arc-0019-grant-verification-model.md)
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7.
 
-### P7 — Payment grants authority; a grant is a prepaid provability entitlement
+### P7 — A grant is a prepaid provability entitlement; payment never gates authority
 The requester of work **buys** capacity; the performer **draws it down**. A
-grant is not a payment escrow (escrow lives at the settlement layer). **Why:** a
-performer's record cannot be suppressed by a requester who refuses acceptance.
-[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7.
+grant is not a payment escrow (escrow lives at the settlement layer). Payment
+identity is never an input to grant verification, and no verifier or contract
+reads payment state. A parent's committed flag may make the operator's
+registration API require payment before it registers a *child* grant; that is
+a gate on registration at the operator, not on authority. **Why:** a
+performer's record cannot be suppressed by a requester who refuses acceptance,
+and a lapsed payment cannot silently revoke authority.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7
+· [label-registry.md](../spec/label-registry.md) §5 (bit 35).
 
 ### P8 — Grants are irrevocable; capacity ends by exhaustion or non-renewal
 `maxHeight` is a contract-enforced **entry ceiling / high-water mark**, not a
@@ -104,12 +110,15 @@ replay/substitution.
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §5.
 
 ### P11 — Identity is a separate, key-derived layer
-Statement issuer/subject default to registration-free, key-derived identity
-(ES256 `iss` = hex `kid`; KS256 = CAIP-10; `sub` = payload SHA-256). The signing
-path MUST NOT depend on a certificate or registration. **Why:** zero-config,
-offline, SCITT-compliant — identity composes *above* the log rather than being
-owned by it.
-[glossary.md](../glossary.md) (statement signer binding).
+A statement's signer is identified by its `kid`, which must equal the binding
+derived from the grant's `grantData` or the endorsed session key; nothing
+else about the signer is registered or certified anywhere in the protocol.
+The signing path MUST NOT depend on a certificate or registration. **Why:**
+zero-config, offline, SCITT-compliant — identity composes *above* the log
+rather than being owned by it.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §2.2 and §5
+· [leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
+§5.1.
 
 ### P12 — Signed is not sequenced
 A signature never establishes ordering; only the sequencer's monotone
@@ -132,12 +141,14 @@ unbuilt.
 §6.
 
 ### P14 — One instance root, set once; global logId→R uniqueness
-Every checkpoint binds to exactly one instance root (`chainId` + contract); the
-root/bootstrap key is **set once at construction and immutable**, and global
-`logId → R` uniqueness is enforced atomically at grant POST. **Why:** this 1:1
-binding is what authority resolution, fee liability, and permissionless
-per-forest publishing all key off — and what blocks logId reuse / grant replay.
-[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1
+Every forest binds to exactly one contract instance (`chainId` + contract)
+through its genesis document; the instance's bootstrap key is **set once at
+construction and immutable**; and a log id belongs to exactly one forest,
+enforced at registration. **Why:** this 1:1 binding is what authority
+resolution and permissionless per-forest publishing key off — and what blocks
+logId reuse across forests.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1 and §1.1
+· [key-custody-and-choice.md](../spec/key-custody-and-choice.md) §1
 · [glossary.md](../glossary.md) (forest uniqueness).
 
 ### P15 — Published artifacts declare their own cache policy; completeness decides immutability
@@ -148,12 +159,19 @@ adds nothing to it. **Why:** heuristic caching of mutable objects fails
 silently — a stale proof, or a cached 404 that blocks a later write.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §6.
 
-### P16 — Conformant COSE/CBOR everywhere; `@forestrie/encoding` owns the wire layer
-Strict SCITT/COSE + RFC 8949 §4.2 canonical CBOR is mandatory (encode **and**
-decode); `cbor-x` is banned. Layering is acyclic — no `verifier → builder` edge.
-**Why:** on-chain verifiability and interop depend on exact bytes; a lax or
-tag-mangling codec produces receipts the contract rejects.
-[label-registry.md](../spec/label-registry.md)
+### P16 — Conformant COSE/CBOR everywhere, with one named legacy exception
+Every format is strict SCITT/COSE with RFC 8949 §4.2 core deterministic
+encoding, on encode **and** on decode. The one exception is the **checkpoint
+envelope**, which uses the older length-first canonical map ordering; the two
+orderings agree only while every map label is a single byte, and the
+checkpoint envelope carries multi-byte labels. A verifier of checkpoints MUST
+accept the length-first order and MUST NOT re-encode a checkpoint expecting
+byte identity with a core-deterministic encoder. **Why:** on-chain
+verifiability and interop depend on exact bytes; a lax or tag-mangling codec
+produces receipts the contract rejects, and migrating the envelope would
+break every frozen vector for a divergence no one has observed.
+[ADR-0067](../decisions/adr-0067-checkpoint-envelope-canonicalisation-exception.md)
+· [label-registry.md](../spec/label-registry.md)
 · [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.
 
 ---

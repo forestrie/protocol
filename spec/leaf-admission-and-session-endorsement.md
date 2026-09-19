@@ -82,7 +82,10 @@ endorsement = COSE_Sign1<
     4: bstr .size 32          ; kid = the passkey root's x coordinate
   },
   unprotected: {
-    TBD1: [authenticatorData: bstr, clientDataJSON: bstr]
+    -65800: [authenticatorData: bstr, clientDataJSON: bstr]
+                              ; TBD1, the WebAuthn assertion envelope; the
+                              ; number is the algorithm's, reused (see the
+                              ; label registry, section 4)
   },
   payload: {
     "sessionKey": bstr .size 64,   ; session public key x‖y
@@ -145,7 +148,7 @@ endorsed-leaf = COSE_Sign1<
     4: bstr .size 32          ; kid = the SESSION key's x coordinate
   },
   unprotected: {
-    TBD2: bstr                ; the endorsement above, as COSE Sign1 bytes
+    -65801: bstr              ; TBD2, the endorsement above, as COSE Sign1 bytes
   },
   payload: bstr               ; unchanged
 >

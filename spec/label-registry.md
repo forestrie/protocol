@@ -1,7 +1,7 @@
 # Codepoint and flag registry
 
 **Status:** LIVE
-**Date:** 2026-08-30
+**Date:** 2026-09-19
 **Audience:** anyone implementing or reviewing a Forestrie encoder or
 verifier. This is the lookup table; the reasoning lives in the documents it
 links to.
@@ -48,6 +48,8 @@ as the table below.
 | **`TBD1`** — WebAuthn assertion envelope | `-65800` | — | Unprotected | `[authenticatorData, clientDataJSON]`. **Reuses the algorithm's number — see §4** |
 | **`TBD2`** — session-key endorsement | `-65801` | — | Unprotected | The endorsement COSE Sign1, embedded as a bstr |
 | `SealPeakReceiptsLabel` | `-65931` | `-65535 - 396` | Unprotected | Pre-signed per-peak inclusion receipts on a checkpoint |
+| `tree-size-1` (profile draft `TBD_2`) | `-65932` | `-65535 - 397` | **Protected** | The signed size a checkpoint's consistency is proven **from**. MUST equal the first consistency proof's `tree-size-1`. Interim private-use pending IANA via the profile draft — [ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md) |
+| `tree-size-2` (profile draft `TBD_3`) | `-65933` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to** — the size the contract anchors. MUST equal the last consistency proof's `tree-size-2`. Interim private-use pending IANA via the profile draft — [ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md) |
 | `SealDelegationProofLabel` | `-66535` | `-65535 - 1000` | Unprotected | The on-chain delegation proof carried in a checkpoint |
 | `delegationCertUnprotectedLabel` | `1000` | — | Unprotected | The delegation certificate bytes, as a CBOR bstr. Predates the private-use convention and is **not** in that space |
 
@@ -55,6 +57,22 @@ Note `1000` and `-66535` coexist in the same checkpoint and mean different
 things — the certificate bytes and the on-chain proof respectively. The offset
 in `SealDelegationProofLabel` mirrors the older label's number; it does not
 replace it.
+
+**Derivation convention.** A derived label is `COSEPrivateStart - <related
+registered label>`. When no registered label is related, the derivation uses
+the *next conceptual slot* in the registered sequence: `tree-size-1` and
+`tree-size-2` take 397 and 398, the slots after `vds` (395) and `vdp` (396),
+because they are the next protected-header parameters the MMR profile adds.
+The `-658xx` band is not extended, since an algorithm and a header parameter
+already share `-65800` there (§4).
+
+`tree-size-1` and `tree-size-2` are the **only protected-header labels in the
+private-use space**. The profile draft names them `TBD_2` and `TBD_3` (its
+`TBD_1` is `vds`); those names are the draft's, and are unrelated to this
+registry's `TBD1`/`TBD2`, which are unprotected envelope labels. Both sizes
+MUST be present on a checkpoint receipt, and every verifier compares them
+with the declared proof sizes before it trusts the fold — see
+[checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3.
 
 ## 3. Payload and map keys
 
@@ -160,6 +178,7 @@ typed again somewhere it could have been imported.
 | `-65799` | Solidity constants (chain) + the TypeScript encoding package | 13 named, 4 bare | **Yes** | Two browser-client call sites put a **bare `-65799`** in a request body with no named constant at all |
 | `-65800` | Solidity constants (chain) + the TypeScript encoding package | 3 named | **Yes** | One canopy library re-types the literal instead of importing it; **arbor has no name for it at all** — it exists there only as test hex |
 | `-65801` (`TBD2`) | The TypeScript encoding package | **1** | **Yes** | None. This is the only codepoint with clean single-definition hygiene |
+| `-65932` / `-65933` (signed tree sizes) | Solidity constants (chain) + the TypeScript encoding package + go-merklelog | none yet — being added by plan-2609-10 slices 02–04 | — | New; the Go, Solidity and TypeScript declarations are pinned to one cross-language KAT before any deploys |
 | Bit 40 / UV | Solidity constants (chain) | 1 chain, 3 hand-derived TypeScript, 2 test literals | **Yes** | The bit-40 → byte-2/`0x01` translation is hand-derived in four independent places; a text-comparison test covers two of them, and only one assertion anywhere ties the wire encoding back to the on-chain bit |
 
 Two related constants deserve the same treatment and do not currently get it:
@@ -194,5 +213,7 @@ except the one fork-sync test and the one bit-40 equivalence assertion.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
-  labels.
+  labels, and what the checkpoint signature covers.
+- [ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md)
+  — why the tree sizes are signed, and the verification MUSTs.
 - [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

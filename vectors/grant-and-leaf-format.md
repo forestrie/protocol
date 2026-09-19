@@ -1,8 +1,13 @@
 # Grant and leaf format
 
-This document specifies the **leaf commitment** hashing and **PublishGrant** (grant) format used by the univocity Solidity contracts and by canopy/arbor. It is the authoritative spec for [go-univocity](https://github.com/forestrie/go-univocity).
+A worked guide to the **leaf commitment** and the **grant** wire format, with
+code in Go, TypeScript and Python that reproduces the fixtures under
+[`fixtures/`](README.md). The normative definitions are in
+[log authority and grants](../spec/log-authority-and-grants.md): §2.1 for the
+wire map and §4 for the commitment. Where this guide and that document
+differ, that document is right.
 
-**References**: univocity `LibLogState.sol` (`_leafCommitment`), `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`), `src/interfaces/types.sol` (PublishGrant); canopy [register-grant API](https://github.com/forestrie/canopy/blob/main/docs/api/register-grant.md), canopy [grant codec](https://github.com/forestrie/canopy/blob/main/packages/shared/encoding/src/grant-codec.ts).
+**Implementations**: univocity `LibLogState.sol` (`_leafCommitment`), `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`), `src/interfaces/types.sol` (`PublishGrant`); canopy [grant codec](https://github.com/forestrie/canopy/blob/main/packages/shared/encoding/src/grant-codec.ts); go-univocity [`grant/cborcodec.go`](https://github.com/forestrie/go-univocity/blob/main/grant/cborcodec.go).
 
 ---
 
@@ -31,9 +36,9 @@ Concatenation is **without length prefixes** (Solidity `abi.encodePacked` style)
 
 ---
 
-## 2. Grant format (PublishGrant + idtimestamp)
+## 2. Grant fields
 
-Stored grant fields (canopy/arbor use 16-byte log IDs and 8-byte grant flags). For the **leaf inner preimage**, they are encoded with fixed sizes to match Solidity (see §1):
+Stored grant fields (canopy and arbor use 16-byte log IDs and 8-byte grant flags). For the **leaf inner preimage**, they are encoded with fixed sizes to match Solidity (see §1):
 
 | Field          | Stored / API  | In inner preimage     | Notes                          |
 |----------------|---------------|------------------------|---------------------------------|
@@ -45,7 +50,7 @@ Stored grant fields (canopy/arbor use 16-byte log IDs and 8-byte grant flags). F
 | ownerLogId     | 16 bytes      | 32 bytes (left-pad)   | Owner (authority) log           |
 | grantData      | variable      | variable                | Opaque (e.g. signer key)        |
 
-Canopy extends the stored grant with **signer** (signer binding for register-statement) and **kind** (1 byte); these are **not** part of the univocity leaf commitment but are in the canopy CBOR grant document.
+These seven fields are the whole grant. `grantData` is the sole statement-signer binding; there is no separate signer or kind field on the wire or in the commitment.
 
 ---
 
@@ -205,7 +210,7 @@ print(leaf.hex())
 
 ## 4. Test vectors
 
-Run `tests/scripts/gen_testvectors.py` to generate `tests/fixtures/leaf_vectors.json`. Each entry has hex-encoded inputs, **expected_inner_hex** (ContentHash for grant-sequencing), and **expected_leaf_hex**. All three languages should match these vectors. Go: `InnerHash` / `InnerHashFromGrant`; see `grant/leaf_test.go` (TestInnerHashFromFixture, TestLeafCommitmentFromFixture).
+The fixtures live in [`fixtures/`](fixtures/) and are described in [README.md](README.md). Each entry of `leaf_vectors.json` has hex-encoded inputs, **expected_inner_hex** (the content hash for grant sequencing), and **expected_leaf_hex**. All three languages must match these vectors; `scripts/check-vectors.py` recomputes them.
 
 Example (vector 1):
 
@@ -215,7 +220,7 @@ Example (vector 1):
 - max_height: 1000, min_growth: 1
 - owner_log_id_hex: `101112131415161718191a1b1c1d1e1f`
 - grant_data_hex: `abcd`
-- expected_inner_hex: 32-byte inner hash (hex); use as ContentHash for grant-sequencing.
+- expected_inner_hex: `37ba4d6d92cfac9b673379005bc24f5fd2acf08e8920782ed37c782d69aea553` (the content hash for grant sequencing)
 - expected_leaf_hex: `0bc4a0d26f57d59ca4dc604865be4c49a6221f1cbe65840e95e9905d02b30ea0`
 
 ---
@@ -230,31 +235,29 @@ Example (vector 1):
 | maxHeight, minGrowth | maxHeight, minGrowth (uint64) | 8-byte BE each |
 | ownerLogId (16)    | ownerLogId bytes32  | Left-pad to 32          |
 | grantData          | grantData bytes     | Variable, no prefix     |
-| signer             | —                   | Canopy only; not in leaf |
-| kind               | —                   | Canopy only; request (GC_*) at publishCheckpoint |
 
-Univocity exposes the same encoding via `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`); padding is documented in that library.
+The Solidity `request` code (GC_AUTH_LOG / GC_DATA_LOG) is supplied at `publishCheckpoint` time and is neither on the wire nor in the leaf. Univocity exposes the same encoding via `LibLeafEncoding.sol` (`innerPreimage`, `leafCommitment`); padding is documented in that library.
 
 ---
 
 ## 6. CBOR wire format
 
-Grants are serialized for storage and wire using **CBOR** (RFC 8949). The encoding is a single CBOR map with **integer keys** 0–8 for compactness and canonical ordering. Encoding uses **Core Deterministic Encoding** so the same grant always produces the same bytes.
+Grants are serialized for storage and wire as a single CBOR (RFC 8949) map with **integer keys 0–6**, in Core Deterministic Encoding (keys ascending; preferred serialization for lengths and integers), so the same grant always produces the same bytes. The normative table is [log authority and grants §2.1](../spec/log-authority-and-grants.md#21-the-inner-grant); it is reproduced here so the examples are self-contained.
 
 | Key | Field        | CBOR type | Wire length | Notes                          |
 |-----|--------------|-----------|-------------|---------------------------------|
-| 0   | IDTimestamp  | bstr      | 8           | Big-endian idtimestamp         |
+| 0   | IDTimestamp  | bstr      | 8           | Big-endian idtimestamp; **response form only**, absent from the signed payload |
 | 1   | LogId        | bstr      | 32          | Fixed; left-padded on encode    |
 | 2   | OwnerLogId   | bstr      | 32          | Fixed; left-padded on encode    |
 | 3   | GrantFlags   | bstr      | 8           | Fixed; left-padded on encode    |
 | 4   | MaxHeight    | unsigned  | —           | uint64                         |
 | 5   | MinGrowth    | unsigned  | —           | uint64                         |
 | 6   | GrantData    | bstr      | variable    | Opaque (e.g. signer key)       |
-| 7   | Signer       | bstr      | variable    | Canopy signer binding          |
-| 8   | Kind         | unsigned  | —           | 0–255, grant kind              |
 
-Fixed lengths (32, 32, 8) guarantee that decode→LeafCommitment pad paths are no-ops and CheckSizes always passes for wire-decoded grants.
+Two forms share these keys. The **payload form** (keys 1–6) is what the owner signs and what the commitment covers. The **response form** (keys 0–6) is the payload form with the assigned idtimestamp at key 0, returned once the grant is sealed; `fixtures/grant_vectors.json` carries this form.
 
-**Go**: Hand-written encoder/decoder in `grant/cborcodec.go`. `MarshalGrant` / `UnmarshalGrant`. Public constants: `CborKey*` (map keys 0–8); `CborBstrLen8`, `CborBstrLen16`, `CborBstrLen32Lead`; `CborFixedLogIdOwnerLogIdLen` (32), `CborFixedGrantFlagsLen` (8); `CborMaxGrantData`, `CborMaxSigner` (decode limits for variable fields). Decode returns `ErrGrantFieldSize` when a fixed-length field has wrong length or a variable field exceeds its max.
+**Keys 7 and 8 are rejected.** They once carried a `signer` and a `kind`; `grantData` is the sole signer binding, and a decoder that accepted the removed keys would reintroduce the ambiguity their removal eliminated. `fixtures/grant_vectors_negative.json` carries maps with those keys that every decoder must refuse.
 
-Other languages (TypeScript, Python) should use the same key assignments and Core Deterministic Encoding (map keys in ascending order; preferred serialization for lengths and values) so that encoded bytes are interchangeable.
+Fixed lengths (32, 32, 8) guarantee that decode→LeafCommitment pad paths are no-ops and size checks always pass for wire-decoded grants.
+
+**Go**: hand-written encoder/decoder in go-univocity `grant/cborcodec.go`, `MarshalGrant` / `UnmarshalGrant`. **TypeScript**: `encodeGrantPayload` / `decodeGrantPayload` and `encodeGrantForResponse` / `decodeGrantResponse` in `@forestrie/encoding`. Other languages should use the same key assignments and Core Deterministic Encoding so that encoded bytes are interchangeable.

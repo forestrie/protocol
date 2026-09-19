@@ -120,7 +120,8 @@ bit 40 is **wire byte 2, mask `0x01`**.
 |---|---|---|
 | 0–1 | Log kind: auth log, data log | Chain |
 | 32–34 | `CREATE`, `EXTEND`, `DERIVED` | Chain |
-| 35–39 | Canopy-assignable derived band | **Convention only** — no on-chain constant, no mask, no test |
+| 35 | `GF_CHILD_PAYMENT_REQUIRED`: the operator requires payment before registering a child grant | The operator's registration API — never the chain, never a verifier |
+| 36–39 | Operator-assignable derived band | **Convention only** — no on-chain constant, no mask, no test |
 | 40–47 | Algorithm policy. Bit 40 requires user verification | Chain, fail-closed |
 | 224–255 | Request codes | Not committed |
 
@@ -196,7 +197,7 @@ are not two authorisations; one is a credential and the other is context.
 | | Child grant | Parent grant |
 |---|---|---|
 | What it is | The signed assertion "owner authorises target", and the new resource | The issuer's certificate plus its inclusion receipt |
-| Carries authority? | **Yes** — its signature proves possession of the owner's private key, and is not replayable | **No** — public and replayable; its receipt is published. Possession conveys nothing |
+| Carries authority? | **Yes, until it is sealed** — its signature proves possession of the owner's private key, and until the grant has a receipt nobody else can produce it. Once sealed it is as public and replayable as any other grant | **No** — public and replayable; its receipt is published. Possession conveys nothing |
 | Transport | The `Authorization` header | The request body |
 
 The parent grant sits in the body precisely *because* it is not a credential.
@@ -239,9 +240,19 @@ own receipt.
   plus a correctly signed consistency receipt. The contract does not check who
   submitted the transaction, so no operator can censor or stall a well-formed
   write, and proof of authority is portable rather than identity-held.
-- **Payment is a separate plane.** Payment identity is never an input to grant
-  verification, and grants never gate payment. Coupling them would let a lapsed
-  payment silently revoke authority.
+- **A grant is presented, not spent.** The contract keeps no record of the
+  grants it has accepted: its per-log state is the accumulator and the size,
+  and the grant's idtimestamp is emitted in the event, never stored. A sealed
+  grant with extend authority can be presented with every later checkpoint of
+  its log, which is what authorising the log rather than one publish means.
+- **Payment is a separate plane.** A grant is a prepaid provability
+  entitlement: the requester of work buys capacity and the performer draws it
+  down. Payment identity is never an input to grant verification, and grants
+  never gate payment. Coupling them would let a lapsed payment silently revoke
+  authority. One parent flag, bit 35, lets the operator's registration API
+  require payment before it registers a *child* grant; that is a gate on
+  registration at the operator, committed in the parent's leaf and invisible
+  to the contract and to verifiers.
 
 ## Open questions
 

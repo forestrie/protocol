@@ -183,8 +183,8 @@ one** source:
 
 | Condition | Binding | Verification key |
 |---|---|---|
-| No `TBD2` entry | `grantData` — the first 32 bytes of a 64-byte ES256 owner, or the full bytes for a 16-byte custodian kid | The key imported from `grantData` |
-| `TBD2` present | The endorsed `sessionKey`'s x coordinate | The endorsed session key |
+| No `-65801` entry | The binding derived from `grantData` by root algorithm ([log-authority-and-grants.md](./log-authority-and-grants.md) §2.2) | The key imported from `grantData` |
+| `-65801` present | The endorsed `sessionKey`'s x coordinate | The endorsed session key |
 
 When an endorsement is present the **custodian 16-byte branch is not
 consulted**.
@@ -258,9 +258,9 @@ Four stages, in order:
 | `window` | The receipted idtimestamp falls within `[notBefore, notAfter]` — **no skew tolerance** |
 | `receipt` | The entry's bytes hash to the receipted index; inclusion verifies |
 
-Inputs are the log root as raw `x‖y` (the `grantData`, which the contract binds
-as `logRootKey`), the **exact** registered entry bytes, the receipt, and the
-receipted idtimestamp. Nothing else, and no network.
+Inputs are the log root key as raw `x‖y` (the `grantData`, which the contract
+binds as the log's root), the **exact** registered entry bytes, the receipt,
+and the entry's idtimestamp. Nothing else, and no network.
 
 **Online and offline check the same window against different clocks**, and the
 difference is intentional. Admission uses wall-clock time with a small skew

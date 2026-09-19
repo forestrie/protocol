@@ -60,7 +60,20 @@ Then read, in any order:
 `vectors/` holds the conformance vectors: the cross-language grant and leaf
 fixtures, a golden grant receipt that verifies from a forest genesis document,
 and a burial bundle of retained checkpoints; [`vectors/README.md`](vectors/README.md)
-says what each proves. Terms are defined in [glossary.md](glossary.md).
+says what each proves. Terms are defined in [glossary.md](glossary.md), and
+[`spec/implementation-status.md`](spec/implementation-status.md) is the one
+place that says where an implementation differs from the text.
+
+### By audience
+
+- **Implementing a verifier:** the trust model; checkpoints and receipts; the
+  label registry; log authority and grants §2 and §4; delegation §5 and §7;
+  leaf admission §3 and §6; then `vectors/`.
+- **Implementing a client that writes entries:** log authority and grants;
+  leaf admission; delegation; key custody; the label registry.
+- **Reviewing the security model:** trust boundaries; key custody; the trust
+  model; `rules/platform.md`; then implementation status for the distance
+  between the text and the code.
 
 ## Conformance
 

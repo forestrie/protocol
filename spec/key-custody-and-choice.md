@@ -23,10 +23,10 @@ how to leave.
 
 | Key | Held by | Signs | Lifetime |
 |---|---|---|---|
-| **Instance bootstrap key** | The forest curator | The root log's authority | Set once at contract construction, immutable |
+| **Instance bootstrap key** | Whoever deploys the forest's contract instance | The root log's authority | Set once at contract construction, immutable |
 | **Log root key** | The log's owner | Grants it issues; its sealing delegations | The life of the log — cannot be changed |
 | **Session key** | The owner's browser, non-extractable | Per-turn entries | Rotatable, bounded by its endorsement window |
-| **Delegated sealing key** | The operator's sealer | Checkpoints, for each log that has leased it, within that lease's MMR range | HKDF-derived at boot from a KMS-held seed, so a restart re-derives it — no long-lived private key is persisted at rest. Each lease lasts until the log grows past its range on-chain, and until the certificate's expiry off-chain |
+| **Delegated sealing key** | The transparency operator's sealer | Checkpoints, for each log that has leased it, within that lease's MMR range | A standing key, derived and never persisted ([trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md) §3). Each lease lasts until the log grows past its range on-chain, and until the certificate's expiry off-chain |
 | **Custody key** | The operator's custodian, in KMS | For a custodial log, everything the root signs: the delegation certificate, the on-chain proof, and any digest presented under the service token | The life of the log; one key per custodial log id |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
 | **Upgrade admin key** | Whoever holds the upgradeable contract variant's admin address | Replacement of the contract implementation | Until replaced by an upgrade; there is no transfer operation |

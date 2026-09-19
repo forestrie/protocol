@@ -81,7 +81,7 @@ wire format is specified in [log-authority-and-grants.md](./log-authority-and-gr
 | Label | Name | Display name | Type | Meaning | Declared in |
 |---|---|---|---|---|---|
 | `-68009` | genesis version | `forest genesis version` | uint | Schema version; `2` is the only version written | canopy `packages/libs/receipt-verify/src/forest-genesis-labels.ts`; arbor `services/univocity/src/genesis_labels.go` |
-| `-68010` | bootstrap log id | `bootstrap log id` | bstr, 32 bytes | The forest's root authority log id in the padded 32-byte wire form (the 16-byte UUID in the low bytes) | same |
+| `-68010` | bootstrap log id | `bootstrap log id` | bstr, 32 bytes | The id of the forest's root authority log, in the padded 32-byte wire form (the 16-byte UUID in the low bytes) | same |
 | `-68011` | univocity address | `univocity address` | bstr, 20 bytes | The anchoring contract's address | same |
 | `-68012` | legacy chain ids | `legacy chain ids` | array of uint | **Retired.** A version-2 document must not carry it; a decoder rejects it | canopy `packages/apps/canopy-api/src/forest/forest-genesis-labels.ts`; arbor `services/univocity/src/genesis_labels.go` |
 | `-68013` | chain id | `chain id` | tstr | The EIP-155 chain id as a **decimal text string** | canopy `packages/libs/receipt-verify/src/forest-genesis-labels.ts`; arbor `services/univocity/src/genesis_labels.go` |
@@ -92,55 +92,30 @@ wire format is specified in [log-authority-and-grants.md](./log-authority-and-gr
 
 ## 3. Payload and map keys
 
+Each payload's map keys are specified once, in the document that owns the
+artifact; this section only says where.
+
 ### 3.1 Inner grant CBOR
 
-The normative table is [log-authority-and-grants.md](./log-authority-and-grants.md)
-§2.1; the keys are repeated here for lookup.
-
-| Key | Field | Wire type |
-|---|---|---|
-| `0` | `idtimestamp` | bstr, 8 bytes — **response format only**, never in the signed payload |
-| `1` | `logId` | bstr, 32-byte padded wire (16-byte UUID in the low bytes) |
-| `2` | `ownerLogId` | bstr, 32-byte padded wire |
-| `3` | `grant` (flags) | bstr, left-padded to 8 bytes |
-| `4` | `maxHeight` | uint |
-| `5` | `minGrowth` | uint |
-| `6` | `grantData` | bstr |
-
-Keys `7` (legacy `signer`) and `8` (legacy `kind`) are **rejected on sight**,
-in both the response and payload decoders. `grantData` is the sole
-statement-signer binding. [`vectors/fixtures/grant_vectors_negative.json`](../vectors/fixtures/grant_vectors_negative.json)
+Keys `0`–`6`: [log-authority-and-grants.md](./log-authority-and-grants.md)
+§2.1. Keys `7` (legacy `signer`) and `8` (legacy `kind`) are **rejected on
+sight**, in both the response and payload decoders; `grantData` is the sole
+statement-signer binding, and
+[`vectors/fixtures/grant_vectors_negative.json`](../vectors/fixtures/grant_vectors_negative.json)
 carries maps with those keys that every decoder must refuse.
 
 ### 3.2 Delegation certificate payload
 
-| Label | Field | Type | Notes |
-|---|---|---|---|
-| `1` | `log_id` | tstr, hex | encoders MAY omit when empty |
-| `3` | `mmr_start` | uint | inclusive; encoders MAY omit when `log_id` is omitted |
-| `4` | `mmr_end` | uint | **inclusive**; encoders MAY omit when `log_id` is omitted |
-| `5` | `delegated_key` | COSE_Key `{1: 2, -1: 1, -2: x, -3: y}` | |
-| `6` | `constraints` | map | always present, `{}` when none |
-| `7` | `schema_ver` | uint | always `1` |
-| `8` | `issued_at` | uint, **unix seconds** | encoders MAY omit when zero |
-| `9` | `expires_at` | uint, **unix seconds** | encoders MAY omit when zero |
-| `10` | `delegation_id` | bstr | |
-
-**Encoders MAY omit the labels marked so; decoders MUST accept either form.**
-The Go builder omits them under the stated conditions; the TypeScript builder
-emits all nine labels every time. Both are conformant.
-
-**Label `2` is unassigned** and must not be used without a decision.
+Labels `1` and `3`–`10`:
+[delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
+§5.1, including which labels an encoder may omit. **Label `2` is unassigned**
+and must not be used without a decision.
 
 ### 3.3 Session-key endorsement payload
 
-Three text-string keys, exactly — any other count is a decode failure.
-
-| Key | Type |
-|---|---|
-| `"sessionKey"` | bstr, exactly 64 bytes (x‖y) |
-| `"notBefore"` | uint, unix milliseconds |
-| `"notAfter"` | uint, unix milliseconds |
+The three text-string keys:
+[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+§3.
 
 ## 4. The `-65800` collision
 

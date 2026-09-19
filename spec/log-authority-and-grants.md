@@ -39,17 +39,42 @@ graph TD
   A -->|"grant: owner A, target D<br/>signed by A"| D["Data log D"]
 ```
 
-`genesis.cbor` is **not** a per-log artifact. It is the instance registration
-document, recording the bootstrap key bound into the contract at deploy — one
-per instance, not one per log. Reaching the anchor from a child log means
-walking this hierarchy, not reading a per-log genesis.
+The **forest genesis document** is **not** a per-log artifact. It is the
+instance registration document, recording the bootstrap key bound into the
+contract at deploy — one per forest, not one per log. Reaching the anchor
+from a child log means walking this hierarchy, not reading a per-log genesis.
 
 **The contract does that walk at publish.** It re-checks the presented grant's
 inclusion in the parent log against the parent's on-chain accumulator, within
 the grant's size bounds, link by link to the bootstrap key. This is why state
 read from the chain carries the authority answer with it.
 
-### 1.1 `logId` versus `ownerLogId`
+### 1.1 The forest genesis document
+
+A CBOR map with integer labels, in Core Deterministic Encoding, written once
+when the forest's contract instance is deployed and served immutably. It is
+the signature root a verifier holds when it holds nothing else, and its
+contents are what the contract's constructor bound.
+
+| Label | Field | Type | Rule |
+|---|---|---|---|
+| `-68009` | schema version | uint | Must be `2` |
+| `-68014` | bootstrap key algorithm | int | `-7` (ES256) or `-65799` (KS256) |
+| `-68015` | bootstrap public key | bstr | 64-byte `x‖y` under ES256; 20-byte address under KS256 |
+| `-68011` | contract address | bstr, 20 bytes | The instance the forest anchors to |
+| `-68013` | chain id | tstr | Decimal EIP-155 chain id |
+| `-68010` | root log id | bstr, 32 bytes | Optional; when present must equal the forest's root authority log id in padded wire form |
+| `-68016` | contract variant | tstr | Optional; present only when the instance is not the immutable variant |
+| `-68017` | deployer | bstr, 20 bytes | Required exactly when `-68016` is present |
+
+A decoder rejects a version other than `2`, an algorithm other than the two
+above, a key whose length does not match the algorithm, and the retired label
+`-68012`. The chain binding — `(chain id, contract address)` — is what ties a
+receipt's forest to one contract instance; the bootstrap key is the root log's
+authority key. Display names and declaration sites are in
+[label-registry.md](./label-registry.md) §2.3.
+
+### 1.2 `logId` versus `ownerLogId`
 
 Two identifiers, easily conflated:
 

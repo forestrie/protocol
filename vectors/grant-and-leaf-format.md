@@ -13,7 +13,7 @@ differ, that document is right.
 
 ## 1. Leaf commitment (hashing)
 
-The authority log leaf is the 32-byte SHA-256 output of:
+The authority log leaf is the 32-byte SHA-256 output of the commitment specified in [log authority and grants §4](../spec/log-authority-and-grants.md#4-the-commitment):
 
 ```
 leafCommitment = sha256( grantIDTimestampBe || sha256( inner ) )
@@ -242,17 +242,7 @@ The Solidity `request` code (GC_AUTH_LOG / GC_DATA_LOG) is supplied at `publishC
 
 ## 6. CBOR wire format
 
-Grants are serialized for storage and wire as a single CBOR (RFC 8949) map with **integer keys 0–6**, in Core Deterministic Encoding (keys ascending; preferred serialization for lengths and integers), so the same grant always produces the same bytes. The normative table is [log authority and grants §2.1](../spec/log-authority-and-grants.md#21-the-inner-grant); it is reproduced here so the examples are self-contained.
-
-| Key | Field        | CBOR type | Wire length | Notes                          |
-|-----|--------------|-----------|-------------|---------------------------------|
-| 0   | IDTimestamp  | bstr      | 8           | Big-endian idtimestamp; **response form only**, absent from the signed payload |
-| 1   | LogId        | bstr      | 32          | Fixed; left-padded on encode    |
-| 2   | OwnerLogId   | bstr      | 32          | Fixed; left-padded on encode    |
-| 3   | GrantFlags   | bstr      | 8           | Fixed; left-padded on encode    |
-| 4   | MaxHeight    | unsigned  | —           | uint64                         |
-| 5   | MinGrowth    | unsigned  | —           | uint64                         |
-| 6   | GrantData    | bstr      | variable    | Opaque (e.g. signer key)       |
+Grants are serialized for storage and wire as a single CBOR (RFC 8949) map with **integer keys 0–6**, in Core Deterministic Encoding (keys ascending; preferred serialization for lengths and integers), so the same grant always produces the same bytes. The key table is [log authority and grants §2.1](../spec/log-authority-and-grants.md#21-the-inner-grant) and is not repeated here; the fixed wire lengths are 32 bytes for keys 1 and 2 and 8 bytes for keys 0 and 3, left-padded on encode.
 
 Two forms share these keys. The **payload form** (keys 1–6) is what the owner signs and what the commitment covers. The **response form** (keys 0–6) is the payload form with the assigned idtimestamp at key 0, returned once the grant is sealed; `fixtures/grant_vectors.json` carries this form.
 

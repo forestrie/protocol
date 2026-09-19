@@ -29,12 +29,12 @@ load-bearing for some attacks (§5).
 
 | Party | Role | Holds |
 |---|---|---|
-| **The log owner** (user) | Owns the log's root authority | The root key, in one of the custody shapes |
+| **The log owner** (user) | Holds the log root key | The root key, in one of the custody shapes |
 | **Transparency operator** — admission edge | Sequences entries, enforces who may sign one | No private keys authoritative for any log |
 | **Transparency operator** — sealer | Signs checkpoints under an issued lease | A standing delegated sealing key, derived at boot from a KMS-held seed and never persisted at rest; one key serves every log that has leased it |
 | **Transparency operator** — publisher | Chooses which sealed checkpoints to submit, and pays gas | A gas key. No authority |
 | **Transparency operator** — custodian | Holds the KMS custody keys for custodial logs | One KMS key per custodial log id. **For a custodial log this key is the log's root key**: it signs the delegation certificate and the on-chain proof, and it signs any digest a caller presents under one shared service token |
-| **Hosting / payment operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. Never a user root in the self-custody shapes; in the hosted-wallet shape, an additional signer within policy |
+| **Hosting operator** | Onboards and hosts, collects payment, routes signing requests | Its own operator keys. Never a user root in the self-custody shapes; in the hosted-wallet shape, an additional signer within policy |
 | **Enclave provider** | Optional signing backend for the hosted-wallet custody option | In that option only, the user-owned wallet key |
 | **The upgrade admin** | Exists only for the upgradeable contract variant | A single address that can replace the contract's code, and with it every rule below (§4.2) |
 | **The contract** | Anchors roots, accepts checkpoints | On-chain state; no secrets |

@@ -36,18 +36,13 @@ under `vectors/golden/burial/` are untagged.
 | Payload | **Detached** — the raw concatenation of the accumulator peaks, in descending height order |
 | Signature | By the delegated sealing key, or by the root key when the owner seals directly |
 
-Unprotected labels a checkpoint may carry:
-
-| Label | Value | Contents |
-|---|---|---|
-| Proofs map | `396` | Key `-2` inside it holds the consistency proof |
-| Peak receipts | `-65931` | One detached-payload Sign1 per accumulator peak, signed at seal time |
-| On-chain delegation proof | `-66535` | The proof the contract verifies at publish |
-| Delegation certificate | `1000` | The certificate bytes, as a CBOR byte string |
-
-Labels `1000` and `-66535` coexist and mean different things — the certificate
-and the on-chain proof respectively. Both are carried opaquely by the sealer,
-which does not branch on their contents.
+The unprotected header carries the proofs map at `396` and, as the sealer
+attaches them, the peak receipts at `-65931`, the on-chain delegation proof
+at `-66535` and the delegation certificate at `1000`. The values and their
+meanings are in [label-registry.md](./label-registry.md) §2; their encodings
+are in §1.3 below. Labels `1000` and `-66535` coexist and mean different
+things — the certificate and the on-chain proof respectively. Both are
+carried opaquely by the sealer, which does not branch on their contents.
 
 ### 1.1 The detached payload
 
@@ -166,9 +161,17 @@ offline verification. Offline verification may legitimately succeed before a
 tip is anchored on-chain; treating that as a failure would conflate "this is
 proven included" with "this is proven final".
 
-For an entry, layer C is the content hash plus the idtimestamp. For a grant, it
-is the grant commitment. The idtimestamp is not carried in the receipt; the
-caller supplies it, from the entry id or from a sealed grant's `-65537`
+For an entry, layer C is the content hash plus the idtimestamp:
+
+```
+leaf = SHA-256( idtimestamp(8, big-endian) ‖ SHA-256( statement bytes ) )
+```
+
+where the statement bytes are the exact registered COSE Sign1, endorsement
+included. For a grant, the inner hash is the grant commitment's inner hash
+instead ([log-authority-and-grants.md](./log-authority-and-grants.md) §4), and
+the outer hash is the same. The idtimestamp is not carried in the receipt;
+the caller supplies it, from the entry id or from a sealed grant's `-65537`
 header, and the leaf hash binds it.
 
 ### 4.1 The offline boundary is explicit

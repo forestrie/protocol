@@ -113,8 +113,9 @@ owned by it.
 
 ### P12 — Signed is not sequenced
 A signature never establishes ordering; only the sequencer's monotone
-`idtimestamp` does, and only checkpoint anchoring bounds it. The Urkle trie is
-keyed on that `idtimestamp`, so **no content-derived key can be a trie key**.
+`idtimestamp` does, and only checkpoint anchoring bounds it. The exclusion
+trie is keyed on that `idtimestamp`, so **no content-derived key can be a
+trie key**.
 **Why:** conflating signing with sequencing is the root of false
 ordering/absence claims.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §5.
@@ -140,11 +141,11 @@ per-forest publishing all key off — and what blocks logId reuse / grant replay
 · [glossary.md](../glossary.md) (forest uniqueness).
 
 ### P15 — Published artifacts declare their own cache policy; completeness decides immutability
-Complete massifs are `immutable`; head massifs, **all checkpoints**, and
-negative (404) responses are `no-store`; payment tokens, revocation status, and
-latest-checkpoint receipts MUST NOT be cached. **Why:** heuristic caching of
-mutable objects fails silently — a stale proof, or a cached 404 that blocks a
-later write.
+The forest genesis document and complete massifs are `immutable`; the head
+massif, **all checkpoints**, receipts and negative (404) responses are
+`no-store`. The table in the checkpoint document is the policy; this rule
+adds nothing to it. **Why:** heuristic caching of mutable objects fails
+silently — a stale proof, or a cached 404 that blocks a later write.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §6.
 
 ### P16 — Conformant COSE/CBOR everywhere; `@forestrie/encoding` owns the wire layer

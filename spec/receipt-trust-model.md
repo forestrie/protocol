@@ -1,9 +1,7 @@
 # Forestrie receipt trust model
 
-**Status:** LIVE
-**Date:** 2026-08-30
-**Audience:** relying parties, monitors, assessors, and anyone deciding what a
-Forestrie receipt lets them conclude without trusting the log operator.
+**Audience:** relying parties, monitors, and anyone deciding what a Forestrie
+receipt lets them conclude without trusting the log operator.
 **Related:**
 [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) (the
 offline verify contract, layers A–C),
@@ -149,8 +147,9 @@ walk". Three ways to obtain it:
   an accumulator read from the chain inherits it (see below). No off-chain walk
   needed.
 - **Off-chain grant-chain walk** from the grant records + their inclusion proofs
-  (rooted at `genesis.cbor`). This is a genuine tile-/receipt-level proof — but
-  it is **not yet implemented**; do not assume it today.
+  (rooted at the forest genesis document). This is a genuine tile-/receipt-level
+  proof. Whether a given verifier implements it is recorded in
+  [implementation-status.md](./implementation-status.md).
 - **Operator storage / APIs surfacing the chain — forestrie-operator trust.**
   Convenient, but re-internalises the very operator trust the log system exists
   to remove; not a trust source.
@@ -433,16 +432,13 @@ performing the verification described above" — which, given the properties, is
 any holder of the bytes. No relationship with the operator, and no
 registration, is required to be that party.
 
-## Open questions
+## Implementation status
 
-- **The off-chain grant-chain walk is unimplemented.** Question 3 is answerable
-  today either on-chain, or off-chain only as far as a certificate reaches. The
-  fully off-chain walk from grant records and their inclusion proofs remains
-  open.
-- **Succinct absence is not available.** Non-presence is provable against a
-  replicated log; the succinct form is not. Stated in full in
-  [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-  §6.
+Which verifiers implement the off-chain grant-chain walk, and which run the
+attribution check, is recorded in
+[implementation-status.md](./implementation-status.md). Succinct absence is
+stated in [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§6.
 
 ## References
 

@@ -119,12 +119,14 @@ keyed on that `idtimestamp`, so **no content-derived key can be a trie key**.
 ordering/absence claims.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §5.
 
-### P13 — Absence is first-class, but succinct absence is not free yet
-A verifier can prove non-presence against a **replicated** log today (regime a).
+### P13 — Absence is first-class, but succinct absence is not free
+A verifier can prove non-presence against a **replicated** log (regime a).
 **Succinct** absence (regime b) requires a *new authenticated secondary index*
-because the trie root is currently unanchored. Do not design against succinct
-absence proofs as if they exist. **Why:** absence detection distinguishes "never
-happened" from "happened and was withheld" — but the succinct form is unbuilt.
+and an anchored trie root. Do not design against succinct absence proofs as if
+they exist. **Why:** absence detection distinguishes "never happened" from
+"happened and was withheld" — but the succinct form needs what
+[implementation-status.md](../spec/implementation-status.md) records as
+unbuilt.
 [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §6.
 
@@ -155,14 +157,7 @@ tag-mangling codec produces receipts the contract rejects.
 
 ---
 
-## Not-yet-live (design guardrails, not check targets)
-
-These are accepted *direction* but not implemented — plan toward them, do not
-review against them as if shipped:
-
-- **Reputation is bonded, tracked, and slashed** (assessor standing = on-chain
-  history + bond + delegated stake), so recognition and Sybil cost are the same
-  property, set by hierarchy position. Design direction only; nothing in
-  `spec/` describes shipped behaviour for it.
-- **Succinct-absence secondary index** — see P13; the trie root is unanchored
-  today, and how to anchor it is open.
+Accepted direction that is not implemented — bonded reputation, the
+succinct-absence index, multi-key recovery — is listed under "Designed, not
+built" in [implementation-status.md](../spec/implementation-status.md), and
+is not a check target.

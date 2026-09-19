@@ -1,7 +1,5 @@
 # Key custody and choice
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** anyone deciding where their log's root of trust should live, and
 implementers of the custody paths.
 **Related:**
@@ -230,14 +228,12 @@ sealer alone within a lease. What does need collusion is set out in
 
 ## Open questions
 
-- **Origin pinning has no policy channel.** The on-chain verifier implements
-  it; nothing can enable it per log. It was designed to ride the same grant-flag
-  mechanism as user verification.
-- **Multi-key endorsement for recovery is designed, not built.** It is the
-  intended answer to root loss and remains unimplemented.
 - **Custody upgrade requires a new log.** Accepted, and a direct consequence of
   §4 — but it is the sharpest edge a user meets, and it deserves a better
   product answer than "start again" if passkey adoption grows.
+
+Origin pinning's policy channel and multi-key endorsement for recovery are
+recorded in [implementation-status.md](./implementation-status.md).
 
 ## References
 

@@ -1,7 +1,5 @@
 # Trust boundaries, and what the operator can and cannot do
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** relying parties, security reviewers, and anyone assessing what
 trusting a Forestrie operator would actually mean.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md),
@@ -215,8 +213,9 @@ shorten what they issued.
 
 **Absence is provable, succinctly is not.** Non-presence can be proven against
 a replicated log. A *succinct* absence proof needs an authenticated secondary
-index that does not exist, because the exclusion trie's root is not currently
-anchored. Do not design against succinct absence as though it were available.
+index, which needs the exclusion trie's root to be anchored; neither exists,
+as [implementation-status.md](./implementation-status.md) records. Do not
+design against succinct absence as though it were available.
 
 **Offline verification is not finality.** Layers A–C
 ([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §4) prove
@@ -224,11 +223,12 @@ inclusion in a sealed state. Whether that state is anchored on-chain is a separa
 answered by reading the chain. A user interface that merges "verified" and
 "final" is overstating.
 
-**The off-chain authority walk is unimplemented.** Authority reaches the anchor
-on-chain, or off-chain only as far as a certificate reaches. The fully
-off-chain walk from grant records remains open — see
-[receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what that
-leaves answerable.
+**The off-chain authority walk is a route, not a guarantee.** Authority
+reaches the anchor on-chain, or off-chain as far as a certificate reaches, or
+off-chain by the walk from grant records — see
+[receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what each
+answers, and [implementation-status.md](./implementation-status.md) for which
+verifiers implement the walk.
 
 **In-page compromise can attest content.** Accepted and retained: the passkey
 gates authorisation, not per-turn content. A design where every turn needed a
@@ -244,21 +244,18 @@ options exist, and they should be stated to users rather than implied.
 
 **The upgradeable variant trusts one address.** See §4.2.
 
-**Some invariants are held by convention.** Several constants must agree across
-repositories with only comments enforcing it, one grant-flag band is reserved
-by comment alone, and one policy check currently differs between the admission
-edge and the client pre-flight. These are documented rather than smoothed over,
-and tracked.
+**Some invariants are held by convention.** One grant-flag band is reserved
+by comment alone ([label-registry.md](./label-registry.md) §5), and several
+constants must agree across repositories; where only comments enforce that,
+[implementation-status.md](./implementation-status.md) says so.
 
 ## Open questions
 
-- **The client pre-flight and the admission edge can disagree** about user
-  verification policy, refusing a turn after payment. Tracked as a bug.
 - **Anchor lag has no owner-facing guarantee.** The operator's failure to seal
   is visible, but nothing bounds how long it may persist before the owner is
   entitled to act.
-- **Nothing mechanically enforces the cross-repository constants.**
-- **The trie root is unanchored**, which is what defers succinct absence.
+- **How to anchor the exclusion trie root**, which is what would make succinct
+  absence possible.
 
 ## References
 

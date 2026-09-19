@@ -1,7 +1,5 @@
 # Codepoint and flag registry
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** anyone implementing or reviewing a Forestrie encoder or
 verifier. This is the lookup table; the reasoning lives in the documents it
 links to.

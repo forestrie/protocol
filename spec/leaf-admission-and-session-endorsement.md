@@ -1,7 +1,5 @@
 # Leaf admission and the session-key endorsement
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** implementers of a Forestrie client or verifier, and anyone
 checking that an entry in a self-custodied log was signed by a key its owner
 authorised.
@@ -240,8 +238,8 @@ cache of verified endorsements is an optimisation only: it may store "this
 endorsement verified against this root" and nothing else, so it can never admit
 more than an uncached verify would.
 
-*No such cache currently exists.* The constraint is recorded because it governs
-one if it is ever added.
+The constraint is recorded because it governs a cache if one is ever added;
+whether one exists is in [implementation-status.md](./implementation-status.md).
 
 ## 6. Offline verification
 
@@ -275,8 +273,9 @@ unverifiable entries out of the log in the first place.
 
 ## 7. Constants that must agree
 
-Three timing constants are declared independently and must remain consistent.
-Nothing but comments currently enforces it.
+Four timing constants are declared independently and must remain consistent.
+How that agreement is enforced is recorded in
+[implementation-status.md](./implementation-status.md).
 
 | Constant | Value | Declared in | Purpose |
 |---|---|---|---|
@@ -315,14 +314,6 @@ entry it is attached to. Recorded as accepted.
 
 ## Open questions
 
-- **A UV policy divergence exists between the admission edge and the client
-  pre-flight.** The edge derives the requirement from the grant flag; the
-  client Durable Object derives it from deployment configuration. They can
-  disagree, and when they do a turn the user has already paid for is refused
-  after the fact — the exact failure the pre-flight exists to prevent. Tracked
-  as a bug.
-- **ADR-0065 §4's failure-reason table does not match the shipped mapping**
-  (§5.3). The code is correct; the ADR should be amended.
 - **Index scoping was deferred, and a use case has since appeared.** A payload
   carrying an MMR index range was assessed and set aside: a range cannot be
   enforced at admission, because the sequencer assigns the index afterwards.
@@ -345,9 +336,13 @@ entry it is attached to. Recorded as accepted.
   closed, so such a permission needs a derived-policy home. Worth a recorded
   decision under `decisions/` before anything depends on it.
 - **Registering the endorsement as the log's first entry** was also deferred.
-  It is admissible today with no change and would give a receipted succession
+  It is admissible with no change and would give a receipted succession
   record. Not needed once every entry carries its own endorsement, and it adds
   a second artifact type to register and order.
+
+Whether the admission edge and the client pre-flight agree on the
+user-verification policy is recorded in
+[implementation-status.md](./implementation-status.md).
 
 ## References
 

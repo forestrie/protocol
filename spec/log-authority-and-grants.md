@@ -1,7 +1,5 @@
 # Log authority and the grant
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** implementers of a Forestrie client or verifier, and reviewers
 tracing where a log's authority comes from.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md)
@@ -259,13 +257,10 @@ own receipt.
 - **Bits 35–39 are reserved by comment only.** No mask, no constant, no test
   asserts the algorithm band stays clear of them. A future widening of the
   algorithm band downward would break the reservation silently.
-- **The off-chain grant-chain walk is unimplemented.** A verifier reaches the
-  anchor on-chain, or off-chain only as far as a certificate reaches; see
-  [receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what each
-  trust root can answer without it.
-- **The `logId` padding comment in the Solidity leaf-encoding library is
-  inverted** — it says right-padded; every producer left-pads. The hashes
-  agree; the comment misleads.
+
+Which verifiers implement the off-chain grant-chain walk, and the state of the
+Solidity leaf-encoding library's padding comment, are recorded in
+[implementation-status.md](./implementation-status.md).
 
 ## References
 

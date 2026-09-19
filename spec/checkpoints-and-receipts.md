@@ -14,9 +14,10 @@ can be checked without contacting the operator.
 
 A **checkpoint** is the log's signed commitment to its own state. A **receipt**
 is a proof that one entry sits inside a checkpointed state. In Forestrie these
-are the same kind of object: the sealed checkpoint *is* a standards-shaped
-consistency receipt, publishable directly as contract calldata, with no bespoke
-sibling format.
+are the same kind of object: the sealed checkpoint *is* a consistency receipt
+in the shape of the COSE receipts MMR profile, publishable directly as contract
+calldata, with no bespoke sibling format. §4.2 states where the shape departs
+from the published RFC.
 
 The property that matters most here is not the format — it is that a
 checkpoint carries enough pre-signed material for **anyone holding public data
@@ -26,14 +27,16 @@ receipt endpoint is a convenience, not an authority.
 ## 1. The checkpoint
 
 A COSE Sign1 with a **detached payload**, carrying one consistency proof from
-the previous checkpoint to this one.
+the massif's entry boundary to this seal. The sealer emits it tagged (CBOR tag
+18); verifiers accept the untagged form as well, and the retained checkpoints
+under `vectors/golden/burial/` are untagged.
 
 | Part | Contents |
 |---|---|
 | Protected header | `1` algorithm, `395` verifiable data structure (value `3` = the MMR consistency profile) |
 | Unprotected header | `396` proofs map, plus the private-use labels below |
-| Payload | **Detached** — the raw concatenation of the accumulator peaks |
-| Signature | By the delegated sealing key |
+| Payload | **Detached** — the raw concatenation of the accumulator peaks, in descending height order |
+| Signature | By the delegated sealing key, or by the root key when the owner seals directly |
 
 Unprotected labels a checkpoint may carry:
 
@@ -50,19 +53,44 @@ which does not branch on their contents.
 
 ### 1.1 The detached payload
 
-The payload is the accumulator peaks concatenated raw — no CBOR framing, no
-length prefixes. Verifiers reconstruct it independently and supply it to the
-signature check, which is what makes the checkpoint publishable as calldata:
-the contract can rebuild the exact signed bytes from the pre-decoded parts it
-already receives, without parsing COSE on-chain.
+The payload is the accumulator peaks concatenated raw, 32 bytes each, in
+descending height order — no CBOR framing, no length prefixes. Verifiers
+reconstruct it independently and supply it to the signature check, which is
+what makes the checkpoint publishable as calldata: the contract can rebuild
+the exact signed bytes from the pre-decoded parts it already receives, without
+parsing COSE on-chain.
 
-### 1.2 One seal, one proof
+### 1.2 One seal, one proof, from the massif boundary
 
-Each checkpoint carries exactly one consistency proof, from the previous
-checkpoint to this one. Catching up over several seals means **chaining** those
-proofs at publish time rather than producing a single wide proof. Checkpoint
-bases snap to massif entry boundaries, so a chain verifies boundary to
-boundary.
+Each checkpoint carries exactly one consistency proof. Its base is **the
+massif's entry boundary** — the log size at which the massif being sealed
+begins — never the previous checkpoint. A massif is sealed repeatedly as it
+grows, and each re-seal **replaces** the checkpoint object with one whose proof
+still runs from the same boundary to the new size; the head checkpoint decides
+only where sealing resumes. A completed massif's final checkpoint is therefore
+a boundary-to-boundary link, and a retained chain of those verifies boundary
+to boundary, each link's base equal to the previous link's sealed size.
+
+Catching up over several sealed massifs at publish means **chaining** those
+proofs in one contract call rather than producing a single wide proof.
+
+### 1.3 The encodings
+
+**The consistency proof.** Key `-2` of the `396` map holds a **byte string**
+wrapping a CBOR array `[tree-size-1, tree-size-2, paths, right-peaks]`:
+`tree-size-1` is the base, `tree-size-2` the sealed size, `paths` one
+inclusion path per base peak proven at the sealed size, and `right-peaks` the
+new peaks the proven roots do not cover.
+
+**The peak receipts.** Label `-65931` holds an **array of byte strings**, one
+per accumulator peak in the same descending-height order. Each is a tagged
+COSE Sign1 (tag 18) with protected header `{1: alg, 395: 3, 4: kid}` (the
+`kid` present when the signer has one), an empty unprotected map, a nil
+payload, and a signature over the 32-byte peak as detached payload.
+
+**The delegation material.** Label `1000` holds the delegation certificate as
+a byte string wrapping its COSE Sign1; label `-66535` holds the on-chain
+delegation proof. Both are carried opaquely by the sealer.
 
 ## 2. Why anyone can mint a receipt
 
@@ -74,8 +102,10 @@ once, by the key that had authority at that moment. Anyone who later holds the
 checkpoint and the replicated log data can:
 
 1. compute an entry's inclusion path up to whichever peak covers it,
-2. attach that path to the peak's pre-signed receipt at header `396`,
-3. emit a standards-compliant inclusion receipt.
+2. attach that path to the peak's pre-signed receipt at header `396`, and
+   copy the checkpoint's label-`1000` certificate alongside it when the
+   checkpoint carries one,
+3. emit an inclusion receipt in the MMR profile shape (§4).
 
 No signing key is involved, so no permission is involved. The emitted receipt
 is privacy-preserving too: it reveals the path to a peak, not the rest of the
@@ -109,23 +139,27 @@ seals. A KS256 checkpoint additionally rejects delegation outright.
 
 ## 4. The inclusion receipt
 
-A receipt is a COSE Sign1 whose unprotected header carries the proofs map:
+A receipt is a COSE Sign1 whose unprotected header carries the proofs map.
+Key `-1` holds an **array** of inclusion proofs; a Forestrie receipt carries
+one, and verifiers read the first element:
 
 ```
-396 → -1 → { 1: mmrIndex, 2: inclusionPath }
+396 → { -1: [ { 1: mmrIndex, 2: [ + bstr .size 32 ] } ] }
 ```
 
 The payload is either nil — the detached form, where the verifier supplies the
-peak — or the 32-byte peak itself.
+peak — or the 32-byte peak itself. When the checkpoint the receipt was minted
+from carries a delegation certificate at label `1000`, the receipt carries a
+copy at the same label.
 
 Verification decomposes into three layers, which should be named separately
 because they fail for different reasons and carry different trust:
 
 | Layer | Checks | Trust source |
 |---|---|---|
-| **A** | Receipt signature over the peak | The genesis COSE trust root, on the offline path |
+| **A** | Receipt signature over the peak. Under a signature root the key is resolved from the root: directly, or through the label-`1000` certificate when the receipt carries one (root → certificate → delegated sealing key) | The trust root the caller holds |
 | **B** | Inclusion, via the `396` proof, against the signed peak | Pure computation over the receipt bytes |
-| **C** | Leaf binding — the entry hashes to what the receipt claims | Caller-supplied entry or grant context |
+| **C** | Leaf binding — the entry hashes to what the receipt claims | Caller-supplied entry or grant context, and the idtimestamp |
 
 **Layer D — on-chain canonicality** — is deliberately separate and not part of
 offline verification. Offline verification may legitimately succeed while a tip
@@ -133,7 +167,9 @@ is not yet anchored on-chain; treating that as a failure would conflate "this
 is proven included" with "this is proven final".
 
 For an entry, layer C is the content hash plus the idtimestamp. For a grant, it
-is the grant commitment.
+is the grant commitment. The idtimestamp is not carried in the receipt; the
+caller supplies it, from the entry id or from a sealed grant's `-65537`
+header, and the leaf hash binds it.
 
 ### 4.1 The offline boundary is explicit
 
@@ -146,6 +182,21 @@ This boundary is what "verifiable offline" means mechanically. A hidden fetch
 inside verify would falsify it silently, which is why it is stated as a
 prohibition rather than a preference.
 
+### 4.2 Where the shape departs from RFC 9942
+
+RFC 9942 (COSE receipts) defines headers `395` and `396`. Forestrie's receipts
+and checkpoints are shaped on the MMR profile draft for that registry and
+differ from a strict reading of the RFC in three ways a verifier must
+tolerate:
+
+1. the inclusion proof under `396 → -1` is a plain `{1, 2}` map inside the
+   array, not a byte-string-wrapped array;
+2. a receipt may carry the 32-byte peak as an attached payload rather than
+   always detaching it;
+3. the verifiable data structure value `3` is requested by the MMR profile
+   draft and not registered, so a verifier must not require it and must not
+   treat its presence as registry fact.
+
 ## 5. Identifiers and time
 
 Entries carry a monotone `idtimestamp` assigned by the sequencer. Its time
@@ -153,11 +204,15 @@ component is what the endorsement window is checked against, so it is load-
 bearing beyond ordering:
 
 ```
-unixMs = (idtimestamp >> TimeShift) + epochBaseMs(epoch)
+TimeShift        = 24
+epochBaseMs(e)   = e × (2^40 − 1)
+unixMs           = (idtimestamp >> TimeShift) + epochBaseMs(epoch)
 ```
 
-The identifier packs a time component, a sequence number and a device or shard
-id into 8 bytes, big-endian.
+The time component occupies the top 40 bits, so an epoch spans about 34 years;
+the reference time is unix time and the current epoch is 1. The identifier
+packs that time component, a sequence number and a device or shard id into
+8 bytes, big-endian.
 
 Two properties are stated here because they are commonly assumed in the wrong
 direction:
@@ -177,15 +232,18 @@ immutability:
 
 | Artifact | Policy |
 |---|---|
+| Forest genesis document | `immutable` |
 | Complete massif | `immutable` |
 | Head massif | `no-store` |
 | **All checkpoints** | `no-store` |
+| Receipts | `no-store` |
 | Negative (404) responses | `no-store` |
 
-Checkpoints are never cached because a re-seal overwrites one. A cached
-checkpoint is a stale proof; a cached 404 can block a later legitimate write.
-Heuristic caching of mutable objects fails silently, which is the failure mode
-this policy exists to prevent.
+Checkpoints are never cached because a re-seal overwrites one, and receipts
+are not cached even for a complete massif because they are minted from the
+checkpoint. A cached checkpoint is a stale proof; a cached 404 can block a
+later legitimate write. Heuristic caching of mutable objects fails silently,
+which is the failure mode this policy exists to prevent.
 
 ## Open questions
 
@@ -194,10 +252,6 @@ this policy exists to prevent.
   length-first canonical ordering. They agree byte-for-byte only while every
   map label is single-byte, and the checkpoint envelope carries multi-byte
   labels. No failure has been observed; the divergence is latent.
-- **The epoch base calculation is off by one millisecond** relative to the
-  obvious reading of the constant. It is self-consistent across producer and
-  verifier, so nothing breaks; it would matter to a third-party implementer
-  working from first principles.
 - **A length guard in the idtimestamp byte splitter is written against the
   wrong bound**, accepting inputs it should reject. Callers currently supply
   well-formed input, so it is latent.

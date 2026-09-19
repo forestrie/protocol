@@ -537,7 +537,7 @@ and against wall clock (with skew tolerance) at admission. Bounds the life of a
 superseded session key with no revocation list and no per-log state. Default
 seven days, client-chosen.
 _Avoid_: comparing it to a signature timestamp — the idtimestamp domain is the
-point, because every receipt carries one.
+point, because every entry has one and the leaf hash binds it.
 
 **WebAuthn assertion envelope**:
 The `[authenticatorData, clientDataJSON]` pair carried in a COSE unprotected

@@ -23,19 +23,19 @@ evidence for.
 Three of those questions concern the **log**: is the history un-forked, who
 sealed it, and is the log authorised. The fourth concerns the **leaf**: who was
 authorised to sign this particular entry, and can that be checked from public
-bytes alone. The fourth question is newer than the other three and is what the
-passkey/WebAuthn work added.
+bytes alone.
 
 ## The four questions
 
 ### 1. Split-view consistency — *is this a single, un-forked history?*
 
 Answered by the **accumulator** (the log's peak set). Recompute the leaf's
-inclusion path to a peak and match it against a *trusted* accumulator. Because
-every published accumulator is consistency-gated forward — each is a committed
-prefix of every later one, and the consistency proof spans the massif entry
-boundary — matching one proves the log has not forked or rewritten history under
-you.
+inclusion path to a peak and match it against a *trusted* accumulator. A
+published accumulator is consistency-gated forward: the contract folds each
+checkpoint's consistency proof from the accumulator it already holds, and the
+proof spans the massif entry boundary. Matching one therefore proves the log
+has not forked or rewritten history under you, to the extent the contract
+enforces that fold — stated precisely below.
 
 This property is **independent of currency.** Any accumulator is a genuine,
 non-equivocal commitment up to its own tree size, so an older one is not "less
@@ -43,22 +43,41 @@ valid" — staleness only limits *coverage* (whether the snapshot reaches the le
 and how much newer history it attests), never the validity of what it does cover.
 "Freshness" — *is this the latest accumulator* — is a separate axis that bears
 on coverage alone; do not collapse it into split-view. Split-view is the
-load-bearing property here; currency is at most the `--rpc-url` "as of now"
-delta below.
+load-bearing property here; currency is at most the live chain read's "as of
+now" delta below.
 
 Two sources supply a trusted accumulator:
 
-- `--known-accumulator` — a cached, auditable chain read (`fetch-accumulator`).
-- `--rpc-url` — a live read; the same guarantee, plus "as of now".
+- a **known accumulator** — a cached copy of an authenticated chain read;
+- a **live chain read** — the same guarantee, plus "as of now".
 
 Never source the accumulator unauthenticated from the log operator's own tile
 store — that re-internalises the operator trust an accumulator root exists to
-remove.
+remove. The trust assumption of an accumulator root is the **chain reader**:
+the caller trusts that the read of the contract's anchored state was genuine,
+whether it came from an RPC endpoint the caller chose or from a cached copy
+whose provenance the caller can audit.
 
-**Why the operator cannot defeat this.** Non-equivocation is structural, not
-observational: the contract refuses to anchor a checkpoint inconsistent with
-what it already holds. Security does not depend on a live honest majority of
-monitors watching for divergence ([platform invariant P4](../rules/platform.md)).
+**What the contract enforces, and what it does not.** At publish the
+contract folds every consistency proof whose declared base is non-zero from
+the accumulator it already holds, requires the claimed size to be strictly
+greater than the stored size, requires the resulting peak count to match the
+claimed size, and verifies the checkpoint signature over the resulting
+accumulator. A checkpoint that fails any of those is refused, so an operator
+cannot present two histories that both extend the anchored state. The contract
+does **not** require the first proof's declared base to equal the stored size:
+a first proof whose base is zero is folded from the caller's own peaks rather
+than from the stored accumulator. A holder of a key entitled to sign a
+checkpoint for the log — the root key, or a delegated sealing key within its
+range — can therefore publish a checkpoint that replaces the anchored
+accumulator with one that does not extend it, at any size greater than the
+current one. Such a replacement is detectable by anyone retaining an earlier
+checkpoint: a retained chain whose link bases do not meet is refused by the
+checkpoint-chain root below. Non-equivocation against a **key holder** is
+therefore observational, resting on retained checkpoints; against everyone
+else it is structural. [Platform invariant P4](../rules/platform.md) and
+[trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§4.1 state the same bound.
 
 ### 2. Sealing attestation — *who sealed this state?*
 
@@ -86,15 +105,25 @@ key the Forestrie operator does hold. Precisely:
   restarts without needing an on-demand signer round trip. The seed itself is
   never written to a secret store or to disk — see
   [glossary.md](../glossary.md) ("standing delegate key").
-- **Scope comes from the certificate, not the key.** The lease certificate
-  binds one log, one MMR range and an expiry, and it exists only because the
-  log's root key signed it.
+- **Scope comes from the lease, not the key.** The key's derivation names
+  only the epoch and an index, not a log, so one standing key serves every
+  log whose owner has issued it a lease. The delegation certificate binds one
+  log, one MMR range and an expiry, and exists only because that log's root
+  key signed it. The on-chain delegation proof binds the same log and range
+  and **no expiry**; the contract checks the log and the inclusive range only.
+  The expiry is enforced by the sealer's own clock when it decides whether to
+  seal, and by offline verifiers when they check a certificate.
 
-So the bound on a compromised sealer is the *lease*, not the key's lifetime:
-it can sign within an unexpired lease for the log and range that lease names,
-and cannot mint authority for any other key or log. A compromise is
-neutralised definitively only by the owner rotating their root and
-re-delegating.
+So the bound on a compromised sealer is the *lease*: on-chain, it can publish
+checkpoints for each log that has leased it, at any size whose last index lies
+inside that lease's range, until the log grows past the range's end; off-chain,
+its certificates stop being accepted at their expiry. It cannot mint authority
+for any other key or log. It cannot be cut off by changing the log's root — the
+contract binds the root once and has no operation to replace it. The owner's
+remedies are to delegate a different sealer under the same root, which does
+not shorten a lease already issued, or to start a new log. Within a lease the
+sealer holds the checkpoint-signing capability the contract accepts, including
+the base-zero replacement described under question 1.
 
 ### 3. Authority — *is this log authorised, back to the genesis / bootstrap key?*
 
@@ -103,22 +132,22 @@ which each log's authority *is* a receipted, provable inclusion in its parent
 log — **not** by the checkpoint signature, and **not** by a per-log genesis
 document.
 
-> **`genesis.cbor` is not a per-log artifact.** It is the **univocity-instance
-> registration document**: it records the instance's bootstrap/root owner key —
-> the key bound into the `ImmutableUnivocity` contract at deploy. There is **one
-> per instance (the root log)**, not one per log. So `--genesis` directly roots a
-> receipt whose signer chains to that root owner (the root log, or a delegation
-> *directly* under it); it does **not**, by itself, root an arbitrary child log.
-> Reaching genesis from a child log means walking the grant hierarchy (below).
+> **The forest genesis document is not a per-log artifact.** It is the
+> **contract-instance registration document**: it records the instance's
+> bootstrap/root owner key — the key bound into the `ImutableUnivocity` contract
+> at deploy. There is **one per forest (the root log)**, not one per log. So the
+> genesis root directly roots a receipt whose signer chains to that root owner
+> (the root log, or a delegation *directly* under it); it does **not**, by
+> itself, root an arbitrary child log. Reaching genesis from a child log means
+> walking the grant hierarchy (below).
 
 To establish a child log's authority you follow its grant to its parent, that
 grant's inclusion proof, and so on up to the bootstrap key — the "grant-chain
 walk". Three ways to obtain it:
 
-- **On-chain (chain trust) — the path available today.** The contract already
-  did the walk at publish, so reading the accumulator from chain
-  (`--known-accumulator` / `--rpc-url`) inherits it (see below). No off-chain
-  walk needed.
+- **On-chain (chain trust).** The contract already did the walk at publish, so
+  an accumulator read from the chain inherits it (see below). No off-chain walk
+  needed.
 - **Off-chain grant-chain walk** from the grant records + their inclusion proofs
   (rooted at `genesis.cbor`). This is a genuine tile-/receipt-level proof — but
   it is **not yet implemented**; do not assume it today.
@@ -194,8 +223,11 @@ superseded session key: once the window lapses the endorsement stops being
 admissible, regardless of who holds it, with no revocation list and no per-log
 state anywhere. Online, admission checks the window against its own clock with
 a small skew tolerance; **offline, the authoritative check is against the
-receipted idtimestamp**, which is time-ordered, monotonic, and carried by every
-receipt — so the window is checkable from public artifacts alone.
+entry's idtimestamp**, which is time-ordered and monotonic. A receipt does not
+carry the idtimestamp: it is bound through the leaf hash the receipt proves,
+and a verifier takes it as an input alongside the entry bytes, from the entry
+id or, for a grant, from the sealed grant's own header — so the window is
+checkable from public artifacts alone.
 
 Wire-level detail — header labels, payload shape, the exact failure
 vocabulary — is in
@@ -217,37 +249,58 @@ question.
 
 | Trust root | Split-view (1) | Sealing (2) | Authority (3) | Attribution (4) |
 |---|---|---|---|---|
-| **`--genesis`** — signature root: the forest's genesis document | **Not answered.** A signature root sees only the state the receipt itself carries | **Answered** locally: the signature chains to the root owner key recorded in genesis | **Answered for the root log or a direct delegation** under it; a deeper child log needs the grant-chain walk, which is unimplemented | **Answered** from the leaf bytes and the log's root key, independently of the root in use |
-| **`--known-log-key`** — signature root: an owner key the caller holds out of band | **Not answered**, as above | **Answered** locally: the signature verifies under the caller-known owner key | **Asserted, not proven.** The key-to-log binding rests on the channel the key arrived on | **Answered**, as above |
-| **`--known-accumulator`** — accumulator root: a snapshot of the log's peaks from an authenticated chain read | **Answered.** The recomputed peak is matched against a state the operator does not control | **Not checked locally.** Implied by the match: the contract refuses to anchor a checkpoint whose signature does not verify | **Not checked locally.** Discharged by the contract at publish, for any log — see question 3 | **Answered**, as above |
-| **checkpoint chain** — accumulator root: a retained chain of signed checkpoints, with `--genesis` or a known log key for its base | **Answered** against the caller's own retention: each link's signed consistency proof commits the earlier accumulator forward, so a match at any link holds | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answered**, as above |
+| **Genesis root** — signature root: the forest genesis document | **Not answered.** A signature root sees only the state the receipt itself carries | **Answered** locally: the signature chains to the root owner key recorded in genesis | **Answered for the root log or a direct delegation** under it; a deeper child log needs the grant-chain walk | **Answerable** from the leaf bytes and the log's root key, independently of the root in use |
+| **Known log key root** — signature root: an owner key the caller holds out of band | **Not answered**, as above | **Answered** locally: the signature verifies under the caller-known owner key | **Asserted, not proven.** The key-to-log binding rests on the channel the key arrived on | **Answerable**, as above |
+| **Known accumulator root** — accumulator root: a snapshot of the log's peaks from an authenticated chain read | **Answered.** The recomputed peak is matched against a state the operator does not control, within the bound stated under question 1 | **Not required by the root.** Implied by the match: the contract refuses to anchor a checkpoint whose signature does not verify | **Not required by the root.** Discharged by the contract at publish, for any log — see question 3 | **Answerable**, as above |
+| **Checkpoint chain root** — accumulator root: a retained chain of signed checkpoints, with the genesis root or a known log key for its base | **Answered relative to the caller's own retention**: each link's signed consistency proof commits the earlier accumulator forward and each link's base must equal the previous link's sealed size, so a match at any retained link holds against everything the caller retained. Combining the chain with a known accumulator ties it to what the contract anchored | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answerable**, as above |
 
-`--rpc-url` is not a fifth root. It is a live chain read supplying the
-`--known-accumulator` root: the same guarantee, plus "as of now". It requires
-`--univocity` and `--log-id`, reads the contract's anchored peaks and MMR size,
-and matches the peak recomputed from the receipt against those peaks — the same
-check `--known-accumulator` runs against a cached copy of that read. Note that
-the CLI reports this route as `mode: "chain-anchored"` (and the cached snapshot
-as `accumulator-anchored`); both names denote the accumulator root, one read
-live and one read earlier.
+The checkpoint chain is a sequence of checkpoint objects signed by the
+operator's own sealer; nothing on the chain reads it. Its split-view answer is
+therefore relative to what the caller retained, not to what the contract holds,
+and it is the combination with an accumulator read that ties the two together.
+
+A live chain read is not a fifth root. It supplies the known accumulator root
+with a fresh read of the contract's anchored peaks and size: the same
+guarantee, plus "as of now".
 
 The signature roots answer question 2 offline by checking the signature, and
 question 3 only as far as the certificate reaches. The accumulator roots answer
 question 1, and let the contract's publish-time checks stand in for questions 2
 and 3 for *any* log — which is why, for an arbitrary child log, the on-chain
-path and not `genesis.cbor` is the route to an authority answer today. A receipt
-never expires and a root never needs to be current, only trusted.
+path and not the genesis document is the route to an authority answer. A
+receipt never expires and a root never needs to be current, only trusted.
 
 A caller who wants both a local signature check and a split-view answer runs the
 same bytes under one root of each kind; the arithmetic does not change between
 them. Verifying under one root and failing under another is not a contradiction:
-the two answer different questions.
+the two answer different questions. An implementation may check more than its
+root requires: a verifier given an accumulator root may also check the
+signature under a signature root it holds, and report both.
 
 **Question 4 composes with every root.** Attribution is checked from the leaf
 bytes and the log's root key, not from the root a verifier was given, so a
 verifier can establish that an entry was signed by a key the log's owner
 endorsed while holding no opinion at all about which sealer sealed the state it
-sits in.
+sits in. The TypeScript verifier library exposes it as a single entry point,
+`verifyEndorsedLeaf`, that takes the root, the entry bytes, the receipt and the
+idtimestamp; whether a given tool runs it is that tool's documentation to state.
+
+### Informative: how the command-line client names the roots
+
+The roots above are protocol names. The command-line client selects them with
+flags and reports which it used as a mode:
+
+| Trust root | Flag | Reported mode |
+|---|---|---|
+| Genesis root | `--genesis` | `offline` |
+| Known log key root | `--known-log-key` | `offline` |
+| Known accumulator root, cached read | `--known-accumulator` | `accumulator-anchored` |
+| Known accumulator root, live read | `--rpc-url` with `--univocity` and `--log-id` | `chain-anchored` |
+| Checkpoint chain root | the retained checkpoint files, with `--genesis` or `--known-log-key` for the base | `checkpoint-chain-anchored` |
+
+The client requires a signature root on every invocation and checks it first,
+so under an accumulator root it also answers question 2 locally; that is the
+implementation checking more than the root requires, as permitted above.
 
 The checkpoint-chain root is the fully offline route for a receipt whose peak
 later log growth has buried; the retained chain that root consumes is the same
@@ -256,8 +309,7 @@ material the freshen path below uses, and the golden set under
 
 ## Freshen and the attestor
 
-Freshen (`resolve-receipt --receipt <stale> + a tile-free source`) re-anchors a
-stale receipt to the current sealed state without tiles. A receipt goes stale
+Freshen re-anchors a stale receipt to the current sealed state without tiles. A receipt goes stale
 when log growth *buries* the peak it commits to; freshen extends the leaf's
 inclusion path from its old peak up to the current accumulator.
 
@@ -285,14 +337,15 @@ node 6. The questions attach to that one re-emitted receipt like this:
 freshened receipt, leaf@1 @ size 7
 ├─ inclusion path [0,5] --recompute--> node 6
 │    SPLIT-VIEW (1): node 6 == trusted size-7 accumulator[0]
-│                    (freshen self-check vs the .sth; bound by --known-accumulator / --rpc-url)
+│                    (freshen self-check vs the checkpoint; bound by an accumulator root)
 │
-├─ peak receipt over node 6, signed by the size-7 sealer
+├─ peak receipt over node 6, signed by the size-7 sealer,
+│  with the label-1000 delegation certificate (owner --> sealer) copied alongside
 │    SEALING   (2) : "an authorised sealer sealed size 7"
-│                    CHECKED under a signature root (--genesis / --known-log-key)
-│                    NOT CHECKED under an accumulator root  <- vestigial there only
+│                    CHECKED under a signature root, and under the checkpoint chain root
+│                    NOT REQUIRED under the known accumulator root  <- vestigial there only
 │
-├─ label-1000 delegation cert  (owner --> sealer)
+├─ the grant chain (not carried in the receipt)
 │    AUTHORITY (3) : owner/grant chain to the bootstrap key
 │                    enforced by the contract at publishCheckpoint;
 │                    re-provable via grants + their inclusion proofs
@@ -318,9 +371,10 @@ receipt a native, signature-root-verifiable receipt. "Vestigial" (question 2)
 describes the signature *under an accumulator root*, never the freshen build
 step.
 
-(For the calldata source the `.sth` must be supplied separately: calldata
-carries a *checkpoint-level* COSE signature over the whole accumulator, not the
-per-peak receipts label `-65931` that the emission format needs.)
+(For the calldata source the checkpoint object must be supplied separately:
+calldata carries a *checkpoint-level* COSE signature over the whole
+accumulator, not the per-peak receipts label `-65931` that the emission format
+needs.)
 
 ### Attestor rotation is not a downgrade
 
@@ -344,9 +398,8 @@ There is no coherent configuration where the identity distinction both matters
 and is not already handled. The mirror case (an *upgrade* to a more-trusted
 signer) is symmetric and equally a non-issue. Freshen therefore emits under the
 latest checkpoint's signer and does nothing further — there is **no
-signer-change gate** (an earlier `--allow-new-signer` sketch was removed for
-exactly this reason: it would have asked the relying party to approve a
-distinction the log never promised to uphold).
+signer-change gate**, because one would ask the relying party to approve a
+distinction the log never promised to uphold.
 
 ## "Known-accumulator-verifiable but not genesis-verifiable" is not a gap
 
@@ -358,22 +411,22 @@ question is answered by the accumulator; the provenance question, if you want
 it, is answered under a signature root, or was already discharged by the
 contract at publish. Separating them is the design, not a shortfall.
 
-## A note on vocabulary: monitor, assessor, auditor
+## A note on vocabulary: monitor and auditor
 
 The wider transparency-log community uses **auditor** broadly, for any party
 that independently checks a log's claims — and in Certificate Transparency
 specifically for the role that verifies inclusion and consistency proofs.
 
-Forestrie's own documents deliberately use two narrower terms instead, because
-the generic one hides a distinction that matters here:
+Forestrie's own documents deliberately use a narrower term, because the
+generic one hides a distinction that matters here:
 
 - **Monitor** — a party that watches a log for unexpected entries or for
-  divergence. In Forestrie a monitor is a *convenience*, not a security
-  dependency: non-equivocation is enforced by the contract at publish, not by a
-  quorum of watchers ([platform invariant P4](../rules/platform.md)).
-- **Assessor** — a party whose standing is itself recorded and staked, in the
-  incentivisation and reputation model. This is design direction, not shipped
-  behaviour.
+  divergence. Against anyone other than a holder of the log's signing
+  authority, a monitor is a *convenience*, not a security dependency: the
+  contract refuses a checkpoint that does not extend its anchored state
+  ([platform invariant P4](../rules/platform.md)). Against a key holder
+  publishing a base-zero replacement (question 1), a monitor that retains
+  checkpoints is what detects it.
 
 Where an external reader would say "auditor", this corpus means "anyone
 performing the verification described above" — which, given the properties, is

@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   decodeGrantResponse,
+  readProtectedTreeSize2,
   verifyCoseSign1WithParsedKey,
 } from "@forestrie/encoding";
 import { calculateRoot } from "@forestrie/merklelog";
@@ -104,8 +105,10 @@ for (const v of readJson("fixtures", "grant_vectors_negative.json")) {
   check("burial: burial-receipt.cbor digest matches manifest", sha256(receiptCbor) === m.receiptSha256);
   const key = await importEs256PublicKeyFromGrantDataXy64(hex(m.publicKeyXyHex));
   const verifySignature = (bytes, detachedPayload) => verifyCoseSign1WithParsedKey(bytes, key, { detachedPayload });
-  const fold = checkpoints.map((cp) => checkpointConsistencyProof(cp)).map((p) => `${p.treeSize1}->${p.treeSize2}`).join(" ");
+  const proofs = checkpoints.map((cp) => checkpointConsistencyProof(cp));
+  const fold = proofs.map((p) => `${p.treeSize1}->${p.treeSize2}`).join(" ");
   check("burial: fold is 0->3 3->7 7->10 10->15", fold === "0->3 3->7 7->10 10->15", fold);
+  check("burial: every checkpoint's signed tree-size-2 equals its declared one", proofs.every((p) => p.signedTreeSize2 === p.treeSize2));
   const chain = await verifyCheckpointChain({ checkpoints, verifySignature });
   check("burial: chain verifies", chain.ok === true, JSON.stringify(chain.ok ? {} : chain));
   if (chain.ok) {
@@ -134,6 +137,21 @@ for (const v of readJson("fixtures", "grant_vectors_negative.json")) {
     mutated[i][mutated[i].length - 1] ^= 0xff;
     const r = await verifyCheckpointChain({ checkpoints: mutated, verifySignature });
     check(`burial: flipped byte in ${m.checkpointFiles[i]} breaks the fold at link ${i}`, !r.ok && r.at === i);
+  }
+  // A suffix chain from a trusted base: links 2 and 3 from the size-7 state that link 1 proved.
+  if (chain.ok) {
+    const suffix = await verifyCheckpointChain({
+      checkpoints: checkpoints.slice(2),
+      verifySignature,
+      trustedBase: { size: chain.links[1].treeSize2, accumulator: chain.links[1].accumulator },
+    });
+    check("burial: a suffix chain verifies from a trusted base", suffix.ok === true, JSON.stringify(suffix.ok ? {} : suffix));
+    const wrongBase = await verifyCheckpointChain({
+      checkpoints: checkpoints.slice(2),
+      verifySignature,
+      trustedBase: { size: chain.links[0].treeSize2, accumulator: chain.links[0].accumulator },
+    });
+    check("burial: a suffix chain from the wrong trusted size fails size_mismatch", !wrongBase.ok && wrongBase.reason === "size_mismatch", JSON.stringify(wrongBase.ok ? {} : { reason: wrongBase.reason }));
   }
 }
 

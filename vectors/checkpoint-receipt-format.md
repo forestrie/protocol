@@ -33,11 +33,11 @@ mapping once.
 | Section | Rows | What a consumer does |
 |---|---|---|
 | `consistency_pairs` | 231: every ordered pair of complete sizes (210) plus the 21 pairs from the empty origin | run the size-driven fold on `(tree_size_1, tree_size_2, accumulator_from, paths)`; expect `roots_hex`, `right_peak_count`; `roots + right_peaks` must equal `accumulator_to_hex` and the tree's accumulator for `tree_size_2` |
-| `consistency_negatives` | 9 | the fold, or the check around it, must reject; `expect.class` names the reason (below). `base_mismatch` carries `trusted_tree_size_1`, the verifier's own origin, which the proof's `tree_size_1` does not match |
+| `consistency_negatives` | 8 | the fold, or the check around it, must reject; `expect.class` names the reason (below). `base_mismatch` carries `trusted_tree_size_1`, the verifier's own origin, which the proof's `tree_size_1` does not match |
 | `protected_headers` | 52 | decode the protected-header map bytes with a D9-conformant decoder and read `tree-size-2`: `accept` with the given size, `absent` (well-formed, label missing), or `reject` with `expect.reason` (below) |
 | `keys` | 2 | fixed test keys: ES256 private scalar `c1f1…f1`, KS256 private key = Anvil account 0 (`0xf39F…2266`) |
 | `receipts` | 10 | five pairs under both algorithms: rebuild the detached payload from the tree, the `Sig_structure`, the digest; verify `signature_hex` under the key; decode `receipt_cbor_hex` and verify it end to end from the trusted origin `(tree_size_1, accumulator)` |
-| `receipt_negatives` | 4 | must reject: signed size ≠ declared, signed size absent, payload hashed instead of raw, ES256 high-s |
+| `receipt_negatives` | 5 | must reject: signed size ≠ declared, the FOR-568 replay (genuine 7→8 receipt with the proof re-declared 7→10; the fold accepts either target, only the signed size distinguishes them), signed size absent, payload hashed instead of raw, ES256 high-s |
 
 Reason and class enums are strings so every language can map them to its
 own error type:

@@ -126,7 +126,7 @@ happened" from "happened and was withheld" — but the succinct form is unbuilt.
 Every log is anchored under exactly one instance root (`chainId` + contract);
 the root/bootstrap key is **set once at construction and immutable**, and
 global `logId → R` uniqueness is enforced atomically at grant POST. A
-checkpoint signature asserts the accumulator and the two tree sizes; it is the
+checkpoint signature asserts the accumulator and its tree size; it is the
 **contract** that binds the checkpoint to the instance, by enforcing
 consistency with the anchored state — the signature itself names no instance,
 chain or log. **Why:** this 1:1 anchoring is what authority resolution, fee

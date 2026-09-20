@@ -104,10 +104,12 @@ TypeScript verifiers port it line for line against one set of vectors.
 The protected header is deterministic CBOR as the profile draft requires
 (RFC 8949 §4.2.1: shortest-form arguments, definite lengths, keys in
 canonical order, no duplicate keys, no tags, the map consuming the whole
-header), and univocity rejects anything else; every verifier skips labels it
-does not read whose value is any well-formed definite-length item, including
-booleans, `null` and floats (ADR-0066 D9). The sealer emits
-`{1: alg, 395: 3, -65933: tree-size-2}`.
+header, integer keys only), and univocity rejects anything else. A label a
+verifier does not read may carry an integer, a byte string, a valid-UTF-8
+text string, `false`, `true`, `null` or a shortest-form float, and the
+verifier skips it; any other value type under an unread label (a container,
+a tag, `undefined`, a wider-than-needed float) is rejected everywhere
+(ADR-0066 D9). The sealer emits `{1: alg, 395: 3, -65933: tree-size-2}`.
 
 ## 2. Why anyone can mint a receipt
 

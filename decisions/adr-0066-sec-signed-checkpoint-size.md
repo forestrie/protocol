@@ -319,17 +319,45 @@ any value from a header whose map does not consume the whole header. The
 header is signed whole and read by label lookup: two conformant decoders
 either read the same `alg` and `tree-size-2` from it or both reject it,
 and under univocity rule U7 the contract's acceptance is what every replica
-must be able to reproduce.
+must be able to reproduce. Where implementations cannot cheaply agree on a
+value type, the type is excluded from the header rather than tolerated.
 
-A verifier MUST skip, not reject, a label it does not read whose value is
-any well-formed definite-length item, including major type 7: `false`,
-`true`, `null`, `undefined` and the other simple values 0–23, two-byte
-simple values 32–255, and half, single and double floats. A sealer adding
-a label MUST NOT make its checkpoints unverifiable. Malformed forms are
-rejected: additional information 28–30, the break code 31, a two-byte
-simple value below 32, a float cut off by the end of the header. Tags are
-the one exception and stay rejected: the profile assigns them no meaning,
-and skipping a tag silently would hide a semantic the signer intended.
+**Keys** MUST be integers (major type 0 or 1) within int64. Text-string
+labels, which COSE permits in general, are not used by this profile and
+are rejected, so that key order and duplicate detection are a comparison
+of integers in every implementation.
+
+**Values under labels the verifier does not read** MUST be one of the
+following, and the verifier MUST skip, not reject, any of them: an
+integer; a byte string; a text string that is valid UTF-8; the simple
+values `false`, `true` and `null`; or a float in the shortest form that
+preserves its value (half, then single, then double, as RFC 8949 §4.2.1
+requires). A sealer adding a label of these types MUST NOT make its
+checkpoints unverifiable. Everything else under an unread label is
+rejected: arrays and maps (so no nesting, no nested-order question, no
+nesting limit), tags, `undefined` and every other simple value, a float
+that has a shorter form preserving its value, invalid UTF-8, additional
+information 28–30, the break code 31, a two-byte simple value below 32,
+and any item cut off by the end of the header. Tags are rejected because
+the profile assigns them no meaning and skipping one silently would hide a
+semantic the signer intended; containers are rejected because no checkpoint
+header carries one and each verifier would otherwise have to agree on
+nested order, duplicates and depth.
+
+*Revised 2026-09-20 (D9 amendment).* The first wording admitted any
+well-formed definite-length item under an unread label, including
+`undefined`, every simple value, floats in any width, and containers. The
+adversarial review of canopy #255 showed that this cannot be met
+identically: go-merklelog's canonical re-encode check rejects a
+single-precision float that fits a half, a double with a shorter form, and
+`undefined`, while canopy and the contract accepted them, so the chain
+would anchor a checkpoint no Go replica re-verifies, which is the case D9
+exists to prevent. Shortest-form floats were already required by RFC 8949
+§4.2.1; the wording above makes that explicit and removes the value types
+on which implementations disagree. The review also found that the three
+verifiers already agree on length-first key order (shorter encoding first,
+then bytewise); the outliers are canopy's own encoder and arbor's
+delegation-certificate code, which are moved to it, not the rule.
 
 Reference behaviours, in agreement on every header class reviewed: the
 contract's single-walk parser (`seekLabels`, reading `alg` and

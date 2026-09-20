@@ -38,17 +38,14 @@ from the operator re-internalises the trust the log removes.
 [receipt trust model](../spec/receipt-trust-model.md)
 · [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (attribution).
 
-### P4 — Non-equivocation is enforced by the immutable contract against outsiders, and by retained checkpoints against a key holder
-Split-view protection is structural on-chain against anyone without a key the
-owner authorised: the contract folds every non-zero-base consistency proof
-from the accumulator it holds and refuses an inconsistent checkpoint. Against a
-holder of the log's root key or an in-range delegated key, the contract as
-deployed accepts a base-zero first proof that replaces the accumulator, so
-detection rests on retained checkpoints. Security MUST NOT depend on a live
-honest-majority of monitors for the first case, and MUST state the second
-plainly. **Why:** security that depends on a live watcher population degrades
-when nobody is watching; the anchor makes divergence by an outsider impossible
-*by contract*, and only a key holder's replacement needs a witness.
+### P4 — Non-equivocation is enforced by the immutable contract, not watchers
+Split-view protection is structural on-chain: the contract takes the base of
+every consistency proof from the size and accumulator it already holds, pins
+the proof's shape to its sizes, requires the signed target size to match, and
+refuses a checkpoint that does not extend the anchored state, whoever signed
+it. Security MUST NOT depend on a live honest-majority of monitors. **Why:**
+security that depends on a live watcher population degrades when nobody is
+watching; the anchor makes divergence impossible *by contract*.
 [receipt trust model](../spec/receipt-trust-model.md) (question 1)
 · [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §4.1.
@@ -129,12 +126,17 @@ happened" from "happened and was withheld" — but the succinct form is unbuilt.
 §6.
 
 ### P14 — One instance root, set once; global logId→R uniqueness
-Every checkpoint binds to exactly one instance root (`chainId` + contract); the
-root/bootstrap key is **set once at construction and immutable**, and global
-`logId → R` uniqueness is enforced atomically at grant POST. **Why:** this 1:1
-binding is what authority resolution, fee liability, and permissionless
-per-forest publishing all key off — and what blocks logId reuse / grant replay.
+Every log is anchored under exactly one instance root (`chainId` + contract);
+the root/bootstrap key is **set once at construction and immutable**, and
+global `logId → R` uniqueness is enforced atomically at grant POST. A
+checkpoint signature asserts the accumulator and its tree size; it is the
+**contract** that binds the checkpoint to the instance, by enforcing
+consistency with the anchored state — the signature itself names no instance,
+chain or log. **Why:** this 1:1 anchoring is what authority resolution, fee
+liability, and permissionless per-forest publishing all key off — and what
+blocks logId reuse / grant replay.
 [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3
 · [glossary.md](../glossary.md) (forest uniqueness).
 
 ### P15 — Published artifacts declare their own cache policy; completeness decides immutability

@@ -202,9 +202,8 @@ delegation is a root signature and submission is permissionless; or the owner
 starts a new log. This is the strongest of the guarantees here, because it is
 the one that makes the others credible: an exit that depends on the operator
 is not an exit, it is a lock-in. It does not cut short a lease already issued:
-that sealer can still publish within its range until the log grows past it,
-and a relying party retaining checkpoints is what detects misuse in the
-meantime.
+that sealer can still publish extensions within its range until the log grows
+past it.
 
 **Resetting** forgets what the browser holds — keys, wallet, local message
 text. It does not and cannot delete entries already committed; those are
@@ -218,7 +217,7 @@ committed hashes stand for.
 | Script injection in the page | Can sign turns while open; **can obtain a delegation and a permanent grant**; cannot take the key | Can sign turns while open; cannot seal, delegate or grant without a gesture | Same as passkey | Same as passkey | n/a |
 | Loss of the browser profile | **Log frozen, unrecoverable** | Recovers via keychain sync | Unaffected | Unaffected | Unaffected |
 | Compromised hosting operator | Cannot forge | Cannot forge | Cannot sign at all | Can sign within policy while enabled; the stop is its own coordinator's | n/a |
-| Compromised transparency operator (sealer) | Bounded to each lease's log and MMR range, until the log grows past it; within a lease, can replace the anchored accumulator, which retained checkpoints detect (see [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md) §4.1) | Same | Same | Same | Same, and also holds the root (below) |
+| Compromised transparency operator (sealer) | Bounded to each lease's log and MMR range, until the log grows past it, and to extensions of the anchored state (see [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md) §4.1) | Same | Same | Same | Same, and also holds the root (below) |
 | Compromised custodian | n/a | n/a | n/a | n/a | **Holds the root** — can delegate, grant and sign anything |
 | Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit | n/a |
 

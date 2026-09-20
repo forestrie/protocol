@@ -17,12 +17,10 @@ what an operator can still do, what it cannot do, and what it can do that is
 not prevented.
 
 The short version: an operator can **decline to act**, and that is visible. It
-cannot forge an entry, re-root a log, or mint authority for a key the owner
-never authorised. What a key the owner *did* authorise can do is bounded by
-the contract as deployed, and §4.1 states that bound exactly, because the
-strongest guarantee here — non-equivocation — holds structurally against
-outsiders and only observationally against a holder of the log's own signing
-authority.
+cannot forge an entry, re-root a log, mint authority for a key the owner
+never authorised, or anchor a history that does not extend the one already
+anchored — and that last holds even for a holder of the log's own signing
+authority, because the contract enforces it (§4.1).
 
 ## 1. The parties
 
@@ -93,7 +91,7 @@ only defeats is incomplete.
 | **Assign idtimestamps from its own clock, and fix entry order** | The idtimestamp is the operator's clock reading; it is what the offline endorsement window is checked against. Ordering within a log is the sequencer's choice |
 | **Stop sealing, or delay it indefinitely** | The log stops advancing. Visible as anchor lag; nothing bounds how long it may persist. The owner's remedy is to delegate a different sealer |
 | **Re-seal a massif** | Routine: each seal of a growing massif replaces the checkpoint object with one from the same boundary. A retained earlier checkpoint stays valid |
-| **Sign checkpoints within a lease** | On-chain: bounded to the leased log and its inclusive MMR range, until the log grows past the range's end — **there is no on-chain expiry**. Off-chain: the certificate's expiry bounds when verifiers accept it. Consistency with the anchored state is enforced for every proof whose base is non-zero; §4.1 states the exception |
+| **Sign checkpoints within a lease** | On-chain: bounded to the leased log and its inclusive MMR range, until the log grows past the range's end — **there is no on-chain expiry**. Off-chain: the certificate's expiry bounds when verifiers accept it. Every checkpoint must extend the anchored state (§4.1) |
 | **Decide what reaches the chain** | The publisher selects which sealed checkpoints it submits, and when. It cannot alter them, and anyone else may submit one it withholds |
 | **Withhold or delay data it serves** | Anyone holding a replica is unaffected; a party depending solely on the operator's endpoints is |
 | **Withhold a grant before its first anchor** | Until a log's first checkpoint is anchored, its grant exists only in the operator's grant store; the operator can withhold it, and nothing public proves it was issued |
@@ -119,8 +117,8 @@ derivation is set out in [receipt-trust-model.md](./receipt-trust-model.md)
 |---|---|
 | **Forge an entry** | Entry signer authority is enforced against the grant's binding — the owner's key, or a session key that key endorsed. The operator has neither, in the self-custody shapes |
 | **Re-root a log** | The root is bound once and immutable. There is no re-rooting operation for anyone, including the owner |
-| **Rewrite committed history without a key the owner authorised** | Every consistency proof whose base is non-zero is folded from the anchored accumulator, and the claimed size must strictly increase. Without a checkpoint-signing key the contract accepts, no history can be replaced |
-| **Present two histories to a chain reader without a key the owner authorised** | The same fold. §4.1 states what a key holder can do |
+| **Rewrite or delete committed history** | Append-only: every consistency proof is folded from the anchored size and accumulator, the base is never taken from the proof, and the claimed size must strictly increase. A parent may decline future growth; it cannot rewrite, censor retroactively, or sign in a child's place |
+| **Present two histories** | The contract refuses to anchor a checkpoint that does not extend what it holds, whoever signed it. Non-equivocation is structural, not observational (§4.1) |
 | **Mint authority** | Authority is a grant inclusion proof plus a correctly signed receipt. There is no operator-issued credential anywhere in the model |
 | **Block a publish** | Submission is permissionless — the contract does not check the sender. Anyone can publish a well-formed checkpoint |
 | **Exceed a lease on-chain** | The log and the inclusive MMR range are checked on-chain at publish. Expiry is not; it is a certificate property |
@@ -130,37 +128,34 @@ derivation is set out in [receipt-trust-model.md](./receipt-trust-model.md)
 The last row is the load-bearing one: every other guarantee depends on being
 checkable without asking the operator.
 
-### 4.1 Non-equivocation: structural against outsiders, observational against a key holder
+### 4.1 Non-equivocation is structural
 
 At publish the contract checks, in this order: that the checkpoint's claimed
-size is greater than the size it holds; that each consistency proof whose
-declared base is non-zero folds from the accumulator it holds; that the
-resulting peak count matches the claimed size; that the checkpoint signature
-verifies over the resulting accumulator under the log's root key or a
-delegated key in range; and that the presented grant is included in the owner
-log. A checkpoint that fails any of these is refused. Against anyone who does
-not hold a key the owner authorised, split-view protection is therefore
-structural: there is no way to anchor a second history.
+size is greater than the size it holds; that the first consistency proof's
+declared base equals the size it holds and each later proof's base equals
+the previous proof's target — the base is taken from anchored state, never
+from the proof; that each proof grows the tree to a complete size and its
+paths have exactly the shape the two sizes imply; that the signed
+`tree-size-2` in the protected header equals the last proof's target; that
+the checkpoint signature verifies over the accumulator the fold produces,
+under the log's root key or a delegated key in range; and that the presented
+grant is included in the owner log
+([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3). A
+checkpoint that fails any of these is refused, whoever signed it. A holder of
+the log's root key, or of a delegated sealing key, can sign a checkpoint;
+what the contract anchors under that signature is only an extension of what
+it already holds, at the size the signer signed.
 
-The contract does **not** require the first proof's declared base to equal
-the size it holds. A first proof whose base is **zero** is folded from the
-caller's own peaks, not from the anchored accumulator. A holder of the log's
-root key, or of a delegated sealing key whose range covers the claimed size,
-can therefore publish a checkpoint that replaces the anchored accumulator
-with one that does not extend it, at any size greater than the current one.
-The replaced history is not shorter, and it is signed by a key the owner
-authorised, but it is not a prefix-consistent extension of what was anchored.
+Split-view detection therefore does not depend on a live population of
+gossiping monitors: the contract refuses the inconsistent checkpoint at
+publish, and security does not degrade when nobody is watching. Monitors
+remain useful — they notice unexpected entries and anchor lag — but they are
+not a security dependency.
 
-Against that party, non-equivocation is **observational**: anyone who retained
-an earlier checkpoint detects the replacement, because a retained chain whose
-next link's base does not equal the previous link's sealed size is refused
-([receipt-trust-model.md](./receipt-trust-model.md), the checkpoint chain
-root). Monitors that retain checkpoints are therefore a security dependency
-for that one case, and a convenience for every other.
-
-The glossary's "delegation lockout" entry describes the same capability from
-the owner's side: a validly delegated key can publish a fork the owner's true
-history no longer extends.
+This is a property of the contract at the version that enforces the fold
+from anchored state and the signed size. Which deployments carry that
+version is an implementation matter, recorded outside this document; a
+forest's genesis document names the instance it anchors to.
 
 ### 4.2 The upgrade admin
 
@@ -176,7 +171,7 @@ and a relying party's trust in the contract's rules is trust in that address.
 
 | Adversary | Capability | Bounded by |
 |---|---|---|
-| **Compromised transparency operator** | Holds the standing sealing key and every lease it carries; runs the admission edge | Signs only for logs that leased the key, within each lease's MMR range. Cannot mint authority for an unauthorised key or log, cannot obtain a self-custodied root. Can censor at admission, append unbacked leaves, and — within a lease — replace the anchored accumulator (§4.1), which retained checkpoints detect. Not neutralised by the owner: a lease runs until the log grows past its range |
+| **Compromised transparency operator** | Holds the standing sealing key and every lease it carries; runs the admission edge | Signs only for logs that leased the key, within each lease's MMR range, and only extensions of the anchored state (§4.1). Cannot mint authority for an unauthorised key or log, cannot obtain a self-custodied root, cannot rewrite or fork anchored history. Can censor at admission, append unbacked leaves, and stop sealing. Not cut short by the owner: a lease runs until the log grows past its range |
 | **Compromised custodian** | Holds the KMS custody keys | For every custodial log, holds the root: can delegate, sign proofs, and sign any digest. Bounded only by the owner's choice of a self-custody shape |
 | **Compromised hosting operator** | Controls hosting, routes signing requests; in the hosted-wallet option is an additional signer | Cannot sign at all in the user-operated option. In the hosted-wallet option, signs within the wallet's policy while both enable bits are set; the two-bit stop is a coordinator feature, not something any contract or verifier checks. Cannot change owners, export or rotate the user's key |
 | **Compromised enclave provider** | Controls the enclave | Out of scope unless the user chose that option. Where chosen, can abuse the root — mitigated only by exit, not by revocation |
@@ -209,9 +204,9 @@ The client sees the refusal immediately, so this is *detectable* rather than
 exit path makes possible without cooperation. But nothing stops the refusal.
 
 **A lease cannot be revoked.** Once the owner has signed a delegation, the
-sealer it names can publish for that log within the range until the log
-grows past it. The owner can delegate another sealer alongside; they cannot
-shorten what they issued.
+sealer it names can publish extensions for that log within the range until
+the log grows past it. The owner can delegate another sealer alongside; they
+cannot shorten what they issued.
 
 **Absence is provable, succinctly is not.** Non-presence can be proven against
 a replicated log. A *succinct* absence proof needs an authenticated secondary

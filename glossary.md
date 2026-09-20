@@ -256,13 +256,15 @@ _Avoid_: conflating with a delegation certificate, the contract bootstrap
 key, or a self-custodied root.
 
 **Delegation lockout (threat)**:
-The failure a stolen or mis-issued delegation enables: the holder publishes a
-forked-but-consistency-valid checkpoint, replacing the committed on-chain
-accumulator so the legitimate owner's true history is no longer a provable
-extension. Unbounded under a standing lease (no on-chain expiry), and not
-recoverable by re-rooting, because there is none.
-_Avoid_: assuming the contract's consistency fold prevents forks by a
-*validly delegated* key — it accepts exactly that
+The failure a stolen or mis-issued delegation enables: the holder seals and
+anchors extensions the owner did not intend, ahead of the owner's own
+sealer, so the owner's sealer finds the anchored state already past it. The
+contract accepts only extensions of the anchored history, so the anchored
+log is still consistent and every retained receipt still verifies; what the
+owner loses is control of what gets appended and sealed until the lease's
+range is exhausted. Unbounded under a standing lease (no on-chain expiry),
+and not recoverable by re-rooting, because there is none.
+_Avoid_: describing it as a fork or a rewrite — the contract refuses those
 ([trust-boundaries-and-operator-powers.md](spec/trust-boundaries-and-operator-powers.md)
 §4.1).
 
@@ -271,8 +273,9 @@ _Avoid_: assuming the contract's consistency fold prevents forks by a
 **Checkpoint (format v3) / consistency receipt**:
 The sealed checkpoint object: a `COSE_Sign1`, tagged (CBOR tag 18) as the
 sealer emits it, in the shape of a draft-bryce **Receipt of Consistency** —
-protected header `{1: alg, 395: 3}`, a detached payload, one consistency
-proof from the massif boundary to this seal, and (in the unprotected header)
+protected header `{1: alg, 395: 3, -65933: tree-size-2}` signing the size
+it proves to, a detached payload, one consistency proof from the massif
+boundary to this seal, and (in the unprotected header)
 pre-signed peak receipts and, when delegated, the on-chain delegation proof
 and the certificate. It is directly publishable.
 _Avoid_: "sibling proof document" (there is none); "MMRState checkpoint" (the

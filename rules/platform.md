@@ -35,17 +35,14 @@ from the operator re-internalises the trust the log removes.
 [receipt trust model](../spec/receipt-trust-model.md)
 · [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (attribution).
 
-### P4 — Non-equivocation is enforced by the immutable contract against outsiders, and by retained checkpoints against a key holder
-Split-view protection is structural on-chain against anyone without a key the
-owner authorised: the contract folds every non-zero-base consistency proof
-from the accumulator it holds and refuses an inconsistent checkpoint. Against a
-holder of the log's root key or an in-range delegated key, the contract as
-deployed accepts a base-zero first proof that replaces the accumulator, so
-detection rests on retained checkpoints. Security MUST NOT depend on a live
-honest-majority of monitors for the first case, and MUST state the second
-plainly. **Why:** security that depends on a live watcher population degrades
-when nobody is watching; the anchor makes divergence by an outsider impossible
-*by contract*, and only a key holder's replacement needs a witness.
+### P4 — Non-equivocation is enforced by the immutable contract, not watchers
+Split-view protection is structural on-chain: the contract takes the base of
+every consistency proof from the size and accumulator it already holds, pins
+the proof's shape to its sizes, requires the signed target size to match, and
+refuses a checkpoint that does not extend the anchored state, whoever signed
+it. Security MUST NOT depend on a live honest-majority of monitors. **Why:**
+security that depends on a live watcher population degrades when nobody is
+watching; the anchor makes divergence impossible *by contract*.
 [receipt trust model](../spec/receipt-trust-model.md) (question 1)
 · [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §4.1.
@@ -144,10 +141,14 @@ unbuilt.
 Every forest binds to exactly one contract instance (`chainId` + contract)
 through its genesis document; the instance's bootstrap key is **set once at
 construction and immutable**; and a log id belongs to exactly one forest,
-enforced at registration. **Why:** this 1:1 binding is what authority
-resolution and permissionless per-forest publishing key off — and what blocks
-logId reuse across forests.
+enforced at registration. A checkpoint signature asserts the accumulator and
+the size it is the accumulator of; it is the **contract** that binds the
+checkpoint to the instance, by enforcing consistency with the anchored state
+— the signature itself names no instance, chain or log. **Why:** this 1:1
+binding is what authority resolution and permissionless per-forest publishing
+key off — and what blocks logId reuse across forests.
 [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1 and §1.1
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3
 · [key-custody-and-choice.md](../spec/key-custody-and-choice.md) §1
 · [glossary.md](../glossary.md) (forest uniqueness).
 
@@ -159,20 +160,21 @@ adds nothing to it. **Why:** heuristic caching of mutable objects fails
 silently — a stale proof, or a cached 404 that blocks a later write.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §6.
 
-### P16 — Conformant COSE/CBOR everywhere, with one named legacy exception
+### P16 — Conformant COSE/CBOR everywhere, with one named exception
 Every format is strict SCITT/COSE with RFC 8949 §4.2 core deterministic
 encoding, on encode **and** on decode. The one exception is the **checkpoint
-envelope**, which uses the older length-first canonical map ordering; the two
-orderings agree only while every map label is a single byte, and the
-checkpoint envelope carries multi-byte labels. A verifier of checkpoints MUST
-accept the length-first order and MUST NOT re-encode a checkpoint expecting
-byte identity with a core-deterministic encoder. **Why:** on-chain
-verifiability and interop depend on exact bytes; a lax or tag-mangling codec
-produces receipts the contract rejects, and migrating the envelope would
-break every frozen vector for a divergence no one has observed.
-[ADR-0067](../decisions/adr-0067-checkpoint-envelope-canonicalisation-exception.md)
-· [label-registry.md](../spec/label-registry.md)
-· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.
+envelope**, whose protected header uses length-first canonical map key order
+(shorter key encodings first, then bytewise); the two orders agree only while
+every map label is a single byte, and the checkpoint header carries `395` and
+`-65933`. A verifier of checkpoints MUST require that order for the header, as
+ADR-0066 D9 states, and MUST NOT re-encode a checkpoint expecting byte
+identity with a bytewise-order encoder. **Why:** on-chain verifiability and
+interop depend on exact bytes; a lax or tag-mangling codec produces receipts
+the contract rejects, and changing the header order would change every
+checkpoint the sealer emits.
+[ADR-0068](../decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md)
+· [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) D9
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3.
 
 ---
 

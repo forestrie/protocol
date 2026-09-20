@@ -47,7 +47,7 @@ where a reviewer checks the value.
 | `3` | `cty` | `content type` | Protected | Content type | RFC 9052 |
 | `4` | `kid` | `kid` | Protected | Key id | RFC 9052 |
 | `15` | CWT claims | `CWT claims` | Protected | CWT claims set, on a signed statement | RFC 9597 |
-| `395` | `vds` | `verifiable data structure` | Protected | Verifiable data structure. Value `3` denotes the MMR profile: **requested by the MMR profile draft, not registered** — IANA's registry holds only `1` (`RFC9162_SHA256`). The Go sealer emits `395: 3` on every checkpoint and peak receipt; the TypeScript exporters do not, and no vector in this repository carries it. A verifier must not require it and must not present it as registry fact | RFC 9942 |
+| `395` | `vds` | `verifiable data structure` | Protected | Verifiable data structure. Value `3` denotes the MMR profile: **requested by the MMR profile draft (its `TBD_1`), not registered** — IANA's registry holds only `1` (`RFC9162_SHA256`). Every checkpoint and peak receipt carries `395: 3`; an inclusion receipt minted from a peak receipt need not, and no receipt vector in this repository carries it. A verifier must not present it as registry fact | RFC 9942 |
 | `396` | `vdp` | `verifiable proofs` | Unprotected | Verifiable proofs map. Key `-1` holds the array of inclusion proofs a receipt carries (`{1: mmrIndex, 2: path}` each; the first element is read). Key `-2` holds the consistency proof a checkpoint carries, as a byte string wrapping `[tree-size-1, tree-size-2, paths, right-peaks]` | RFC 9942 |
 
 Display names for the value of `395`: `1` → `RFC9162_SHA256 (Certificate
@@ -63,14 +63,33 @@ codepoint TBD)`.
 | `-65538` | embedded grant | `forestrie grant v0` | — | Unprotected | The full inner grant bytes (keys 1–6), on a sealed grant's transparent statement | canopy `packages/libs/receipt-verify/src/forest-genesis-labels.ts` (`HEADER_FORESTRIE_GRANT_V0`); arbor `services/univocity/src/grant.go` |
 | `-65800` | **`TBD1`** — WebAuthn assertion envelope | `WebAuthn assertion envelope` | — | Unprotected | `[authenticatorData, clientDataJSON]`. **Reuses the algorithm's number — see §4** | canopy `packages/shared/encoding/src/verify-cose-sign1.ts` (`WEBAUTHN_ENVELOPE_LABEL`); arbor `services/pkgs/delegationcert/build_certificate.go` (`CoseHeaderWebAuthnEnvelope`) |
 | `-65801` | **`TBD2`** — session-key endorsement | `session key endorsement` | — | Unprotected | The endorsement COSE Sign1, embedded as a byte string, on every endorsed entry | canopy `packages/shared/encoding/src/verify-cose-sign1.ts` (`COSE_LABEL_SESSION_KEY_ENDORSEMENT`) |
-| `-65931` | `SealPeakReceiptsLabel` | `pre-signed peak receipts` | `-65535 - 396` | Unprotected | Pre-signed per-peak inclusion receipts on a checkpoint: an array of byte strings, one tagged COSE Sign1 per peak | go-merklelog `massifs/checkpointreceipt.go` |
-| `-66535` | `SealDelegationProofLabel` | `on-chain delegation proof` | `-65535 - 1000` | Unprotected | The on-chain delegation proof carried in a checkpoint | go-merklelog `massifs/checkpointreceipt.go` |
+| `-65931` | `SealPeakReceiptsLabel` | `pre-signed peak receipts` | `-65535 - 396` | Unprotected | Pre-signed per-peak inclusion receipts on a checkpoint: an array of byte strings, one tagged COSE Sign1 per peak | go-merklelog `massifs/checkpointreceipt.go`; canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_PEAK_RECEIPTS`) |
+| `-65932` | ~~`tree-size-1`~~ | — | `-65535 - 397` | — | **Withdrawn before any deployment used it.** `tree-size-1` is unsigned prover context in the consistency proof ([ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md), amendment 1). Not to be reassigned | — |
+| `-65933` | `tree-size-2` (the MMR profile draft's `TBD_2`) | `tree-size-2` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to**: the size whose accumulator is the detached payload and the size the contract anchors. CBOR unsigned integer (major type 0). MUST be present on a checkpoint, and MUST equal the last consistency proof's `tree-size-2` ([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3). Interim private-use value pending IANA assignment through the profile draft — [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) | univocity `src/cosecbor/constants.sol` (`LABEL_TREE_SIZE_2`); go-merklelog `massifs/checkpointreceipt.go` (`CheckpointLabelTreeSize2`); canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_TREE_SIZE_2`) |
+| `-66535` | `SealDelegationProofLabel` | `on-chain delegation proof` | `-65535 - 1000` | Unprotected | The on-chain delegation proof carried in a checkpoint | go-merklelog `massifs/checkpointreceipt.go`; canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_DELEGATION_PROOF`) |
 | `1000` | `delegationCertUnprotectedLabel` | `delegation certificate` | — | Unprotected | The delegation certificate, as a **byte string wrapping its COSE Sign1**. Predates the private-use convention and is **not** in that space | arbor `services/sealer/src/sealer.go`; canopy `packages/apps/canopy-api/src/grant/delegation-verify.ts` |
 
 Note `1000` and `-66535` coexist in the same checkpoint and mean different
 things — the certificate bytes and the on-chain proof respectively. The offset
 in `SealDelegationProofLabel` mirrors the older label's number; it does not
 replace it.
+
+**Derivation convention.** A derived label is `COSEPrivateStart − <related
+registered label>`. When no registered label is related, the derivation uses
+the *next conceptual slot* in the registered sequence: `tree-size-2` takes
+398, the slot after `vds` (395), `vdp` (396) and the withdrawn `tree-size-1`
+(397), because it is the next protected-header parameter the MMR profile
+adds. The `-658xx` band is not extended, since an algorithm and a header
+parameter already share `-65800` there (§4).
+
+`tree-size-2` is the **only protected-header label in the private-use
+space**. The profile draft names it `TBD_2` (its `TBD_1` is `vds`); those
+names are the draft's, and are unrelated to this registry's `TBD1`/`TBD2`,
+which are unprotected envelope labels. The protected header it sits in MUST
+be deterministic CBOR, and a label a verifier does not read may carry only
+the value types [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md)
+D9 lists; [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3
+states the encoding and the verification rules.
 
 ### 2.3 Private use — the forest genesis document
 
@@ -170,10 +189,11 @@ the grant.
 Two tools render these codepoints. Against the display names above:
 
 - the command-line client's table names every codepoint in §§1–2 that a
-  receipt or checkpoint carries; its algorithm string for `-65800` omits
-  session-key endorsements, and its notes for `395`/`396` still say "draft";
-- the MCP verification server's table omits the `-65800` header entry and
-  `-66535`, and carries the same "draft" notes.
+  receipt or checkpoint carries, including `-65933`; its algorithm string
+  for `-65800` omits session-key endorsements, and its notes for `395`/`396`
+  still say "draft";
+- the MCP verification server's table omits the `-65800` header entry,
+  `-65933` and `-66535`, and carries the same "draft" notes.
 
 Those are implementation differences to be closed in the order stated in the
 summary, not registry facts.
@@ -199,5 +219,7 @@ summary, not registry facts.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
-  labels.
+  labels, and what the checkpoint signature covers.
+- [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) — why the
+  target tree size is signed, and the verification MUSTs.
 - [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

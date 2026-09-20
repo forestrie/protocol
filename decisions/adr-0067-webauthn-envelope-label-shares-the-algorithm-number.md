@@ -1,4 +1,4 @@
-# ADR-0066: The WebAuthn assertion envelope label shares the algorithm's number
+# ADR-0067: The WebAuthn assertion envelope label shares the algorithm's number
 
 **Status:** PROPOSED — records a wire convention every implementation already
 follows, so that the specification can state it as a decision rather than a

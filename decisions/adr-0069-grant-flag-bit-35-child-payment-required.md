@@ -1,4 +1,4 @@
-# ADR-0068: Grant flag bit 35 is the operator's child-payment-required policy
+# ADR-0069: Grant flag bit 35 is the operator's child-payment-required policy
 
 **Status:** PROPOSED — records an assignment the operator's registration API
 already makes in the band the contract reserves for it.

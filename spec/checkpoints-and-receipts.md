@@ -31,16 +31,16 @@ under `vectors/golden/burial/` are untagged.
 
 | Part | Contents |
 |---|---|
-| Protected header | `1` algorithm, `395` verifiable data structure (value `3` = the MMR consistency profile) |
+| Protected header | `1` algorithm, `395` verifiable data structure (value `3` = the MMR consistency profile), `-65933` `tree-size-2` — the signed size, required. Deterministic CBOR, canonical key order (§1.3) |
 | Unprotected header | `396` proofs map, plus the private-use labels below |
-| Payload | **Detached** — the raw concatenation of the accumulator peaks, in descending height order |
+| Payload | **Detached** — the raw concatenation of the accumulator peaks for `tree-size-2`, in descending height order |
 | Signature | By the delegated sealing key, or by the root key when the owner seals directly |
 
 The unprotected header carries the proofs map at `396` and, as the sealer
 attaches them, the peak receipts at `-65931`, the on-chain delegation proof
 at `-66535` and the delegation certificate at `1000`. The values and their
 meanings are in [label-registry.md](./label-registry.md) §2; their encodings
-are in §1.3 below. Labels `1000` and `-66535` coexist and mean different
+are in §1.4 below. Labels `1000` and `-66535` coexist and mean different
 things — the certificate and the on-chain proof respectively. Both are
 carried opaquely by the sealer, which does not branch on their contents.
 
@@ -65,9 +65,56 @@ a boundary-to-boundary link, and a retained chain of those verifies boundary
 to boundary, each link's base equal to the previous link's sealed size.
 
 Catching up over several sealed massifs at publish means **chaining** those
-proofs in one contract call rather than producing a single wide proof.
+proofs in one contract call rather than producing a single wide proof; §1.3
+states what the contract requires of a chain.
 
-### 1.3 The encodings
+### 1.3 What the signature covers
+
+The checkpoint signature asserts **the accumulator and the tree size it is
+the accumulator of**: the protected header's `tree-size-2` and the detached
+payload. Nothing else is signed. The consistency proof in the `396` map is
+prover context; it is how a verifier reconstructs the payload, and its
+`tree-size-2` MUST equal the signed one. Its `tree-size-1` is not signed:
+a verifier already holds the size and accumulator it verifies from, and the
+proof need only be consistent with them.
+
+The size is signed because the proof alone does not pin it. When no
+origin peak is folded — every first checkpoint, and any extension whose
+origin peaks all sit above the split — the same accumulator and signature
+verify at several declared sizes, and whoever submits the receipt chooses
+which one is stored. Values are never forged; the height they are read at
+is. Reasoning and the finding: [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md).
+
+When a chain of proofs is published together (§1.2), the signed
+`tree-size-2` MUST equal the last proof's `tree-size-2`, and each proof's
+base MUST equal the previous proof's target, the first the verifier's
+trusted size. The publisher may relay several sealed steps, and re-base a
+step, under the head checkpoint's signature, because no signed value names
+the base. Every verifier of a consistency proof, on-chain or off, MUST:
+
+1. take `tree-size-1` from state it already trusts — its own accumulator, or
+   on-chain the anchored size — never from the proof;
+2. require the signed `tree-size-2` to equal the declared one, carried as a
+   CBOR unsigned integer;
+3. require `tree-size-2` to be a complete MMR size;
+4. require each origin peak's path to have exactly the length the two sizes
+   imply, and every origin peak below the split to prove the same root; the
+   number of proven roots and of right peaks is then fixed by the sizes.
+
+The reference fold is univocity's `consistentRootsForSizes`; the Go and
+TypeScript verifiers port it line for line against one set of vectors.
+
+The protected header is deterministic CBOR as the profile draft requires
+(RFC 8949 §4.2.1: shortest-form arguments, definite lengths, keys in
+canonical order, no duplicate keys, no tags, the map consuming the whole
+header, integer keys only), and univocity rejects anything else. A label a
+verifier does not read may carry an integer, a byte string, a valid-UTF-8
+text string, `false`, `true`, `null` or a shortest-form float, and the
+verifier skips it; any other value type under an unread label (a container,
+a tag, `undefined`, a wider-than-needed float) is rejected everywhere
+(ADR-0066 D9). The sealer emits `{1: alg, 395: 3, -65933: tree-size-2}`.
+
+### 1.4 The encodings
 
 **The consistency proof.** Key `-2` of the `396` map holds a **byte string**
 wrapping a CBOR array `[tree-size-1, tree-size-2, paths, right-peaks]`:
@@ -126,7 +173,9 @@ The publisher's job is to decode the sealer's COSE into these and assemble the
 chain. The contract then rebuilds the signed bytes, checks the signature under
 the log's root key or a valid delegation of it, and re-checks the presented
 grant's inclusion in its parent — the authority walk it performs on every
-publish.
+publish. It parses `tree-size-2` from the protected header in the same walk
+as `alg`, requires it to equal the size it is about to store, and rejects a
+receipt that omits it or whose header is not deterministic CBOR (§1.3).
 
 Checkpoint signing accepts **ES256 and KS256 only**. The WebAuthn algorithm is
 never a checkpoint-signing algorithm; a passkey authorises a sealer, it never
@@ -197,8 +246,10 @@ tolerate:
 2. a receipt may carry the 32-byte peak as an attached payload rather than
    always detaching it;
 3. the verifiable data structure value `3` is requested by the MMR profile
-   draft and not registered, so a verifier must not require it and must not
-   treat its presence as registry fact.
+   draft and not registered. Checkpoints carry it (§1.3); inclusion receipts
+   minted from a peak receipt carry only the algorithm, and no receipt
+   vector in this repository carries `395`. A verifier must not treat its
+   presence as registry fact.
 
 ## 5. Identifiers and time
 
@@ -264,6 +315,8 @@ guard, are implementation matters recorded in
   and the trust roots that answer each question.
 - [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
   accepted contract for layers A–C and the offline boundary.
+- [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) — the
+  signed tree sizes and the verification MUSTs of §1.3.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   commitment that layer C checks for a grant receipt.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)

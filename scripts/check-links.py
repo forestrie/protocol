@@ -20,15 +20,23 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 # Lines that state when or under which ticket, rather than what. The frozen
 # vector manifests keep the comment their exporter wrote (see
-# vectors/README.md), and the records under decisions/ speak in their own
-# historical voice, so both are exempt from the header patterns; the manifests
-# are exempt from the id patterns too, because their bytes are pinned.
+# vectors/README.md) and their bytes are pinned, and the records under
+# decisions/ speak in their own historical voice (README: "historical records
+# in their own voice"), so both are exempt from every pattern below; the
+# specification, rules, glossary, README and vector prose are not.
 LINE_PATTERNS = [
     (re.compile(r"\bFOR-\d+\b"), "ticket id"),
     (re.compile(r"\bplan-\d{4}\b"), "plan id"),
     (re.compile(r"^\*\*Status:\*\* LIVE\b"), "lifecycle status header"),
     (re.compile(r"^\*\*Date:\*\* \d{4}-\d{2}-\d{2}"), "date header"),
 ]
+
+
+def is_pinned_data(path):
+    """Every non-Markdown file under vectors/ is frozen bytes pinned by SHA256SUMS."""
+    return path.startswith("vectors/") and not path.endswith((".md", "SHA256SUMS"))
+
+
 PINNED_MANIFESTS = ("vectors/golden/manifest.json", "vectors/golden/burial/manifest.json")
 
 
@@ -37,11 +45,9 @@ def line_problems(path, text):
         for needle in FORBIDDEN:
             if needle in line:
                 yield i, f"forbidden reference {needle}"
-        if path in PINNED_MANIFESTS:
+        if is_pinned_data(path) or path.startswith("decisions/"):
             continue
         for pattern, what in LINE_PATTERNS:
-            if what.endswith("header") and path.startswith("decisions/"):
-                continue
             if pattern.search(line):
                 yield i, what
 
@@ -58,13 +64,17 @@ def self_test():
     if found != want:
         print(f"self-test FAIL: found {found}, want {want}")
         return 1
-    exempt = list(line_problems("decisions/sample.md", "**Status:** LIVE\n**Date:** 2026-08-30"))
+    exempt = list(line_problems("decisions/sample.md", "**Status:** LIVE\n**Date:** 2026-08-30\nFOR-1 plan-2609"))
     if exempt:
-        print(f"self-test FAIL: decisions/ must be exempt from header patterns, got {exempt}")
+        print(f"self-test FAIL: decisions/ must be exempt, got {exempt}")
         return 1
-    exempt = list(line_problems(PINNED_MANIFESTS[0], '{"comment": "FOR-289 golden vectors"}'))
-    if exempt:
-        print(f"self-test FAIL: pinned manifests must be exempt, got {exempt}")
+    for pinned in (PINNED_MANIFESTS[0], "vectors/fixtures/sample.json"):
+        exempt = list(line_problems(pinned, '{"comment": "FOR-289 golden vectors"}'))
+        if exempt:
+            print(f"self-test FAIL: pinned data must be exempt, got {exempt}")
+            return 1
+    if not list(line_problems("vectors/sample.md", "FOR-1")):
+        print("self-test FAIL: vector prose must be checked")
         return 1
     print("self-test OK")
     return 0

@@ -30,10 +30,9 @@ bytes alone.
 Answered by the **accumulator** (the log's peak set). Recompute the leaf's
 inclusion path to a peak and match it against a *trusted* accumulator. A
 published accumulator is consistency-gated forward: the contract folds each
-checkpoint's consistency proof from the accumulator it already holds, and the
-proof spans the massif entry boundary. Matching one therefore proves the log
-has not forked or rewritten history under you, to the extent the contract
-enforces that fold — stated precisely below.
+checkpoint's consistency proof from the accumulator and size it already
+holds, and the proof spans the massif entry boundary. Matching one therefore
+proves the log has not forked or rewritten history under you.
 
 This property is **independent of currency.** Any accumulator is a genuine,
 non-equivocal commitment up to its own tree size, so an older one is not "less
@@ -56,26 +55,22 @@ the caller trusts that the read of the contract's anchored state was genuine,
 whether it came from an RPC endpoint the caller chose or from a cached copy
 whose provenance the caller can audit.
 
-**What the contract enforces, and what it does not.** At publish the
-contract folds every consistency proof whose declared base is non-zero from
-the accumulator it already holds, requires the claimed size to be strictly
-greater than the stored size, requires the resulting peak count to match the
-claimed size, and verifies the checkpoint signature over the resulting
-accumulator. A checkpoint that fails any of those is refused, so an operator
-cannot present two histories that both extend the anchored state. The contract
-does **not** require the first proof's declared base to equal the stored size:
-a first proof whose base is zero is folded from the caller's own peaks rather
-than from the stored accumulator. A holder of a key entitled to sign a
-checkpoint for the log — the root key, or a delegated sealing key within its
-range — can therefore publish a checkpoint that replaces the anchored
-accumulator with one that does not extend it, at any size greater than the
-current one. Such a replacement is detectable by anyone retaining an earlier
-checkpoint: a retained chain whose link bases do not meet is refused by the
-checkpoint-chain root below. Non-equivocation against a **key holder** is
-therefore observational, resting on retained checkpoints; against everyone
-else it is structural. [Platform invariant P4](../rules/platform.md) and
+**Why the operator cannot defeat this.** At publish the contract takes the
+base of the first consistency proof from the size and accumulator it already
+holds, never from the proof; requires each proof's declared base to equal that
+trusted size and each target to be a complete size the paths have the shape
+of; requires the signed `tree-size-2` to equal the last proof's target
+([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3); and
+verifies the checkpoint signature over the accumulator the fold produces. A
+checkpoint that does not extend the anchored state is refused whoever signed
+it, so a holder of the log's signing authority cannot anchor a second history
+either. Non-equivocation is structural, not observational: security does not
+depend on a live honest majority of monitors watching for divergence
+([platform invariant P4](../rules/platform.md);
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-§4.1 state the same bound.
+§4.1). That is a property of the contract at the version that enforces the
+fold; which deployments carry it is an implementation matter, recorded
+outside this document.
 
 ### 2. Sealing attestation — *who sealed this state?*
 
@@ -112,8 +107,8 @@ for any other key or log. It cannot be cut off by changing the log's root — th
 contract binds the root once and has no operation to replace it. The owner's
 remedies are to delegate a different sealer under the same root, which does
 not shorten a lease already issued, or to start a new log. Within a lease the
-sealer holds the checkpoint-signing capability the contract accepts, including
-the base-zero replacement described under question 1.
+sealer holds the checkpoint-signing capability the contract accepts, and the
+contract accepts only extensions of the anchored state (question 1).
 
 ### 3. Authority — *is this log authorised, back to the genesis / bootstrap key?*
 
@@ -242,8 +237,8 @@ question.
 |---|---|---|---|---|
 | **Genesis root** — signature root: the forest genesis document | **Not answered.** A signature root sees only the state the receipt itself carries | **Answered** locally: the signature chains to the root owner key recorded in genesis | **Answered for the root log or a direct delegation** under it; a deeper child log needs the grant-chain walk | **Answerable** from the leaf bytes and the log's root key, independently of the root in use |
 | **Known log key root** — signature root: an owner key the caller holds out of band | **Not answered**, as above | **Answered** locally: the signature verifies under the caller-known owner key | **Asserted, not proven.** The key-to-log binding rests on the channel the key arrived on | **Answerable**, as above |
-| **Known accumulator root** — accumulator root: a snapshot of the log's peaks from an authenticated chain read | **Answered.** The recomputed peak is matched against a state the operator does not control, within the bound stated under question 1 | **Not required by the root.** Implied by the match: the contract refuses to anchor a checkpoint whose signature does not verify | **Not required by the root.** Discharged by the contract at publish, for any log — see question 3 | **Answerable**, as above |
-| **Checkpoint chain root** — accumulator root: a retained chain of signed checkpoints, with the genesis root or a known log key for its base | **Answered relative to the caller's own retention**: each link's signed consistency proof commits the earlier accumulator forward and each link's base must equal the previous link's sealed size, so a match at any retained link holds against everything the caller retained. Combining the chain with a known accumulator ties it to what the contract anchored | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answerable**, as above |
+| **Known accumulator root** — accumulator root: a snapshot of the log's peaks from an authenticated chain read | **Answered.** The recomputed peak is matched against a state the operator does not control | **Not required by the root.** Implied by the match: the contract refuses to anchor a checkpoint whose signature does not verify | **Not required by the root.** Discharged by the contract at publish, for any log — see question 3 | **Answerable**, as above |
+| **Checkpoint chain root** — accumulator root: a retained chain of signed checkpoints, with the genesis root or a known log key for its base | **Answered relative to the caller's own retention**: each link signs the size it proves to, each link's base must equal the previous link's signed size, and the fold from the caller's trusted base commits each accumulator forward, so a match at any retained link holds against everything the caller retained. Combining the chain with a known accumulator ties it to what the contract anchored | **Answered** locally: each link's signature is checked over the accumulator folded from the previous link | **As far as the base root reaches** — the chain inherits the answer of whichever signature root anchors its first link | **Answerable**, as above |
 
 The checkpoint chain is a sequence of checkpoint objects signed by the
 operator's own sealer; nothing on the chain reads it. Its split-view answer is
@@ -412,12 +407,9 @@ Forestrie's own documents deliberately use a narrower term, because the
 generic one hides a distinction that matters here:
 
 - **Monitor** — a party that watches a log for unexpected entries or for
-  divergence. Against anyone other than a holder of the log's signing
-  authority, a monitor is a *convenience*, not a security dependency: the
-  contract refuses a checkpoint that does not extend its anchored state
-  ([platform invariant P4](../rules/platform.md)). Against a key holder
-  publishing a base-zero replacement (question 1), a monitor that retains
-  checkpoints is what detects it.
+  divergence. In Forestrie a monitor is a *convenience*, not a security
+  dependency: non-equivocation is enforced by the contract at publish, not by
+  a quorum of watchers ([platform invariant P4](../rules/platform.md)).
 
 Where an external reader would say "auditor", this corpus means "anyone
 performing the verification described above" — which, given the properties, is

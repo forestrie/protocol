@@ -48,7 +48,7 @@ as the table below.
 | **`TBD1`** — WebAuthn assertion envelope | `-65800` | — | Unprotected | `[authenticatorData, clientDataJSON]`. **Reuses the algorithm's number — see §4** |
 | **`TBD2`** — session-key endorsement | `-65801` | — | Unprotected | The endorsement COSE Sign1, embedded as a bstr |
 | `SealPeakReceiptsLabel` | `-65931` | `-65535 - 396` | Unprotected | Pre-signed per-peak inclusion receipts on a checkpoint |
-| `tree-size-2` (profile draft `TBD_2`) | `-65933` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to** — the size whose accumulator is the payload and the size the contract anchors. CBOR unsigned integer (major type 0). MUST equal the last consistency proof's `tree-size-2`. Interim private-use pending IANA via the profile draft — [ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md) |
+| `tree-size-2` (profile draft `TBD_2`) | `-65933` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to** — the size whose accumulator is the payload and the size the contract anchors. CBOR unsigned integer (major type 0). MUST equal the last consistency proof's `tree-size-2`. Interim private-use pending IANA via the profile draft — [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) |
 | ~~`tree-size-1`~~ | ~~`-65932`~~ | `-65535 - 397` | — | **Withdrawn 2026-09-20** before any deployment used it (ADR-0066 amendment 1: `tree-size-1` is unsigned prover context in the consistency proof). Not to be reassigned |
 | `SealDelegationProofLabel` | `-66535` | `-65535 - 1000` | Unprotected | The on-chain delegation proof carried in a checkpoint |
 | `delegationCertUnprotectedLabel` | `1000` | — | Unprotected | The delegation certificate bytes, as a CBOR bstr. Predates the private-use convention and is **not** in that space |
@@ -215,6 +215,6 @@ except the one fork-sync test and the one bit-40 equivalence assertion.
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
   labels, and what the checkpoint signature covers.
-- [ADR-0066](https://github.com/forestrie/devdocs/blob/main/adr/adr-0066-sec-signed-checkpoint-size.md)
+- [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md)
   — why the tree sizes are signed, and the verification MUSTs.
 - [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

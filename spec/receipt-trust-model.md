@@ -70,9 +70,7 @@ either. Non-equivocation is structural, not observational: security does not
 depend on a live honest majority of monitors watching for divergence
 ([platform invariant P4](../rules/platform.md);
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-§4.1). That is a property of the contract at the version that enforces the
-fold; which deployments carry it is an implementation matter, recorded
-outside this document.
+§4.1).
 
 ### 2. Sealing attestation — *who sealed this state?*
 

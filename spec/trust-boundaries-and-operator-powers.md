@@ -150,11 +150,6 @@ publish, and security does not degrade when nobody is watching. Monitors
 remain useful — they notice unexpected entries and anchor lag — but they are
 not a security dependency.
 
-This is a property of the contract at the version that enforces the fold
-from anchored state and the signed size. Which deployments carry that
-version is an implementation matter, recorded outside this document; a
-forest's genesis document names the instance it anchors to.
-
 ### 4.2 The upgrade admin
 
 The contract is deployed in two variants. `ImutableUnivocity` has no admin and

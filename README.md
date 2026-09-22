@@ -32,19 +32,35 @@ decision recorded under `decisions/` before it appears under `spec/`.
 Start with [`spec/receipt-trust-model.md`](spec/receipt-trust-model.md). It names
 the four questions a verifier answers — split-view, sealing, authority and
 attribution — and the four trust roots a caller can hold: two signature roots
-(the log's genesis document, or a known log key) and two accumulator roots (a
+(the forest genesis document, or a known log key) and two accumulator roots (a
 known accumulator, or a retained checkpoint chain). They are alternatives, not a
 progression; which one applies depends on what the caller already holds, and a
 result says which questions the root it used did not answer.
 
+A **forest** is the set of logs anchored by one deployed contract instance.
+Its genesis document is written once per forest, at deployment, and records
+the bootstrap key the contract binds; there is no per-log genesis.
+
 Then read, in any order:
-[checkpoints and receipts](spec/checkpoints-and-receipts.md) for the wire
-formats and why anyone holding public data can mint a receipt;
-[log authority and grants](spec/log-authority-and-grants.md) for where a log's
-authority comes from; [leaf admission](spec/leaf-admission-and-session-endorsement.md)
-for who may sign an entry; and
-[trust boundaries](spec/trust-boundaries-and-operator-powers.md) for what the
-operator can and cannot do. Terms are defined in [glossary.md](glossary.md).
+
+- [checkpoints and receipts](spec/checkpoints-and-receipts.md) for the wire
+  formats and why anyone holding public data can mint a receipt;
+- [log authority and grants](spec/log-authority-and-grants.md) for where a
+  log's authority comes from;
+- [delegation and WebAuthn envelopes](spec/delegation-and-webauthn-envelopes.md)
+  for how a root key delegates sealing, and how a passkey signs at all;
+- [leaf admission](spec/leaf-admission-and-session-endorsement.md) for who
+  may sign an entry;
+- [key custody and choice](spec/key-custody-and-choice.md) for where a root
+  key can live and how to leave;
+- [trust boundaries](spec/trust-boundaries-and-operator-powers.md) for what
+  the operator can and cannot do;
+- the [label registry](spec/label-registry.md) for every codepoint.
+
+`vectors/` holds the conformance vectors: the cross-language grant and leaf
+fixtures, a golden grant receipt that verifies from a forest genesis document,
+and a burial bundle of retained checkpoints; [`vectors/README.md`](vectors/README.md)
+says what each proves. Terms are defined in [glossary.md](glossary.md).
 
 ## Conformance vectors
 
@@ -86,14 +102,14 @@ sha256sum -c vectors/SHA256SUMS
   the TypeScript verifier libraries, published to npm with provenance from
   [forestrie/canopy](https://github.com/forestrie/canopy).
 - [forestrie/forestrie-cli](https://github.com/forestrie/forestrie-cli): the
-  reference command-line client (`verify`, `verify-grant`, `decode-receipt`).
+  command-line client (`verify`, `verify-grant`, `decode-receipt`).
 - [forestrie/mcp-verify](https://github.com/forestrie/mcp-verify): the
   verify-only MCP server, `@forestrie/mcp-verify` on npm.
 - [forestrie/go-univocity](https://github.com/forestrie/go-univocity) and
   [forestrie/go-merklelog](https://github.com/forestrie/go-merklelog): the Go
   codec and MMR implementation.
-- [forestrie/univocity](https://github.com/forestrie/univocity): the contract
-  every receipt chains to.
+- [forestrie/univocity](https://github.com/forestrie/univocity): the on-chain
+  contract that anchors checkpoints.
 
 The receipt and proof profile is specified in
 [draft-bryce-cose-receipts-mmr-profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/).

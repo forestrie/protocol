@@ -266,15 +266,17 @@ Payload is a CBOR map with integer labels — note there is **no label 2**:
 
 | Label | Field | Type | Notes |
 |---|---|---|---|
-| 1 | `log_id` | tstr (hex) | omitted when empty |
-| 3 | `mmr_start` | uint | omitted when `log_id` is empty |
-| 4 | `mmr_end` | uint | omitted when `log_id` is empty |
+| 1 | `log_id` | tstr (hex) | encoders MAY omit when empty |
+| 3 | `mmr_start` | uint | inclusive; encoders MAY omit when `log_id` is omitted |
+| 4 | `mmr_end` | uint | inclusive; encoders MAY omit when `log_id` is omitted |
 | 5 | `delegated_key` | COSE_Key map | `{1: 2 (EC2), -1: 1 (P-256), -2: x, -3: y}` |
 | 6 | `constraints` | map | always present, `{}` when none |
 | 7 | `schema_ver` | uint | always `1` |
-| 8 | `issued_at` | uint | omitted when zero |
-| 9 | `expires_at` | uint | omitted when zero |
+| 8 | `issued_at` | uint, unix seconds | encoders MAY omit when zero |
+| 9 | `expires_at` | uint, unix seconds | encoders MAY omit when zero |
 | 10 | `delegation_id` | bstr | |
+
+Decoders MUST accept both the omitting and the always-present forms.
 
 The signature is exactly 64 bytes, IEEE P1363 `r ‖ s`.
 

@@ -82,7 +82,10 @@ endorsement = COSE_Sign1<
     4: bstr .size 32          ; kid = the passkey root's x coordinate
   },
   unprotected: {
-    TBD1: [authenticatorData: bstr, clientDataJSON: bstr]
+    -65800: [authenticatorData: bstr, clientDataJSON: bstr]
+                              ; TBD1, the WebAuthn assertion envelope; the
+                              ; number is the algorithm's, reused (see the
+                              ; label registry, section 4)
   },
   payload: {
     "sessionKey": bstr .size 64,   ; session public key x‖y
@@ -115,8 +118,9 @@ protected header is the domain separation.
 
 `notBefore` and `notAfter` are **unix milliseconds**, and both bounds are
 **inclusive**. The domain is deliberate: it is the time component of the log's
-own idtimestamp, and every receipt carries one — so the window is checkable
-offline from public artifacts, with no clock and no service call.
+own idtimestamp, which every entry has and which the leaf hash binds — so the
+window is checkable offline from public artifacts, with no clock and no
+service call.
 
 An entry is inside the window iff
 `notBefore <= leafIdtimestampMs <= notAfter`.
@@ -144,7 +148,7 @@ endorsed-leaf = COSE_Sign1<
     4: bstr .size 32          ; kid = the SESSION key's x coordinate
   },
   unprotected: {
-    TBD2: bstr                ; the endorsement above, as COSE Sign1 bytes
+    -65801: bstr              ; TBD2, the endorsement above, as COSE Sign1 bytes
   },
   payload: bstr               ; unchanged
 >
@@ -263,9 +267,10 @@ receipted idtimestamp. Nothing else, and no network.
 **Online and offline check the same window against different clocks**, and the
 difference is intentional. Admission uses wall-clock time with a small skew
 tolerance, because at admission the entry has no idtimestamp yet — the
-sequencer has not assigned one. Offline uses the receipted idtimestamp, which
-is monotonic, time-ordered and carried by every receipt. **The offline check is
-the authoritative one**; the online check is a fast refusal that keeps
+sequencer has not assigned one. Offline uses the entry's idtimestamp, which is
+monotonic and time-ordered, supplied to the verifier alongside the entry bytes
+and bound by the leaf hash the receipt proves. **The offline check is the
+authoritative one**; the online check is a fast refusal that keeps
 unverifiable entries out of the log in the first place.
 
 ## 7. Constants that must agree

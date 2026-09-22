@@ -1,7 +1,5 @@
 # Key custody and choice
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** anyone deciding where their log's root of trust should live, and
 implementers of the custody paths.
 **Related:**
@@ -25,11 +23,13 @@ how to leave.
 
 | Key | Held by | Signs | Lifetime |
 |---|---|---|---|
-| **Instance bootstrap key** | The forest curator | The root log's authority | Set once at contract construction, immutable |
+| **Instance bootstrap key** | Whoever deploys the forest's contract instance | The root log's authority | Set once at contract construction, immutable |
 | **Log root key** | The log's owner | Grants it issues; its sealing delegations | The life of the log — cannot be changed |
 | **Session key** | The owner's browser, non-extractable | Per-turn entries | Rotatable, bounded by its endorsement window |
-| **Delegated sealing key** | The operator's sealer | Checkpoints, within one log and MMR range | A lease, hours; HKDF-derived at boot from a KMS-held seed, so a restart re-derives it — no long-lived private key is persisted at rest |
+| **Delegated sealing key** | The transparency operator's sealer | Checkpoints, for each log that has leased it, within that lease's MMR range | A standing key, derived and never persisted ([trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md) §3). Each lease lasts until the log grows past its range on-chain, and until the certificate's expiry off-chain |
+| **Custody key** | The operator's custodian, in KMS | For a custodial log, everything the root signs: the delegation certificate, the on-chain proof, and any digest presented under the service token | The life of the log; one key per custodial log id |
 | **Publisher key** | Whoever submits the transaction | The chain transaction, and nothing authoritative | Irrelevant to authority |
+| **Upgrade admin key** | Whoever holds the upgradeable contract variant's admin address | Replacement of the contract implementation | Until replaced by an upgrade; there is no transfer operation |
 
 The publisher row is the one most often misread. The publisher pays gas and is
 **never authoritative** — submission is permissionless, and the contract does not check
@@ -48,28 +48,33 @@ is acceptable, so the root signs *arrangements* — delegations and endorsements
 — and a silent key signs entries. That indirection is what satisfies both
 constraints; no arrangement without it does.
 
-It also rules out the two browser-wallet routes:
+It also shapes the two wallet routes:
 
-- **A browser extension wallet will never export a private key**, so it cannot
-  produce the delegation signature the sealing path needs.
-- **A smart-contract account has no signing key at all.** Its "signature" is an
-  on-chain predicate, and verifying it requires chain state at a block height —
-  which directly contradicts *offline, forever*.
+- **A browser extension wallet signs only with the EIP-191 prefix**, so it
+  cannot produce the raw signature over a COSE `Sig_structure` that a
+  delegation needs. The obstacle is the prefix, not key export.
+- **A smart-contract account has no signing key.** Its "signature" is an
+  on-chain predicate. The contract and the server-side verifier both accept
+  it through ERC-1271, and a KS256 forest can be bootstrapped to a Safe. The
+  cost is that verifying such a root needs chain state at a block height, so
+  *offline, forever* does not hold for that root shape; a relying party
+  verifying it needs a chain reader.
 
-## 3. The four custody options
+## 3. The five custody shapes
 
-Four shapes. All four produce logs that verify identically; they differ in who
-holds the root, in who could forge the authorisation, and in what the user has
-to operate. They are alternatives, not a progression: which one is right depends
-on what the owner can hold and what they need to be protected against. §6 gives
-that comparison adversary by adversary.
+Five shapes. All five produce logs that verify identically; they differ in who
+holds the root, in who can sign with it and for how long, and in what the user
+has to operate. They are alternatives, not a progression: which one is right
+depends on what the owner can hold and what they need to be protected against.
+§6 gives that comparison adversary by adversary.
 
-| | Root key lives in | Biometric | Operator can forge? | Notes |
+| | Root key lives in | Who can sign with the root | For how long | Notes |
 |---|---|---|---|---|
-| **Software root** | The browser profile, non-extractable to script | No | No | The default; one-way upgrade path |
-| **Passkey root** | Platform authenticator hardware | Yes | No | Syncs via the platform keychain |
-| **BYOK, user-operated signer** | Wholly with the user, off-platform | Per policy | No | The reference form of the property |
-| **BYOK, hosted convenience** | A user-owned wallet in a custodial enclave | Per policy | No, but the enclave provider could | Revocable, with a user-held stop |
+| **Software root** | The browser profile, non-extractable to script | The owner; any script in the page while it is open, with no gesture | The life of the profile | The default; one-way upgrade path |
+| **Passkey root** | Platform authenticator hardware | The owner, one gesture per signature | The life of the credential | Syncs via the platform keychain |
+| **BYOK, user-operated signer** | Wholly with the user, off-platform | The user's own signer | As the user decides | The reference form of the property |
+| **BYOK, hosted wallet** | A user-owned wallet in a custodial enclave | The user; the operator as an additional signer within policy while both enable bits are set; the enclave provider | Until the user clears their enable bit, for the operator | The stop is a coordinator feature |
+| **Custodial** | The operator's KMS | The operator's custodian, for any digest presented under the service token | The life of the log | The operator holds the root outright |
 
 ### 3.1 Software root
 
@@ -77,9 +82,15 @@ A non-extractable P-256 key generated in the browser. Script can ask it to
 sign but cannot read, copy or export it. Everything works day to day exactly as
 with a passkey.
 
-The real difference is that the root is only as durable as that browser
-profile, and there is no recovery: losing it means the log remains fully
-verifiable but can no longer be extended or re-delegated.
+Two differences. The root is only as durable as that browser profile, and
+there is no recovery: losing it means the log remains fully verifiable but can
+no longer be extended or re-delegated. And **the root signs without a
+gesture**, so script running in the page can ask it for anything the owner
+could: a delegation certificate and on-chain proof naming a key the attacker
+chooses, with a certificate expiry the caller sets and no on-chain expiry, or
+a grant, which is permanent. Non-extractability means the attacker cannot take
+the key away; it does not bound what they sign while the page is open, and
+nothing server-side can tell the difference.
 
 An earlier demo form of this — a raw exportable key in browser storage — was
 self-custodied only in the narrowest sense, since any script injection could
@@ -101,9 +112,11 @@ used without the user's presence.
 What it deliberately does **not** buy: protection of per-turn *content*. Script
 in a compromised page can ask the session key to sign, because a key that signs
 without a gesture is exactly what the gesture budget requires. The passkey
-gates authorisation — the ability to seal, delegate, and move authority — not
+gates authorisation — the ability to seal, delegate, and issue grants — not
 the content of individual turns. This is a stated, accepted residual, not an
-oversight.
+oversight. It is also the difference from the software root: under a passkey,
+every root signature costs a gesture, so an injected script cannot obtain a
+delegation or a grant.
 
 ### 3.3 BYOK with a user-operated signer
 
@@ -134,7 +147,21 @@ Two structural rules make this a custody choice rather than a surrender:
 
 The residual risk is real and should be stated to users plainly: this option
 trusts the enclave provider for confidentiality and for the integrity of its
-ownership model. That residual is the reason to choose §3.3 instead.
+ownership model, and the two-bit stop is enforced by the operator's
+coordinator, not by any contract or verifier. That residual is the reason to
+choose §3.3 instead.
+
+### 3.5 Custodial
+
+The operator's custodian holds one KMS key per custodial log id, and **that
+key is the log's root**: it signs the delegation certificate, the on-chain
+proof, and any digest a caller presents under the custodian's single service
+token. The owner operates nothing and holds nothing.
+
+This shape exists for logs whose owner wants none of the above, and it is
+named here so that the "operator never holds a user root" property is scoped
+honestly: it holds for the four shapes above and not for this one. A relying
+party who needs the property should confirm the log's shape.
 
 ## 4. The root cannot be changed, and that is the feature
 
@@ -148,8 +175,9 @@ log's root cannot be swapped. The immovability is what stops anyone *else*
 swapping it — an operator, a compromised page, or a support process.
 
 It also bounds what a compromise can achieve. An attacker who fully controls
-the page can attest content while it is open; they cannot re-root the log,
-extend its authority, or make any of it survive the session.
+the page cannot re-root the log. Under a passkey root they can attest content
+while the page is open and nothing more. Under a software root they can also
+obtain a delegation and a grant (§3.1), and a grant survives the session.
 
 ## 5. Rotation, recovery, exit
 
@@ -165,13 +193,15 @@ answer is for the authority to endorse **more than one key** per log, not to
 make the root mutable. Losing a software root, by contrast, is unrecoverable: the log stays
 verifiable but frozen.
 
-**Exit needs no operator cooperation.** A user can re-assign their registered
-root on-chain and re-delegate to a different sealer without the hosting
-operator's involvement. This is the strongest of the guarantees here, because
-it is the one that makes the others credible: an exit that depends on the
-operator is not an exit, it is a lock-in. It is also the only thing that
-definitively neutralises a compromised sealer, since a lease already issued
-runs until it expires.
+**Exit needs no operator cooperation.** The root cannot be re-assigned (§4),
+so exit means one of two things: the owner delegates sealing under the same
+root to a different sealer, which needs no one's permission because the
+delegation is a root signature and submission is permissionless; or the owner
+starts a new log. This is the strongest of the guarantees here, because it is
+the one that makes the others credible: an exit that depends on the operator
+is not an exit, it is a lock-in. It does not cut short a lease already issued:
+that sealer can still publish extensions within its range until the log grows
+past it.
 
 **Resetting** forgets what the browser holds — keys, wallet, local message
 text. It does not and cannot delete entries already committed; those are
@@ -180,31 +210,29 @@ committed hashes stand for.
 
 ## 6. What each option actually protects against
 
-| Adversary | Software root | Passkey | BYOK user-operated | BYOK hosted |
-|---|---|---|---|---|
-| Script injection in the page | Can sign turns while open; cannot steal the key | Same; cannot seal or delegate without a gesture | Same | Same |
-| Loss of the browser profile | **Log frozen, unrecoverable** | Recovers via keychain sync | Unaffected | Unaffected |
-| Compromised hosting operator | Cannot forge | Cannot forge | Cannot sign at all | Can sign within policy until revoked |
-| Compromised log operator (sealer) | Bounded to an unexpired lease, one log, one MMR range, and consistent with prior anchored state (see [receipt-trust-model.md](./receipt-trust-model.md), question 2) | Same | Same | Same |
-| Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit |
+| Adversary | Software root | Passkey | BYOK user-operated | BYOK hosted wallet | Custodial |
+|---|---|---|---|---|---|
+| Script injection in the page | Can sign turns while open; **can obtain a delegation and a permanent grant**; cannot take the key | Can sign turns while open; cannot seal, delegate or grant without a gesture | Same as passkey | Same as passkey | n/a |
+| Loss of the browser profile | **Log frozen, unrecoverable** | Recovers via keychain sync | Unaffected | Unaffected | Unaffected |
+| Compromised hosting operator | Cannot forge | Cannot forge | Cannot sign at all | Can sign within policy while enabled; the stop is its own coordinator's | n/a |
+| Compromised transparency operator (sealer) | Bounded to each lease's log and MMR range, until the log grows past it, and to extensions of the anchored state (see [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md) §4.1) | Same | Same | Same | Same, and also holds the root (below) |
+| Compromised custodian | n/a | n/a | n/a | n/a | **Holds the root** — can delegate, grant and sign anything |
+| Enclave provider compromise | n/a | n/a | Out of scope | **Can abuse the root** — mitigated only by exit | n/a |
 
-The attacks that defeat any of these options require **collusion** between the
-hosting operator and the log operator, because they are distinct trust domains —
-and in the hosted option, collusion with the enclave provider too.
+Several of these defeats need no collusion: the enclave provider alone, the
+custodian alone, an injected script alone under a software root, and the
+sealer alone within a lease. What does need collusion is set out in
+[trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§5.
 
 ## Open questions
 
-- **The passkey option is not yet end to end.** The sealer cannot verify a
-  passkey-signed delegation certificate, so a passkey-rooted log cannot
-  currently be sealed. Tracked as a bug.
-- **Origin pinning has no policy channel.** The on-chain verifier implements
-  it; nothing can enable it per log. It was designed to ride the same grant-flag
-  mechanism as user verification.
-- **Multi-key endorsement for recovery is designed, not built.** It is the
-  intended answer to root loss and remains unimplemented.
 - **Custody upgrade requires a new log.** Accepted, and a direct consequence of
   §4 — but it is the sharpest edge a user meets, and it deserves a better
   product answer than "start again" if passkey adoption grows.
+
+Origin pinning's policy channel and multi-key endorsement for recovery are
+recorded in [implementation-status.md](./implementation-status.md).
 
 ## References
 
@@ -215,4 +243,4 @@ and in the hosted option, collusion with the enclave provider too.
 - [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
   — how a passkey signs a delegation at all.
 - [glossary.md](../glossary.md) — the BYOK delegation modes, the delegation
-  certificate, and the terms used in §3.
+  certificate, the custody key, and the terms used in §3.

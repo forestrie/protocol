@@ -1,9 +1,7 @@
 # Forestrie receipt trust model
 
-**Status:** LIVE
-**Date:** 2026-08-30
-**Audience:** relying parties, monitors, assessors, and anyone deciding what a
-Forestrie receipt lets them conclude without trusting the log operator.
+**Audience:** relying parties, monitors, and anyone deciding what a Forestrie
+receipt lets them conclude without trusting the transparency operator.
 **Related:**
 [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) (the
 offline verify contract, layers A–C),
@@ -50,8 +48,8 @@ Two sources supply a trusted accumulator:
 - a **known accumulator** — a cached copy of an authenticated chain read;
 - a **live chain read** — the same guarantee, plus "as of now".
 
-Never source the accumulator unauthenticated from the log operator's own tile
-store — that re-internalises the operator trust an accumulator root exists to
+Never source the accumulator unauthenticated from the transparency operator's
+own tile store — that re-internalises the operator trust an accumulator root exists to
 remove. The trust assumption of an accumulator root is the **chain reader**:
 the caller trusts that the read of the contract's anchored state was genuine,
 whether it came from an RPC endpoint the caller chose or from a cached copy
@@ -87,25 +85,17 @@ authorised sealer signed is, by your own choice, irrelevant — the signature is
 checks that it chains to the owner.
 
 **What the operator holds here.** The sealing key is the one hot-path private
-key the Forestrie operator does hold. Precisely:
-
-- **No long-lived private key is persisted at rest.** That is the property,
-  and the custody boundary is the KMS.
-- The key is **not** merely ephemeral-and-lost. It is derived deterministically
-  with **HKDF-SHA256** from a seed the operator's KMS re-derives at boot, keyed
-  by `(epoch, index)`, so the *same* key re-derives after a restart or pod
-  churn rather than being discarded. That is deliberate: certificates outlive
-  restarts without needing an on-demand signer round trip. The seed itself is
-  never written to a secret store or to disk — see
-  [glossary.md](../glossary.md) ("standing delegate key").
-- **Scope comes from the lease, not the key.** The key's derivation names
-  only the epoch and an index, not a log, so one standing key serves every
-  log whose owner has issued it a lease. The delegation certificate binds one
-  log, one MMR range and an expiry, and exists only because that log's root
-  key signed it. The on-chain delegation proof binds the same log and range
-  and **no expiry**; the contract checks the log and the inclusive range only.
-  The expiry is enforced by the sealer's own clock when it decides whether to
-  seal, and by offline verifiers when they check a certificate.
+key the transparency operator does hold: a standing key derived at boot from a
+seed its KMS holds, never persisted at rest, and named by nothing log-specific,
+so one key serves every log whose owner has leased it. The derivation is
+stated once, in
+[trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§3. What scopes the key is the lease: the delegation certificate binds one
+log, one MMR range and an expiry, and exists only because that log's root key
+signed it; the on-chain delegation proof binds the same log and range and
+**no expiry**, and the contract checks the log and the inclusive range only.
+The expiry is enforced by the sealer's own clock when it decides whether to
+seal, and by offline verifiers when they check a certificate.
 
 So the bound on a compromised sealer is the *lease*: on-chain, it can publish
 checkpoints for each log that has leased it, at any size whose last index lies
@@ -142,8 +132,9 @@ walk". Three ways to obtain it:
   an accumulator read from the chain inherits it (see below). No off-chain walk
   needed.
 - **Off-chain grant-chain walk** from the grant records + their inclusion proofs
-  (rooted at `genesis.cbor`). This is a genuine tile-/receipt-level proof — but
-  it is **not yet implemented**; do not assume it today.
+  (rooted at the forest genesis document). This is a genuine tile-/receipt-level
+  proof. Whether a given verifier implements it is recorded in
+  [implementation-status.md](./implementation-status.md).
 - **Operator storage / APIs surfacing the chain — forestrie-operator trust.**
   Convenient, but re-internalises the very operator trust the log system exists
   to remove; not a trust source.
@@ -189,7 +180,7 @@ endorses a per-session key that signs entries silently, and the chain from root
 to leaf is:
 
 ```
-logRootKey(logId) on-chain  (= grantData, committed in the parent auth log)
+log root key, on-chain   (= grantData, committed in the parent authority log)
   → endorsement (inside the leaf bytes): verify under the root,
     user verification per the grant's policy flag, validity window from
     the payload
@@ -423,16 +414,13 @@ performing the verification described above" — which, given the properties, is
 any holder of the bytes. No relationship with the operator, and no
 registration, is required to be that party.
 
-## Open questions
+## Implementation status
 
-- **The off-chain grant-chain walk is unimplemented.** Question 3 is answerable
-  today either on-chain, or off-chain only as far as a certificate reaches. The
-  fully off-chain walk from grant records and their inclusion proofs remains
-  open.
-- **Succinct absence is not available.** Non-presence is provable against a
-  replicated log; the succinct form is not. Stated in full in
-  [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-  §6.
+Which verifiers implement the off-chain grant-chain walk, and which run the
+attribution check, is recorded in
+[implementation-status.md](./implementation-status.md). Succinct absence is
+stated in [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§6.
 
 ## References
 

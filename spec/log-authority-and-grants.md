@@ -1,7 +1,5 @@
 # Log authority and the grant
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** implementers of a Forestrie client or verifier, and reviewers
 tracing where a log's authority comes from.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md)
@@ -41,17 +39,42 @@ graph TD
   A -->|"grant: owner A, target D<br/>signed by A"| D["Data log D"]
 ```
 
-`genesis.cbor` is **not** a per-log artifact. It is the instance registration
-document, recording the bootstrap key bound into the contract at deploy — one
-per instance, not one per log. Reaching the anchor from a child log means
-walking this hierarchy, not reading a per-log genesis.
+The **forest genesis document** is **not** a per-log artifact. It is the
+instance registration document, recording the bootstrap key bound into the
+contract at deploy — one per forest, not one per log. Reaching the anchor
+from a child log means walking this hierarchy, not reading a per-log genesis.
 
 **The contract does that walk at publish.** It re-checks the presented grant's
 inclusion in the parent log against the parent's on-chain accumulator, within
 the grant's size bounds, link by link to the bootstrap key. This is why state
 read from the chain carries the authority answer with it.
 
-### 1.1 `logId` versus `ownerLogId`
+### 1.1 The forest genesis document
+
+A CBOR map with integer labels, in Core Deterministic Encoding, written once
+when the forest's contract instance is deployed and served immutably. It is
+the signature root a verifier holds when it holds nothing else, and its
+contents are what the contract's constructor bound.
+
+| Label | Field | Type | Rule |
+|---|---|---|---|
+| `-68009` | schema version | uint | Must be `2` |
+| `-68014` | bootstrap key algorithm | int | `-7` (ES256) or `-65799` (KS256) |
+| `-68015` | bootstrap public key | bstr | 64-byte `x‖y` under ES256; 20-byte address under KS256 |
+| `-68011` | contract address | bstr, 20 bytes | The instance the forest anchors to |
+| `-68013` | chain id | tstr | Decimal EIP-155 chain id |
+| `-68010` | root log id | bstr, 32 bytes | Optional; when present must equal the forest's root authority log id in padded wire form |
+| `-68016` | contract variant | tstr | Optional; present only when the instance is not the immutable variant |
+| `-68017` | deployer | bstr, 20 bytes | Required exactly when `-68016` is present |
+
+A decoder rejects a version other than `2`, an algorithm other than the two
+above, a key whose length does not match the algorithm, and the retired label
+`-68012`. The chain binding — `(chain id, contract address)` — is what ties a
+receipt's forest to one contract instance; the bootstrap key is the root log's
+authority key. Display names and declaration sites are in
+[label-registry.md](./label-registry.md) §2.3.
+
+### 1.2 `logId` versus `ownerLogId`
 
 Two identifiers, easily conflated:
 
@@ -120,7 +143,8 @@ bit 40 is **wire byte 2, mask `0x01`**.
 |---|---|---|
 | 0–1 | Log kind: auth log, data log | Chain |
 | 32–34 | `CREATE`, `EXTEND`, `DERIVED` | Chain |
-| 35–39 | Canopy-assignable derived band | **Convention only** — no on-chain constant, no mask, no test |
+| 35 | `GF_CHILD_PAYMENT_REQUIRED`: the operator requires payment before registering a child grant | The operator's registration API — never the chain, never a verifier |
+| 36–39 | Operator-assignable derived band | **Convention only** — no on-chain constant, no mask, no test |
 | 40–47 | Algorithm policy. Bit 40 requires user verification | Chain, fail-closed |
 | 224–255 | Request codes | Not committed |
 
@@ -196,7 +220,7 @@ are not two authorisations; one is a credential and the other is context.
 | | Child grant | Parent grant |
 |---|---|---|
 | What it is | The signed assertion "owner authorises target", and the new resource | The issuer's certificate plus its inclusion receipt |
-| Carries authority? | **Yes** — its signature proves possession of the owner's private key, and is not replayable | **No** — public and replayable; its receipt is published. Possession conveys nothing |
+| Carries authority? | **Yes, until it is sealed** — its signature proves possession of the owner's private key, and until the grant has a receipt nobody else can produce it. Once sealed it is as public and replayable as any other grant | **No** — public and replayable; its receipt is published. Possession conveys nothing |
 | Transport | The `Authorization` header | The request body |
 
 The parent grant sits in the body precisely *because* it is not a credential.
@@ -239,22 +263,29 @@ own receipt.
   plus a correctly signed consistency receipt. The contract does not check who
   submitted the transaction, so no operator can censor or stall a well-formed
   write, and proof of authority is portable rather than identity-held.
-- **Payment is a separate plane.** Payment identity is never an input to grant
-  verification, and grants never gate payment. Coupling them would let a lapsed
-  payment silently revoke authority.
+- **A grant is presented, not spent.** The contract keeps no record of the
+  grants it has accepted: its per-log state is the accumulator and the size,
+  and the grant's idtimestamp is emitted in the event, never stored. A sealed
+  grant with extend authority can be presented with every later checkpoint of
+  its log, which is what authorising the log rather than one publish means.
+- **Payment is a separate plane.** A grant is a prepaid provability
+  entitlement: the requester of work buys capacity and the performer draws it
+  down. Payment identity is never an input to grant verification, and grants
+  never gate payment. Coupling them would let a lapsed payment silently revoke
+  authority. One parent flag, bit 35, lets the operator's registration API
+  require payment before it registers a *child* grant; that is a gate on
+  registration at the operator, committed in the parent's leaf and invisible
+  to the contract and to verifiers.
 
 ## Open questions
 
 - **Bits 35–39 are reserved by comment only.** No mask, no constant, no test
   asserts the algorithm band stays clear of them. A future widening of the
   algorithm band downward would break the reservation silently.
-- **The off-chain grant-chain walk is unimplemented.** A verifier reaches the
-  anchor on-chain, or off-chain only as far as a certificate reaches; see
-  [receipt-trust-model.md](./receipt-trust-model.md) (question 3) for what each
-  trust root can answer without it.
-- **The `logId` padding comment in the Solidity leaf-encoding library is
-  inverted** — it says right-padded; every producer left-pads. The hashes
-  agree; the comment misleads.
+
+Which verifiers implement the off-chain grant-chain walk, and the state of the
+Solidity leaf-encoding library's padding comment, are recorded in
+[implementation-status.md](./implementation-status.md).
 
 ## References
 

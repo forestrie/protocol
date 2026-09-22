@@ -1,11 +1,8 @@
-# Rules of the road — platform (general)
+# Platform invariants
 
-Cross-repo invariants. Load this file for **every** Forestrie review or plan,
-alongside the one repo file that matches the code. Repo files specialise these
-into concrete checks — they never restate them.
-
-Reasoning links go to the Forestrie protocol repository (this repository) and the
-[receipt trust model](../spec/receipt-trust-model.md).
+The invariants the protocol rests on: what a change must not break. Each
+links to the document under `spec/` that carries its reasoning; none adds a
+fact those documents do not state.
 
 ---
 
@@ -39,10 +36,13 @@ from the operator re-internalises the trust the log removes.
 · [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (attribution).
 
 ### P4 — Non-equivocation is enforced by the immutable contract, not watchers
-Split-view protection is structural on-chain: the contract refuses to anchor an
-inconsistent checkpoint. Security MUST NOT depend on a live honest-majority of
-monitors. **Why:** security that depends on a live watcher population degrades
-when nobody is watching; the anchor makes divergence impossible *by contract*.
+Split-view protection is structural on-chain: the contract takes the base of
+every consistency proof from the size and accumulator it already holds, pins
+the proof's shape to its sizes, requires the signed target size to match, and
+refuses a checkpoint that does not extend the anchored state, whoever signed
+it. Security MUST NOT depend on a live honest-majority of monitors. **Why:**
+security that depends on a live watcher population degrades when nobody is
+watching; the anchor makes divergence impossible *by contract*.
 [receipt trust model](../spec/receipt-trust-model.md) (question 1)
 · [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §4.1.
@@ -52,7 +52,10 @@ One checkpoint anchors a whole massif (~16k entries); nothing on the write/read
 hot path may gate on a chain read. **Why:** entries write at internet speed and
 gas amortises to fractions of a cent per entry — per-entry anchoring destroys
 both.
-[checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.2.
+[checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.2
+(one proof per massif boundary) · [glossary.md](../glossary.md) (massif)
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4.1
+(nothing in verification reads the chain).
 
 ### P6 — Authority is receipt-based; submission is permissionless
 Authority = a valid **grant inclusion proof** + a correctly **signed
@@ -62,11 +65,17 @@ proof of authority is portable, not identity-held.
 [ARC-0019](../decisions/arc-0019-grant-verification-model.md)
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7.
 
-### P7 — Payment grants authority; a grant is a prepaid provability entitlement
+### P7 — A grant is a prepaid provability entitlement; payment never gates authority
 The requester of work **buys** capacity; the performer **draws it down**. A
-grant is not a payment escrow (escrow lives at the settlement layer). **Why:** a
-performer's record cannot be suppressed by a requester who refuses acceptance.
-[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7.
+grant is not a payment escrow (escrow lives at the settlement layer). Payment
+identity is never an input to grant verification, and no verifier or contract
+reads payment state. A parent's committed flag may make the operator's
+registration API require payment before it registers a *child* grant; that is
+a gate on registration at the operator, not on authority. **Why:** a
+performer's record cannot be suppressed by a requester who refuses acceptance,
+and a lapsed payment cannot silently revoke authority.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7
+· [label-registry.md](../spec/label-registry.md) §5 (bit 35).
 
 ### P8 — Grants are irrevocable; capacity ends by exhaustion or non-renewal
 `maxHeight` is a contract-enforced **entry ceiling / high-water mark**, not a
@@ -98,70 +107,78 @@ replay/substitution.
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §5.
 
 ### P11 — Identity is a separate, key-derived layer
-Statement issuer/subject default to registration-free, key-derived identity
-(ES256 `iss` = hex `kid`; KS256 = CAIP-10; `sub` = payload SHA-256). The signing
-path MUST NOT depend on a certificate or registration. **Why:** zero-config,
-offline, SCITT-compliant — identity composes *above* the log rather than being
-owned by it.
-[glossary.md](../glossary.md) (statement signer binding).
+A statement's signer is identified by its `kid`, which must equal the binding
+derived from the grant's `grantData` or the endorsed session key; nothing
+else about the signer is registered or certified anywhere in the protocol.
+The signing path MUST NOT depend on a certificate or registration. **Why:**
+zero-config, offline, SCITT-compliant — identity composes *above* the log
+rather than being owned by it.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §2.2 and §5
+· [leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
+§5.1.
 
 ### P12 — Signed is not sequenced
 A signature never establishes ordering; only the sequencer's monotone
-`idtimestamp` does, and only checkpoint anchoring bounds it. The Urkle trie is
-keyed on that `idtimestamp`, so **no content-derived key can be a trie key**.
+`idtimestamp` does, and only checkpoint anchoring bounds it. The exclusion
+trie is keyed on that `idtimestamp`, so **no content-derived key can be a
+trie key**.
 **Why:** conflating signing with sequencing is the root of false
 ordering/absence claims.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §5.
 
-### P13 — Absence is first-class, but succinct absence is not free yet
-A verifier can prove non-presence against a **replicated** log today (regime a).
+### P13 — Absence is first-class, but succinct absence is not free
+A verifier can prove non-presence against a **replicated** log (regime a).
 **Succinct** absence (regime b) requires a *new authenticated secondary index*
-because the trie root is currently unanchored. Do not design against succinct
-absence proofs as if they exist. **Why:** absence detection distinguishes "never
-happened" from "happened and was withheld" — but the succinct form is unbuilt.
+and an anchored trie root. Do not design against succinct absence proofs as if
+they exist. **Why:** absence detection distinguishes "never happened" from
+"happened and was withheld" — but the succinct form needs what
+[implementation-status.md](../spec/implementation-status.md) records as
+unbuilt.
 [trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
 §6.
 
 ### P14 — One instance root, set once; global logId→R uniqueness
-Every log is anchored under exactly one instance root (`chainId` + contract);
-the root/bootstrap key is **set once at construction and immutable**, and
-global `logId → R` uniqueness is enforced atomically at grant POST. A
-checkpoint signature asserts the accumulator and its tree size; it is the
-**contract** that binds the checkpoint to the instance, by enforcing
-consistency with the anchored state — the signature itself names no instance,
-chain or log. **Why:** this 1:1 anchoring is what authority resolution, fee
-liability, and permissionless per-forest publishing all key off — and what
-blocks logId reuse / grant replay.
-[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1
+Every forest binds to exactly one contract instance (`chainId` + contract)
+through its genesis document; the instance's bootstrap key is **set once at
+construction and immutable**; and a log id belongs to exactly one forest,
+enforced at registration. A checkpoint signature asserts the accumulator and
+the size it is the accumulator of; it is the **contract** that binds the
+checkpoint to the instance, by enforcing consistency with the anchored state
+— the signature itself names no instance, chain or log. **Why:** this 1:1
+binding is what authority resolution and permissionless per-forest publishing
+key off — and what blocks logId reuse across forests.
+[log-authority-and-grants.md](../spec/log-authority-and-grants.md) §1 and §1.1
 · [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3
+· [key-custody-and-choice.md](../spec/key-custody-and-choice.md) §1
 · [glossary.md](../glossary.md) (forest uniqueness).
 
 ### P15 — Published artifacts declare their own cache policy; completeness decides immutability
-Complete massifs are `immutable`; head massifs, **all checkpoints**, and
-negative (404) responses are `no-store`; payment tokens, revocation status, and
-latest-checkpoint receipts MUST NOT be cached. **Why:** heuristic caching of
-mutable objects fails silently — a stale proof, or a cached 404 that blocks a
-later write.
+The forest genesis document and complete massifs are `immutable`; the head
+massif, **all checkpoints**, receipts and negative (404) responses are
+`no-store`. The table in the checkpoint document is the policy; this rule
+adds nothing to it. **Why:** heuristic caching of mutable objects fails
+silently — a stale proof, or a cached 404 that blocks a later write.
 [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §6.
 
-### P16 — Conformant COSE/CBOR everywhere; `@forestrie/encoding` owns the wire layer
-Strict SCITT/COSE + RFC 8949 §4.2 canonical CBOR is mandatory (encode **and**
-decode); `cbor-x` is banned. Layering is acyclic — no `verifier → builder` edge.
-**Why:** on-chain verifiability and interop depend on exact bytes; a lax or
-tag-mangling codec produces receipts the contract rejects.
-[label-registry.md](../spec/label-registry.md)
-· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.
+### P16 — Conformant COSE/CBOR everywhere, with one named exception
+Every format is strict SCITT/COSE with RFC 8949 §4.2 core deterministic
+encoding, on encode **and** on decode. The one exception is the **checkpoint
+envelope**, whose protected header uses length-first canonical map key order
+(shorter key encodings first, then bytewise); the two orders agree only while
+every map label is a single byte, and the checkpoint header carries `395` and
+`-65933`. A verifier of checkpoints MUST require that order for the header, as
+ADR-0066 D9 states, and MUST NOT re-encode a checkpoint expecting byte
+identity with a bytewise-order encoder. **Why:** on-chain verifiability and
+interop depend on exact bytes; a lax or tag-mangling codec produces receipts
+the contract rejects, and changing the header order would change every
+checkpoint the sealer emits.
+[ADR-0068](../decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md)
+· [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) D9
+· [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3.
 
 ---
 
-## Not-yet-live (design guardrails, not check targets)
-
-These are accepted *direction* but not implemented — plan toward them, do not
-review against them as if shipped:
-
-- **Reputation is bonded, tracked, and slashed** (assessor standing = on-chain
-  history + bond + delegated stake), so recognition and Sybil cost are the same
-  property, set by hierarchy position. Design direction only; nothing in
-  `spec/` describes shipped behaviour for it.
-- **Succinct-absence secondary index** — see P13; the trie root is unanchored
-  today, and how to anchor it is open.
+Accepted direction that is not implemented — bonded reputation, the
+succinct-absence index, multi-key recovery — is listed under "Designed, not
+built" in [implementation-status.md](../spec/implementation-status.md), and
+is not a check target.

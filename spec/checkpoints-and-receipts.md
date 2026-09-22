@@ -1,7 +1,5 @@
 # Checkpoints and receipts
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier, and anyone assessing what
 can be checked without contacting the operator.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md)
@@ -38,18 +36,13 @@ under `vectors/golden/burial/` are untagged.
 | Payload | **Detached** — the raw concatenation of the accumulator peaks for `tree-size-2`, in descending height order |
 | Signature | By the delegated sealing key, or by the root key when the owner seals directly |
 
-Unprotected labels a checkpoint may carry:
-
-| Label | Value | Contents |
-|---|---|---|
-| Proofs map | `396` | Key `-2` inside it holds the consistency proof |
-| Peak receipts | `-65931` | One detached-payload Sign1 per accumulator peak, signed at seal time |
-| On-chain delegation proof | `-66535` | The proof the contract verifies at publish |
-| Delegation certificate | `1000` | The certificate bytes, as a CBOR byte string |
-
-Labels `1000` and `-66535` coexist and mean different things — the certificate
-and the on-chain proof respectively. Both are carried opaquely by the sealer,
-which does not branch on their contents.
+The unprotected header carries the proofs map at `396` and, as the sealer
+attaches them, the peak receipts at `-65931`, the on-chain delegation proof
+at `-66535` and the delegation certificate at `1000`. The values and their
+meanings are in [label-registry.md](./label-registry.md) §2; their encodings
+are in §1.4 below. Labels `1000` and `-66535` coexist and mean different
+things — the certificate and the on-chain proof respectively. Both are
+carried opaquely by the sealer, which does not branch on their contents.
 
 ### 1.1 The detached payload
 
@@ -160,8 +153,10 @@ log.
 
 This is what makes the operator structurally optional for receipt production.
 It is also why a **replica** of the log is a complete verification substrate
-rather than a cache — and why absence is provable against a replicated log
-today, even though a *succinct* absence proof is not yet available.
+rather than a cache — and why absence is provable against a replicated log.
+The *succinct* form is a different matter, stated in
+[trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§6.
 
 ## 3. What the contract receives
 
@@ -211,13 +206,21 @@ because they fail for different reasons and carry different trust:
 | **C** | Leaf binding — the entry hashes to what the receipt claims | Caller-supplied entry or grant context, and the idtimestamp |
 
 **Layer D — on-chain canonicality** — is deliberately separate and not part of
-offline verification. Offline verification may legitimately succeed while a tip
-is not yet anchored on-chain; treating that as a failure would conflate "this
-is proven included" with "this is proven final".
+offline verification. Offline verification may legitimately succeed before a
+tip is anchored on-chain; treating that as a failure would conflate "this is
+proven included" with "this is proven final".
 
-For an entry, layer C is the content hash plus the idtimestamp. For a grant, it
-is the grant commitment. The idtimestamp is not carried in the receipt; the
-caller supplies it, from the entry id or from a sealed grant's `-65537`
+For an entry, layer C is the content hash plus the idtimestamp:
+
+```
+leaf = SHA-256( idtimestamp(8, big-endian) ‖ SHA-256( statement bytes ) )
+```
+
+where the statement bytes are the exact registered COSE Sign1, endorsement
+included. For a grant, the inner hash is the grant commitment's inner hash
+instead ([log-authority-and-grants.md](./log-authority-and-grants.md) §4), and
+the outer hash is the same. The idtimestamp is not carried in the receipt;
+the caller supplies it, from the entry id or from a sealed grant's `-65537`
 header, and the leaf hash binds it.
 
 ### 4.1 The offline boundary is explicit
@@ -298,17 +301,13 @@ which is the failure mode this policy exists to prevent.
 
 ## Open questions
 
-- **Two CBOR canonicalisations coexist.** The certificate builder uses
-  core-deterministic ordering while the checkpoint envelope uses the older
-  length-first canonical ordering. They agree byte-for-byte only while every
-  map label is single-byte, and the checkpoint envelope carries multi-byte
-  labels. No failure has been observed; the divergence is latent.
-- **A length guard in the idtimestamp byte splitter is written against the
-  wrong bound**, accepting inputs it should reject. Callers currently supply
-  well-formed input, so it is latent.
 - **Layer D has no offline story by design.** Anchoring is checked by reading
   the chain. That is correct, but it means "verified offline" and "final" are
   genuinely different claims that a UI must not merge.
+
+The two CBOR canonicalisations in use, and the idtimestamp splitter's length
+guard, are implementation matters recorded in
+[implementation-status.md](./implementation-status.md).
 
 ## References
 

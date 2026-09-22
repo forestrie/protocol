@@ -23,8 +23,8 @@ decision recorded under `decisions/` before it appears under `spec/`.
 
 | Directory | What it holds |
 |---|---|
-| `spec/` | The protocol documents: [receipt trust model](spec/receipt-trust-model.md), [checkpoints and receipts](spec/checkpoints-and-receipts.md), [log authority and grants](spec/log-authority-and-grants.md), [leaf admission and session endorsement](spec/leaf-admission-and-session-endorsement.md), [delegation and WebAuthn envelopes](spec/delegation-and-webauthn-envelopes.md), [key custody and choice](spec/key-custody-and-choice.md), [trust boundaries and operator powers](spec/trust-boundaries-and-operator-powers.md), and the [COSE label registry](spec/label-registry.md) |
-| `decisions/` | The accepted decisions the specification rests on: [ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md), [ADR-0064](decisions/adr-0064-passkey-session-key-endorsement.md), [ADR-0065](decisions/adr-0065-endorsed-session-key-admission.md), [ADR-0066](decisions/adr-0066-sec-signed-checkpoint-size.md), [ARC-0019](decisions/arc-0019-grant-verification-model.md). They are historical records in their own voice; where a decision and `spec/` differ in wording, `spec/` is the current statement. Numbers are stable identifiers; implementations may cite them by number |
+| `spec/` | The protocol documents: [receipt trust model](spec/receipt-trust-model.md), [checkpoints and receipts](spec/checkpoints-and-receipts.md), [log authority and grants](spec/log-authority-and-grants.md), [leaf admission and session endorsement](spec/leaf-admission-and-session-endorsement.md), [delegation and WebAuthn envelopes](spec/delegation-and-webauthn-envelopes.md), [key custody and choice](spec/key-custody-and-choice.md), [trust boundaries and operator powers](spec/trust-boundaries-and-operator-powers.md), the [COSE label registry](spec/label-registry.md), and [implementation status](spec/implementation-status.md), the one place that records where an implementation and the specification differ |
+| `decisions/` | The decisions the specification rests on: [ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md), [ADR-0064](decisions/adr-0064-passkey-session-key-endorsement.md), [ADR-0065](decisions/adr-0065-endorsed-session-key-admission.md), [ADR-0066](decisions/adr-0066-sec-signed-checkpoint-size.md), [ARC-0019](decisions/arc-0019-grant-verification-model.md), and the three wire conventions recorded as [ADR-0067](decisions/adr-0067-webauthn-envelope-label-shares-the-algorithm-number.md), [ADR-0068](decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md) and [ADR-0069](decisions/adr-0069-grant-flag-bit-35-child-payment-required.md). They are historical records in their own voice; where a decision and `spec/` differ in wording, `spec/` is the current statement. Numbers are stable identifiers; implementations may cite them by number |
 | `rules/` | [`platform.md`](rules/platform.md): the platform invariants P1–P16, each linking to the document that carries its reasoning |
 | `vectors/` | The protocol's formats and hashes as bytes: the [grant and leaf fixtures](vectors/grant-and-leaf-format.md), the [checkpoint receipt KAT-39](vectors/checkpoint-receipt-format.md), and the golden receipt sets. Every implementation tests against them; see [Conformance vectors](#conformance-vectors) |
 | `glossary.md` | [Terms](glossary.md) used across the documents, defined once |
@@ -60,7 +60,20 @@ Then read, in any order:
 `vectors/` holds the conformance vectors: the cross-language grant and leaf
 fixtures, a golden grant receipt that verifies from a forest genesis document,
 and a burial bundle of retained checkpoints; [`vectors/README.md`](vectors/README.md)
-says what each proves. Terms are defined in [glossary.md](glossary.md).
+says what each proves. Terms are defined in [glossary.md](glossary.md), and
+[`spec/implementation-status.md`](spec/implementation-status.md) is the one
+place that says where an implementation differs from the text.
+
+### By audience
+
+- **Implementing a verifier:** the trust model; checkpoints and receipts; the
+  label registry; log authority and grants §2 and §4; delegation §5 and §7;
+  leaf admission §3 and §6; then `vectors/`.
+- **Implementing a client that writes entries:** log authority and grants;
+  leaf admission; delegation; key custody; the label registry.
+- **Reviewing the security model:** trust boundaries; key custody; the trust
+  model; `rules/platform.md`; then implementation status for the distance
+  between the text and the code.
 
 ## Conformance vectors
 

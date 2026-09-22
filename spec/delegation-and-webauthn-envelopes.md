@@ -1,7 +1,5 @@
 # Delegation proofs, certificates, and the WebAuthn assertion envelope
 
-**Status:** LIVE
-**Date:** 2026-08-30
 **Audience:** implementers of a Forestrie verifier or signer, and reviewers
 assessing what a delegation actually proves.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md) (question 2,
@@ -76,7 +74,7 @@ The on-chain form also byte-compares the 21-byte literal
 only — a wrong hint fails the comparison, so they cannot be used to smuggle
 anything.
 
-## 2. Codepoints, and a known bug
+## 2. Codepoints
 
 ### The algorithm
 
@@ -90,36 +88,18 @@ flag.
 
 The place the assertion rides off-chain is a COSE **header parameter**. This
 document names it **`TBD1`**, in the IETF convention for a codepoint whose
-assignment is not yet settled.
+assignment is not settled.
 
-> **Known bug — codepoint reuse.** The shipped implementation uses the *same
-> number* for the algorithm and for the header parameter, on the reasoning that
-> both are private-use and they occupy different registries. It is not a wire
-> ambiguity: the algorithm appears as a *value* under protected label `1`, the
-> envelope as a *key* in the unprotected map, and the two never collide at a
-> parse position. It is nonetheless incorrect, and it has a cost: the
-> envelope's legality is conditional on the algorithm, the canopy constant is an
-> alias of the algorithm constant, and every definition of the session-key
-> endorsement label carries a "this is not the envelope" disclaimer. The
-> two concepts are being separated; `TBD1` is the envelope, and the algorithm
-> keeps the number it has.
+The header parameter and the algorithm share the number `-65800`. It is not a
+wire ambiguity — the algorithm appears as a *value* under protected label `1`,
+the envelope as a *key* in the unprotected map, and the two never collide at
+a parse position — but it is a defect, and
+[label-registry.md](./label-registry.md) §4 states its cost and the intended
+separation: `TBD1` is the envelope, and the algorithm keeps the number it has.
 
-### Current assignments (IANA considerations)
-
-Private-use COSE codepoints are unregistered by definition; these are the
-values the current implementations use. Anything shipping against Forestrie
-today must use the "current value" column.
-
-| Name in this document | Registry | Current value | Status |
-|---|---|---|---|
-| `ALG_ES256_WEBAUTHN` | COSE Algorithms | `-65800` | Private use, settled |
-| `TBD1` — WebAuthn assertion envelope | COSE Header Parameters | `-65800` | **Private use, reuses the algorithm's number — to be reassigned** |
-| `TBD2` — session-key endorsement | COSE Header Parameters | `-65801` | Private use, pending assignment |
-| `ALG_KS256` | COSE Algorithms | `-65799` | Private use, settled |
-| `ALG_ES256` | COSE Algorithms | `-7` | RFC 9053 |
-
-Full registry, including the checkpoint labels and the grant flag bands, is in
-[label-registry.md](./label-registry.md).
+The values, their registry status, and every other codepoint are in
+[label-registry.md](./label-registry.md); implementations use the numbers
+there.
 
 ## 3. The two artifacts of one ceremony
 
@@ -309,7 +289,7 @@ deliberately ignore them — with nothing gained.
 |---|---|---|
 | **User presence** | Always required | Constant |
 | **User verification** | Required if and only if the governing grant sets `GF_REQUIRES_USER_VERIFICATION` | The grant, committed in the parent auth log |
-| **Origin (`rpIdHash`)** | Verifier supports pinning; **currently disabled in production** | Would use the same grant-flag channel |
+| **Origin (`rpIdHash`)** | Verifier supports pinning; enabled by a non-zero pin | Intended to use the same grant-flag channel; see [implementation-status.md](./implementation-status.md) |
 
 Putting user-verification policy in the grant rather than in the verifier is
 the load-bearing choice: the authority states the requirement once, at
@@ -323,13 +303,11 @@ There is one accepted asymmetry: a verifier holding only a bare certificate,
 with no grant in evidence, cannot evaluate the flag. The on-chain verifier
 backstops it at publish.
 
-**Origin pinning is dormant, not absent.** The verifier implements the check in
-full, but both production call sites pass a zero pin, which disables it. The
-consequence worth knowing: the rpId-mismatch error is unreachable through the
-public publish entrypoint, so an integration test asserting it would be testing
-something the contract cannot currently do. The design intent is for origin
-pinning to become per-log policy over the same grant-flag channel as user
-verification.
+**Origin pinning is a verifier capability without a policy channel.** The
+design intent is for it to become per-log policy over the same grant-flag
+channel as user verification. Whether a deployment enables it, and the
+consequence for the rpId-mismatch error, are in
+[implementation-status.md](./implementation-status.md).
 
 ## 7. Fail-closed rules
 
@@ -371,61 +349,24 @@ These hold in every implementation and in both directions.
 
 | Component | Delegation proof (`algData`) | Certificate envelope (`TBD1`) | Notes |
 |---|---|---|---|
-| univocity — the contract (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
-| canopy — the admission and verification libraries (TypeScript) | Builds it | **Yes** — builds and verifies | The single verification chokepoint off-chain |
-| the browser client | Builds it | Builds it | Produces both assertions of the ceremony |
-| arbor — the operator services (Go), publish path | **Decodes and forwards** `algData` into calldata | No | Has no *name* for the algorithm; it appears only as test hex |
-| arbor — builder | **Cannot produce one.** The Go on-chain-proof builder never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
-| arbor — sealer | n/a | **No** — see below | The gap |
+| The contract (Solidity) | **Yes** — verifies it at every publish | No | Never sees the certificate |
+| The TypeScript admission and verification libraries | Builds it | **Yes** — builds and verifies | The verification chokepoint at admission and for offline holders |
+| The browser client | Builds it | Builds it | Produces both assertions of the ceremony |
+| The Go operator services — publish path | **Decodes and forwards** `algData` into calldata | No | Names the algorithm and the envelope label as constants |
+| The Go operator services — on-chain-proof builder | **Cannot produce one.** It never sets `algData`, so it emits plain ES256 proofs only | No | The WebAuthn form is built browser-side |
+| The Go operator services — sealer | n/a | **Yes** — verifies the certificate under the algorithm it declares | See below |
 
-There is an asymmetry within arbor: the publish path already speaks `-65800`
-end-to-end and the publisher even classifies the contract's WebAuthn reverts,
-while the sealer — the one component that must *accept* such a certificate —
-has no awareness of it at all.
+**The sealer reads the declared algorithm.** Before sealing, the sealer
+verifies the delegation certificate under the algorithm in its protected
+header: plain ES256, KS256, or `ALG_ES256_WEBAUTHN` with the envelope. An
+algorithm it does not implement is named in the error rather than verified as
+something else, and a stray envelope under any other algorithm is refused
+before signature work (rule 3 in §7).
 
-### The sealer gap
-
-The arbor sealer verifies a delegation lease before sealing. Its entire
-algorithm dispatch is a two-way branch: a KS256 trust root takes a KS256 path;
-**everything else** falls through to a plain ES256 certificate verify. The
-curve check on that path compares an uppercased *string* against the literal
-`"ES256"`, so `-65800` cannot even be expressed there.
-
-Two properties compound this:
-
-- **The certificate verifier never reads the certificate's declared
-  algorithm.** It unconditionally builds an ES256 `Sig_structure`, SHA-256s it,
-  and verifies. Any algorithm label — `-7`, `-65800`, or garbage — is verified
-  as plain ES256. It also takes a `curve` parameter that its body never uses.
-  The certificate verifier therefore supports **ES256 only, by construction and
-  unchecked.**
-- **The failure is therefore misattributed.** A passkey root is an ordinary
-  64-byte P-256 point, and the trust-root resolver infers the algorithm from
-  **key length alone** — 64 bytes means ES256. So a passkey root is advertised
-  as ES256 and reaches the certificate verifier normally; the certificate's own
-  `-65800` declaration is then silently ignored. The observed failure is:
-
-| Signature form | Error surfaced |
-|---|---|
-| Native DER assertion signature (~70–72 bytes) | `COSE signature must be 64 bytes` |
-| Pre-converted 64-byte `r ‖ s` | `delegation cert signature invalid` — the verifier hashes the `Sig_structure`, while the authenticator signed `authenticatorData ‖ SHA-256(clientDataJSON)` |
-
-Both are bare signature complaints for what is actually an unimplemented
-algorithm.
-
-**`ALG_ES256_WEBAUTHN` is a signature algorithm, not a key type**, and that
-distinction is the whole reason the trust-root path needs no change: the key is
-an ordinary P-256 point, and only the certificate's *signature envelope* is
-WebAuthn. A trust root should never be advertised as `-65800`.
-
-The consequence: **a passkey-rooted log cannot currently be sealed end to
-end.** The refusal is by omission rather than by an explicit check; the sealer
-contains no reference to the WebAuthn algorithm at all.
-
-This is a **known bug**, tracked with the codepoint reuse in §2. Fixing it
-means adding a real algorithm dispatch — ideally by having the certificate
-verifier read and honour the declared algorithm, which would make the failure
-self-describing even before WebAuthn support lands — not flipping a flag.
+**`ALG_ES256_WEBAUTHN` is a signature algorithm, not a key type.** A passkey
+root is an ordinary 64-byte P-256 point, advertised as ES256 by every
+trust-root resolver; only the certificate's *signature envelope* is WebAuthn.
+A trust root is never advertised as `-65800`.
 
 ## 9. Test vectors
 
@@ -443,19 +384,13 @@ It carries **two** sections: `onchain` (the delegation proof) and
 `certificate`. The certificate section holds a complete wire-format COSE Sign1
 — including the unprotected map with the 2-element envelope — plus the
 `Sig_structure` and the expected challenge, so a verifier can assert byte
-equality rather than merely "it verified". Note that arbor's golden test
-declares no field for the certificate section and therefore reads only half
-the fixture; the certificate vector is already present and unused.
+equality rather than merely "it verified".
 
 ## Open questions
 
-- **The codepoint reuse (§2) is unresolved.** `TBD1` needs a real assignment
-  distinct from the algorithm's number, and the shipped constants need to stop
-  aliasing.
-- **The sealer gap (§8) is unfixed**, so the passkey custody option is not yet
-  end to end.
-- **Origin pinning has no policy channel.** The verifier supports it; nothing
-  can turn it on per log.
+- **`TBD1` needs a real assignment** distinct from the algorithm's number
+  (§2), and the shipped constants need to stop aliasing.
+- **Origin pinning has no policy channel** (§6).
 - **A single-gesture ceremony** — one assertion whose challenge binds a digest
   covering both artifacts — would halve the gesture cost. It is deliberately
   not attempted, because it re-couples the two artifacts' verification and

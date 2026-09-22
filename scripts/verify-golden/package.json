@@ -1,0 +1,14 @@
+{
+  "name": "protocol-verify-golden",
+  "private": true,
+  "description": "Verifies vectors/golden and vectors/fixtures with the published Forestrie verifier at a pinned version.",
+  "type": "module",
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@forestrie/encoding": "0.8.0",
+    "@forestrie/merklelog": "0.4.0",
+    "@forestrie/receipt-verify": "2.0.0"
+  }
+}

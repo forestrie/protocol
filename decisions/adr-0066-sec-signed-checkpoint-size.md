@@ -294,61 +294,85 @@ change.
 
 | Verifier | Trusted `tree-size-1` source | Checks added |
 |---|---|---|
-| univocity contract | `log.size` | signed size-2 == `claimedSize` (the last proof's `treeSize2`); label absent → reject; header per D9 |
-| go-merklelog `VerifyCheckpointReceipt` (store-backed) | local store | signed size-2 == the store size used for the accumulator; size-driven fold for third-party receipts; header per D9 |
-| canopy `verifyCheckpointChain` | previous checkpoint in the chain, or a caller-supplied anchor | signed size-2 == declared; size-driven fold (D5); header per D9 |
+| univocity contract | `log.size` | signed size-2 == `claimedSize` (the last proof's `treeSize2`); label absent → reject; protected-header encoding per D9 |
+| go-merklelog `VerifyCheckpointReceipt` (store-backed) | local store | signed size-2 == the store size used for the accumulator; size-driven fold for third-party receipts; receipt encoding per D9 |
+| canopy `verifyCheckpointChain` | previous checkpoint in the chain, or a caller-supplied anchor | signed size-2 == declared; size-driven fold (D5); receipt encoding per D9 |
 | forestrie-cli, thinker | via the canopy packages | none of their own; display the label |
 
 *Alternatives considered.* The first cut's contract row also required the
 signed `tree-size-1` to equal the first proof's base and the anchored size;
 it was removed with the signed origin (D1).
 
-### D9 — Protected-header conformance
+### D9 — Receipt encoding conformance
 
-A checkpoint receipt's protected header MUST be deterministically encoded
-CBOR (RFC 8949 §4.2.1): arguments in shortest form; definite lengths only;
-keys in canonical order (shorter encoding first, then bytewise), which
-makes any duplicate keys adjacent; no duplicate keys; no tags. A string
-length that exceeds the remaining bytes is rejected. The map MUST consume
-the whole header: no trailing bytes, and a map MUST NOT declare fewer
-pairs than it carries. Integer keys whose magnitude exceeds int64 are
-rejected.
+A checkpoint receipt's protected header, its unprotected header map, the
+`vdp` (label 396) map carried in the unprotected header, the
+`consistency-proofs` array carried under `vdp` key `-2`, and every
+`consistency-proof` tuple (`bstr .cbor [tree-size-1, tree-size-2, paths,
+right-peaks]`) it contains MUST each be deterministically encoded CBOR (RFC
+8949 §4.2.1): arguments in shortest form; definite lengths only; map keys
+in canonical order (shorter encoding first, then bytewise), which makes any
+duplicate keys adjacent; no duplicate keys. A string, array or map length
+that exceeds the remaining bytes is rejected, and each of these structures
+MUST consume exactly the bytes it declares: no trailing bytes, and none may
+declare fewer elements or pairs than it carries. Integer keys whose
+magnitude exceeds int64 are rejected.
 
-A verifier MUST reject a header that is not so encoded, and MUST NOT read
-any value from a header whose map does not consume the whole header. The
-header is signed whole and read by label lookup: two conformant decoders
-either read the same `alg` and `tree-size-2` from it or both reject it,
-and under univocity rule U7 the contract's acceptance is what every replica
-must be able to reproduce. Where implementations cannot cheaply agree on a
-value type, the type is excluded from the header rather than tolerated.
+Within a `consistency-proof` tuple, the CDDL requires an array at `paths`,
+at each per-peak path inside it, and at `right-peaks`. A CBOR `null` (`f6`)
+is not an alternative encoding of an empty array at any of these positions
+and is rejected, not tolerated. An origin peak that the new size leaves
+unchanged has an empty path: that per-peak path MUST be encoded as the
+empty array `80`, and a decoder that reads a `null` there as though it
+meant the same thing accepts bytes another verifier rejects.
 
-**Keys** MUST be integers (major type 0 or 1) within int64. Text-string
-labels, which COSE permits in general, are not used by this profile and
-are rejected, so that key order and duplicate detection are a comparison
-of integers in every implementation.
+A verifier MUST reject any of these five structures that is not so encoded,
+and MUST NOT read any value out of one until it has confirmed that
+structure consumes exactly its bytes. The protected header is signed whole
+and read by label lookup, and the consistency-proofs chain is what the fold
+— and, transitively, the signature — acts on: two conformant decoders
+either read the same `alg`, `tree-size-2` and folded accumulator from a
+receipt or both reject it, and under univocity rule U7 the contract's
+acceptance is what every replica must be able to reproduce. Where
+implementations cannot cheaply agree on a value type, the type is excluded
+rather than tolerated.
 
-**Values under labels the verifier does not read** MUST be one of the
-following, and the verifier MUST skip, not reject, any of them: an
-integer; a byte string; a text string that is valid UTF-8; the simple
+**Keys** in the protected header and in the `vdp` map MUST be integers
+(major type 0 or 1) within int64. Text-string labels, which COSE permits in
+general, are not used by this profile and are rejected, so that key order
+and duplicate detection are a comparison of integers in every
+implementation.
+
+**Values under protected-header labels the verifier does not read** MUST be
+one of the following, and the verifier MUST skip, not reject, any of them:
+an integer; a byte string; a text string that is valid UTF-8; the simple
 values `false`, `true` and `null`; or a float in the shortest form that
 preserves its value (half, then single, then double, as RFC 8949 §4.2.1
 requires). A sealer adding a label of these types MUST NOT make its
-checkpoints unverifiable. Everything else under an unread label is
-rejected: arrays and maps (so no nesting, no nested-order question, no
-nesting limit), tags, `undefined` and every other simple value, a float
-that has a shorter form preserving its value, invalid UTF-8, additional
-information 28–30, the break code 31, a two-byte simple value below 32,
-and any item cut off by the end of the header. Tags are rejected because
-the profile assigns them no meaning and skipping one silently would hide a
-semantic the signer intended; containers are rejected because no checkpoint
-header carries one and each verifier would otherwise have to agree on
-nested order, duplicates and depth.
+checkpoints unverifiable. Everything else under an unread protected-header
+label is rejected: arrays and maps (so no nesting, no nested-order
+question, no nesting limit), tags, `undefined` and every other simple
+value, a float that has a shorter form preserving its value, invalid UTF-8,
+additional information 28–30, the break code 31, a two-byte simple value
+below 32, and any item cut off by the end of the header. Tags are rejected
+there because the profile assigns them no meaning under an unread label and
+skipping one silently would hide a semantic the signer intended; containers
+are rejected there because no protected-header label carries one and each
+verifier would otherwise have to agree on nested order, duplicates and
+depth. The value under `vdp` key `-2` is held to the same no-tag rule, for
+the same reason: it MUST be a bare `consistency-proof` byte string or a
+`consistency-proofs` array of them, and a CBOR tag wrapping either form is
+rejected, because the fold reads the value positionally, not by tag. This
+allowlist governs only those two positions; an unprotected-header label
+this profile does not otherwise constrain (pre-signed peak receipts,
+delegation material) legitimately carries a tagged COSE object, and D9 does
+not narrow its value type beyond the deterministic encoding required above.
 
 *Revised 2026-09-20 (D9 amendment).* The first wording admitted any
-well-formed definite-length item under an unread label, including
-`undefined`, every simple value, floats in any width, and containers. The
-adversarial review of canopy #255 showed that this cannot be met
-identically: go-merklelog's canonical re-encode check rejects a
+well-formed definite-length item under an unread protected-header label,
+including `undefined`, every simple value, floats in any width, and
+containers. The adversarial review of canopy #255 showed that this cannot
+be met identically: go-merklelog's canonical re-encode check rejects a
 single-precision float that fits a half, a double with a shorter form, and
 `undefined`, while canopy and the contract accepted them, so the chain
 would anchor a checkpoint no Go replica re-verifies, which is the case D9
@@ -357,13 +381,31 @@ exists to prevent. Shortest-form floats were already required by RFC 8949
 on which implementations disagree. The review also found that the three
 verifiers already agree on length-first key order (shorter encoding first,
 then bytewise); the outliers are canopy's own encoder and arbor's
-delegation-certificate code, which are moved to it, not the rule.
+delegation-certificate code, which are moved to it, not the rule. The same
+review, continuing into the go-merklelog and canopy implementation slices,
+found that determinism was being checked for the protected header alone
+while the unprotected header, the `vdp` map, the `consistency-proofs` array
+and each proof tuple decoded leniently: an indefinite-length
+`consistency-proofs` array, a tag wrapping it, duplicate `-2` keys in the
+`vdp` map, non-canonical `vdp` key order, a non-shortest-form integer
+inside a proof tuple, and a `null` in place of an empty per-peak path each
+decoded, and in the header-only tests verified, on one side and not the
+other. D9 is widened to the five structures above for the reason it exists
+at all: a receipt one verifier accepts and another cannot re-verify is the
+failure D9 closes, wherever in the receipt the disagreement starts.
 
-Reference behaviours, in agreement on every header class reviewed: the
-contract's single-walk parser (`seekLabels`, reading `alg` and
-`tree-size-2` in one pass), go-merklelog's strict decode mode with a
-canonical re-encode check, and canopy's `decodeCborDeterministic` once
-slice 04 adds shortest-form, key-order and duplicate-key rejection.
+Reference behaviours, in agreement on every class reviewed across all five
+structures: the contract's single-walk parser (`seekLabels`, reading `alg`
+and `tree-size-2` from the protected header in one pass; the contract
+receives the consistency-proof chain as pre-decoded calldata, not CBOR, so
+D9's proof-array and tuple rules bind the off-chain decoders that produce
+that calldata, not the contract itself), go-merklelog's strict decode mode
+with a canonical re-encode check over all five structures and an explicit
+rejection of a null inner path (go-merklelog
+[PR #15](https://github.com/forestrie/go-merklelog/pull/15)), and canopy's
+`decodeCborDeterministic` and `decodeConsistencyProofsFromUnprotected`,
+which reject the same non-canonical and null forms (canopy
+[PR #264](https://github.com/forestrie/canopy/pull/264)).
 
 *Alternatives considered.* The first cut of the contract parser accepted
 any CBOR it could walk, in any key order, with an O(n²) duplicate scan. The
@@ -380,7 +422,11 @@ definite-length item is safe: unread labels contribute to the signed bytes
 only. Canonical key order was chosen over order-independent lookup because
 it makes duplicate detection one comparison per key and removes the
 quadratic scan. The single-walk parser is an implementation choice with no
-spec impact and is recorded so that it is not reopened.
+spec impact and is recorded so that it is not reopened. Tolerating a `null`
+inner path, so that objects sealed before go-merklelog normalised it kept
+decoding, was considered and rejected: no sealed state predates this
+decision (D6), and reading `null` as an empty path is exactly the kind of
+per-implementation interpretation D9 exists to close off.
 
 ### What is deliberately not bound
 

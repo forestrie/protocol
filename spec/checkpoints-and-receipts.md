@@ -321,7 +321,7 @@ the same terms as any other non-canonical encoding.
 The protected header's canonical-key-order requirement, including the
 grammar for values carried under labels a verifier does not read, is stated
 in full in
-[ADR-0066 D9](../decisions/adr-0066-sec-signed-checkpoint-size.md#d9--protected-header-conformance).
+[ADR-0066 D9](../decisions/adr-0066-sec-signed-checkpoint-size.md#d9--receipt-encoding-conformance).
 One divergence from core-deterministic order is carved out there and
 nowhere else — the checkpoint envelope's protected header uses length-first
 canonical key order instead — noted under [Open questions](#open-questions).

@@ -321,11 +321,10 @@ magnitude exceeds int64 are rejected.
 Within a `consistency-proof` tuple, the CDDL requires an array at `paths`,
 at each per-peak path inside it, and at `right-peaks`. A CBOR `null` (`f6`)
 is not an alternative encoding of an empty array at any of these positions
-and is rejected, not tolerated. The case the review found is an origin peak
-whose path is empty because the peak is unchanged by the new size: that
-per-peak path MUST be encoded as the empty array `80`, and a decoder that
-reads a `null` there as though it meant the same thing accepts bytes
-another verifier rejects.
+and is rejected, not tolerated. An origin peak that the new size leaves
+unchanged has an empty path: that per-peak path MUST be encoded as the
+empty array `80`, and a decoder that reads a `null` there as though it
+meant the same thing accepts bytes another verifier rejects.
 
 A verifier MUST reject any of these five structures that is not so encoded,
 and MUST NOT read any value out of one until it has confirmed that

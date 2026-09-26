@@ -592,6 +592,17 @@ Consequences that follow directly:
   and disable version *K* only after every certificate bound to the epoch-*K*
   key has expired on every deployment that shares the key.
 
+**Both sides enforce the binding, and the seed endpoint is versioned.** The
+custodian signs under version *e* and nothing else. The sealer requires the
+seed response to carry `apiVersion` 2, which only a custodian that implements
+this amendment sets; a custodian that predates it omits the field and signs
+every epoch under the newest enabled version, which would hand a sealer at
+epoch *N* an epoch *N*−1 key derived under version *N* and silently strand
+every certificate bound to the real one. The sealer refuses such a response,
+fails its key load, and retries until the custodian is upgraded. `apiVersion`
+is a body-level integer, per endpoint, absent meaning 1; it is the convention
+for internal endpoints from here on.
+
 The description of the sealing key in `spec/` is unchanged: a sealer restart
 still re-derives the *same* key, since the epoch, and now the version, are
 fixed inputs.

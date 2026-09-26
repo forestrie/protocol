@@ -110,6 +110,9 @@ N−1 keys loaded until certificates bound to them expire (N/N−1 overlap);
 signers re-delegate on their next renewal. The KMS MAC key itself rotates
 independently on the custodian's normal key-rotation cadence (a KMS key
 version change is equivalent to an epoch bump and is handled the same way).
+*The parenthetical did not hold as first implemented; the
+[amendment of 2026-09-26](#amendment--2026-09-26-the-epoch-is-the-mac-key-version-number)
+makes it true by construction.*
 An idtimestamp-derived epoch ("one clock") was considered and rejected: it
 couples rotation cadence to traffic (idle logs never rotate), and the
 subsystem is already necessarily two-clock — certificate `expiresAt` is
@@ -536,4 +539,59 @@ custodian always uses the newest enabled version of the MAC key. A new version
 therefore changes every seed, as an epoch bump would, but the sealer's N − 1
 overlap is re-derived under the same new version, so certificates bound to
 keys from the previous key version are not kept usable across the change; the
-signers must re-delegate.
+signers must re-delegate. *Superseded by the
+[amendment of 2026-09-26](#amendment--2026-09-26-the-epoch-is-the-mac-key-version-number).*
+
+---
+
+## Amendment — 2026-09-26: the epoch is the MAC key version number
+
+Recorded against arbor `main` the same day as the promotion above, after the
+"As implemented" note surfaced two defects: the custodian chose the MAC key
+version by comparing resource names as strings, so version 10 sorted below
+version 9; and, as the note says, a key-version rotation changed every seed
+because the version was chosen from listing state at request time rather than
+fixed by the epoch. The "Epoch and rotation" section's claim that a version
+change "is handled the same way" as an epoch bump was therefore false as
+shipped.
+
+**Decision.** The epoch *is* the MAC key version number. The custodian derives
+the seed for epoch *e* under `<MAC key>/cryptoKeyVersions/<e>`, and nothing
+else: no listing, no "newest enabled", no operator-maintained mapping. The
+version used for an epoch is thereby a fixed function of the epoch. This keeps
+every property asked of the epoch above: it is an explicit operator-maintained
+integer, not a clock, because a version is created only by operator action.
+It exposes nothing new: the seed's secrecy rests on who may call `MacSign`,
+and version numbers are public metadata.
+
+Consequences that follow directly:
+
+- **A rotation and an epoch bump are one act.** Create version *K*+1, set the
+  sealer's epoch to *K*+1. The sealer derives *K*+1 under version *K*+1 and *K*
+  under version *K*: exactly the N/N−1 overlap promised above, now covering the
+  key version as well.
+- **Retiring an epoch is disabling its version.** A disabled or destroyed
+  version makes its epoch underivable, which is what retirement means. The
+  custodian reports such an epoch as *retired* (distinct from a KMS outage) and
+  the sealer boots with epoch N alone when N−1 is retired, rather than
+  failing.
+- **The MAC key must never auto-rotate.** A version created by a schedule
+  would be an epoch no sealer was moved to. The key's rotation period stays
+  unset; this is an operator invariant, not a code check.
+- **Coverage retrieval matches only keys the sealer holds.** Separately, the
+  coordinator served the latest-expiring certificate bound to *any* registered
+  key. A certificate bound to a key the sealer had dropped was rejected by the
+  sealer, and, having been served, suppressed the pending demand for the key
+  it did hold, stalling seals until the stale certificate expired. The issue
+  request now carries the hashes of the keys the sealer holds and the
+  coordinator serves only certificates bound to one of them (or to the request
+  key). An older sealer that omits the list gets the previous behaviour.
+- The "epoch rotation runbook" named under Consequences is the key-version
+  rotation runbook in the operator's records; its steps are: create version
+  *K*+1, bump the sealer epoch, let owners re-delegate on their next renewal,
+  and disable version *K* only after every certificate bound to the epoch-*K*
+  key has expired on every deployment that shares the key.
+
+The description of the sealing key in `spec/` is unchanged: a sealer restart
+still re-derives the *same* key, since the epoch, and now the version, are
+fixed inputs.

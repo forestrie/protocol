@@ -107,7 +107,8 @@ serves every log that has leased it. What bounds a compromise is therefore
 the set of leases the key holds, not the key's lifetime. A lease cannot be cut
 short by the owner: there is no on-chain expiry, and no root rotation. The
 derivation is set out in [receipt-trust-model.md](./receipt-trust-model.md)
-(question 2).
+(question 2), and recorded as a decision in
+[ADR-0050](../decisions/adr-0050-delegation-in-advance.md).
 
 ## 4. What the operator cannot do
 

@@ -89,7 +89,7 @@ only defeats is incomplete.
 | **Assign idtimestamps from its own clock, and fix entry order** | The idtimestamp is the operator's clock reading; it is what the offline endorsement window is checked against. Ordering within a log is the sequencer's choice |
 | **Stop sealing, or delay it indefinitely** | The log stops advancing. Visible as anchor lag; nothing bounds how long it may persist. The owner's remedy is to delegate a different sealer |
 | **Re-seal a massif** | Routine: each seal of a growing massif replaces the checkpoint object with one from the same boundary. A retained earlier checkpoint stays valid |
-| **Sign checkpoints within a lease** | On-chain: bounded to the leased log and its inclusive MMR range, until the log grows past the range's end — **there is no on-chain expiry**. Off-chain: the certificate's expiry bounds when verifiers accept it. Every checkpoint must extend the anchored state (§4.1) |
+| **Sign checkpoints within a lease** | On-chain: bounded to the leased log and its inclusive MMR range, until the log grows past the range's end — **there is no on-chain expiry**. Off-chain: the certificate's expiry bounds the sequenced time of the entries a verifier accepts under it — checked against the entry's idtimestamp, never the verifier's clock — and since the idtimestamp is the operator's own clock reading (above), that bounds an honest sealer, not a compromised one. Every checkpoint must extend the anchored state (§4.1) |
 | **Decide what reaches the chain** | The publisher selects which sealed checkpoints it submits, and when. It cannot alter them, and anyone else may submit one it withholds |
 | **Withhold or delay data it serves** | Anyone holding a replica is unaffected; a party depending solely on the operator's endpoints is |
 | **Withhold a grant before its first anchor** | Until a log's first checkpoint is anchored, its grant exists only in the operator's grant store; the operator can withhold it, and nothing public proves it was issued |
@@ -105,10 +105,11 @@ operator's KMS re-derives at boot, keyed by an epoch and an index and by
 nothing log-specific, so a restart re-derives the *same* key and one key
 serves every log that has leased it. What bounds a compromise is therefore
 the set of leases the key holds, not the key's lifetime. A lease cannot be cut
-short by the owner: there is no on-chain expiry, and no root rotation. The
-derivation is set out in [receipt-trust-model.md](./receipt-trust-model.md)
-(question 2), and recorded as a decision in
-[ADR-0050](../decisions/adr-0050-delegation-in-advance.md).
+short by the owner: there is no on-chain expiry, and no root rotation. This
+is the specification's one statement of the derivation; the decision behind
+it is [ADR-0050](../decisions/adr-0050-delegation-in-advance.md), and what
+the lease bounds for a verifier is stated in
+[receipt-trust-model.md](./receipt-trust-model.md) (question 2).
 
 ## 4. What the operator cannot do
 

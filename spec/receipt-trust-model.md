@@ -90,7 +90,8 @@ seed its KMS holds, never persisted at rest, and named by nothing log-specific,
 so one key serves every log whose owner has leased it. The derivation is
 stated once, in
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
-§3. What scopes the key is the lease: the delegation certificate binds one
+§3, and the decision behind it is
+[ADR-0050](../decisions/adr-0050-delegation-in-advance.md). What scopes the key is the lease: the delegation certificate binds one
 log, one MMR range and an expiry, and exists only because that log's root key
 signed it; the on-chain delegation proof binds the same log and range and
 **no expiry**, and the contract checks the log and the inclusive range only.

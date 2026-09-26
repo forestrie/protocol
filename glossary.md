@@ -216,9 +216,11 @@ _Avoid_: conflating delegation certs with grant issuance authority.
 
 **Lease**:
 What a delegation confers: the right to seal one log within one inclusive MMR
-range. The certificate adds an expiry that off-chain verifiers and the sealer
-honour; the contract checks only the log and the range, so on-chain a lease
-runs until the log grows past the range.
+range. The certificate adds an expiry: the sealer honours it by its own
+clock, and an off-chain verifier checks it against the entry's idtimestamp,
+never its own clock, so a lapsed certificate still verifies every entry
+sequenced within it. The contract checks only the log and the range, so
+on-chain a lease runs until the log grows past the range.
 _Avoid_: implying a lease can be revoked or shortened.
 
 **Delegation certificate**:

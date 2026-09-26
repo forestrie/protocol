@@ -95,14 +95,27 @@ stated once, in
 log, one MMR range and an expiry, and exists only because that log's root key
 signed it; the on-chain delegation proof binds the same log and range and
 **no expiry**, and the contract checks the log and the inclusive range only.
-The expiry is enforced by the sealer's own clock when it decides whether to
-seal, and by offline verifiers when they check a certificate.
+The expiry bounds issuance, not verification. The sealer checks it against its
+own clock when it decides whether to seal. An offline verifier checks it
+against the **entry's idtimestamp** — the sequenced time of the leaf the
+receipt proves, taken as an input exactly as the endorsement window is
+(question 4) — and accepts the certificate for an entry whose idtimestamp is
+not after the expiry. The verifier's own clock plays no part: a receipt never
+expires, and a certificate that has since lapsed still verifies every entry
+sequenced within it. The certificate's issuance time is not a lower bound; a
+certificate is routinely signed after the entries it covers were sequenced.
 
-So the bound on a compromised sealer is the *lease*: on-chain, it can publish
-checkpoints for each log that has leased it, at any size whose last index lies
-inside that lease's range, until the log grows past the range's end; off-chain,
-its certificates stop being accepted at their expiry. It cannot mint authority
-for any other key or log. It cannot be cut off by changing the log's root — the
+So the bound on a compromised sealer is the lease's *range*: on-chain, it can
+publish checkpoints for each log that has leased it, at any size whose last
+index lies inside that lease's range, until the log grows past the range's
+end, and off-chain a verifier accepts nothing beyond that range either. The
+expiry adds no bound against the operator: the idtimestamp a verifier checks
+it against is the operator's own clock reading
+([trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
+§3), and the contract does not check it at all. It bounds an honest sealer's
+window, and catches one that seals under a certificate it should have
+renewed. The sealer cannot mint authority for any other key or log. It cannot
+be cut off by changing the log's root — the
 contract binds the root once and has no operation to replace it. The owner's
 remedies are to delegate a different sealer under the same root, which does
 not shorten a lease already issued, or to start a new log. Within a lease the

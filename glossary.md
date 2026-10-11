@@ -103,6 +103,13 @@ The party that onboards a log owner, hosts their client, collects payment and
 routes signing requests. Holds no user root in the self-custody shapes.
 _Avoid_: "payment operator", "mandate operator".
 
+**Grant issuer**:
+The party that holds an authority log's root key and so signs the creation
+grants for that log's children. A role, not a service: every authority log's
+owner is one, whether it issues to itself, to agents acting for it, or to a
+performer it is paying for work.
+_Avoid_: "gateway", "grant authority", "grant vendor".
+
 **Custodian**:
 The transparency operator's component that holds KMS custody keys. See
 **Custody key**.

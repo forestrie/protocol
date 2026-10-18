@@ -241,9 +241,11 @@ certificate is checked against a KS256 root.
 2. **KS256 EOA roots verify fully offline,** by ecrecover against the root
    address. The guarantee is the same as for an ES256 root.
 3. **KS256 contract roots** (a Safe) verify only with a caller-supplied
-   **ERC-1271 attestation** (glossary): chain id, root address, digest, block and
-   magic value. The verifier accepts it only if it binds the exact root address
-   and digest and its chain id equals the forest's genesis chain. The guarantee is
+   **ERC-1271 attestation** (glossary): chain id, root address, digest,
+   `keccak256` of the signature, block and magic value. The verifier accepts it
+   only if it binds the exact root address, digest and certificate signature, and
+   its chain id equals the forest's genesis chain; the attestation and the
+   receipt then specify exactly the call an auditor re-runs at that block. The guarantee is
    narrower and stated as such: valid under the contract's signers **at the
    attested block**. Without an attestation, a root ecrecover doesn't match
    returns `ks256_root_not_recovered`, since an EOA and a contract can't be told

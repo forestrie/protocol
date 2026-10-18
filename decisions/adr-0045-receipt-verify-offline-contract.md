@@ -225,6 +225,46 @@ Exit **0** on `{ ok: true }`, **1** otherwise; stderr prints `stage` and
 - Statement and BYOK surfaces implement against this contract without changing
   layer A–C definitions.
 
+## Amendment — 2026-10-18: KS256 roots in layer A
+
+§2's layer A trust source and §3's "KS256 genesis roots are used for
+delegation-cert paths" left KS256-rooted logs unverifiable offline:
+`receipt-verify` dropped KS256 trust roots, and forestrie-cli answered
+`no_es256_trust_key`. Receipts are still signed only by ES256 keys (arbor's
+sealers hold P-256 delegated keys); what changes is how the delegation
+certificate is checked against a KS256 root.
+
+1. **Layer A trust source** becomes: an ES256 root key (genesis, or a known log
+   key), or a KS256 root through its delegation certificate. The certificate's
+   protected `alg` must be KS256 (−65799); its digest is
+   `keccak256(Sig_structure)`, as arbor's sealer and univocity compute it.
+2. **KS256 EOA roots verify fully offline,** by ecrecover against the root
+   address. The guarantee is the same as for an ES256 root.
+3. **KS256 contract roots** (a Safe) verify only with a caller-supplied
+   **ERC-1271 attestation** (glossary): chain id, root address, digest, block and
+   magic value. The verifier accepts it only if it binds the exact root address
+   and digest and its chain id equals the forest's genesis chain. The guarantee is
+   narrower and stated as such: valid under the contract's signers **at the
+   attested block**. Without an attestation, a root ecrecover doesn't match
+   returns `ks256_root_not_recovered`, since an EOA and a contract can't be told
+   apart offline.
+4. **§3's offline boundary is unchanged.** The attestation is fetched by a
+   separate helper (a forestrie-cli subcommand, the twin of `fetch-accumulator`,
+   and an mcp-resolve tool), as on-chain state already is for
+   `verifyReceiptOfflineAgainstKnownAccumulator`. No verify function calls the
+   chain or accepts a callback that would.
+5. **A known log key may be a 20-byte KS256 address.** As for ES256, it asserts,
+   and does not prove, the key-to-log binding.
+6. **Low-s is not enforced on KS256,** matching arbor and univocity. A high-s
+   twin re-encodes an authorisation the root already gave and cannot forge one;
+   tightening it must happen in every verifier at once, so verdicts don't split.
+
+*Rejected:* an injected `isValidSignature` callback in the verifier, which
+would run network code inside verify; and an explicit chain mode inside the
+verifiers, where a separate helper keeps every verifier network-free.
+[spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4
+is updated when the implementation lands.
+
 ## References
 
 - [COSE receipts MMR profile](https://datatracker.ietf.org/doc/draft-bryce-cose-receipts-mmr-profile/)

@@ -232,7 +232,14 @@ amendment of 2026-10-18):
   signing time. The verifier does not check `blockNumber` or `blockHash`.
   They make the attestation auditable: the attestation and the receipt
   together specify exactly the `isValidSignature` call to re-run at that
-  block.
+  block. The attestation is **unsigned**: a verifier can't tell a fetched one
+  from a forged one, so it is only as trustworthy as the party that fetched it
+  and the RPC endpoint that answered. Accept one only from a party you would
+  trust to read the chain for you, or fetch it yourself. For more confidence,
+  fetch it from several independent endpoints at the same block and require
+  the block hashes to agree. A verifier may take several attestations and
+  match each to the certificate whose digest and signature hash it binds, as a
+  checkpoint chain spanning a delegation rotation needs.
 - **Without an attestation,** a certificate whose recovered address is not the
   root fails with `ks256_root_not_recovered`. Offline, an EOA can't be told
   apart from a contract.

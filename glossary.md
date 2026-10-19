@@ -183,7 +183,10 @@ _Avoid_: genesis when meaning the grant.
 The key a log's authority is bound to: the `grantData` of the grant that
 established the log, which the contract stores as the log's root at first
 checkpoint. Signs grants the log issues and sealing delegations. Fixed for the
-life of the log.
+life of the log. Either **ES256** (64-byte `x‖y`) or **KS256** (a 20-byte EVM
+address: an EOA, or a contract such as a Safe that signs through ERC-1271). Where
+an alg identifier is present it decides the type and the length must agree;
+bare `grantData` is typed by its length.
 _Avoid_: "logRootKey" in prose; "root authority".
 
 **Statement signer binding**:
@@ -237,6 +240,16 @@ submit and by any offline holder. Distinct from the on-chain delegation proof
 and from custody keys.
 _Avoid_: "material", "delegation material"; conflating with checkpoint COSE
 receipts or custody private keys.
+
+**ERC-1271 attestation**:
+A block-bound record that a KS256 contract root's `isValidSignature` accepted a
+delegation certificate's digest: chain id, root address, digest, the hash of
+the signature it was called with, block and the returned magic value. Fetched by a separate helper and supplied to an offline
+verifier, which never calls the chain; trusted as far as the party that fetched
+it, and auditable by re-running the read at that block. It shows the
+certificate was valid under the contract's signers *at that block*, not at
+signing time.
+_Avoid_: calling a KS256 contract-root receipt "offline-verified" without one.
 
 **Standing delegate key**:
 A sealer-held checkpoint-signing key **shared across all logs a sealer seals**,

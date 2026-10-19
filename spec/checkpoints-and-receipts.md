@@ -205,6 +205,51 @@ because they fail for different reasons and carry different trust:
 | **B** | Inclusion, via the `396` proof, against the signed peak | Pure computation over the receipt bytes |
 | **C** | Leaf binding — the entry hashes to what the receipt claims | Caller-supplied entry or grant context, and the idtimestamp |
 
+Receipts are signed only by ES256 keys. A root, though, may be ES256 (64-byte
+`x‖y`) or KS256 (a 20-byte EVM address). Under a KS256 root, layer A goes
+through the label-`1000` certificate, whose protected `alg` must be KS256
+(−65799) and whose digest is `keccak256(Sig_structure)`
+([ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md),
+amendment of 2026-10-18):
+
+- **An EOA root** verifies fully offline. The verifier ecrecovers the
+  certificate signature over the digest and requires the root address. The
+  guarantee is the same as for an ES256 root.
+- **A contract root** (a Safe, signing through ERC-1271) verifies only with an
+  **ERC-1271 attestation** the caller supplies. It is a canonical CBOR map:
+
+  ```
+  { 1: version, 2: chainId, 3: address(20), 4: digest(32),
+    5: blockNumber, 6: blockHash(32), 7: magic(4), 8: signatureHash(32) }
+  ```
+
+  where `signatureHash = keccak256(certificate signature)`. The verifier
+  accepts it only when it binds the root address, the certificate's digest and
+  signature, the ERC-1271 magic value `0x1626ba7e`, and a `chainId` equal to
+  the forest's genesis chain. The same Safe address on another chain can have
+  other owners. The guarantee is narrower and stated as such: the certificate
+  was valid under the contract's signers **at the attested block**, not at
+  signing time. The verifier does not check `blockNumber` or `blockHash`.
+  They make the attestation auditable: the attestation and the receipt
+  together specify exactly the `isValidSignature` call to re-run at that
+  block. The attestation is **unsigned**: a verifier can't tell a fetched one
+  from a forged one, so it is only as trustworthy as the party that fetched it
+  and the RPC endpoint that answered. Accept one only from a party you would
+  trust to read the chain for you, or fetch it yourself. For more confidence,
+  fetch it from several independent endpoints at the same block and require
+  the block hashes to agree. A verifier may take several attestations and
+  match each to the certificate whose digest and signature hash it binds, as a
+  checkpoint chain spanning a delegation rotation needs.
+- **Without an attestation,** a certificate whose recovered address is not the
+  root fails with `ks256_root_not_recovered`. Offline, an EOA can't be told
+  apart from a contract.
+
+A known log key may be a 20-byte KS256 address. As for an ES256 known key, it
+asserts, and does not prove, that the key belongs to the log. KS256 roots come
+only from genesis, a known log key, or an attestation, and never from a
+coordinator's public root. Low-s is not enforced on KS256 signatures, matching
+arbor and univocity.
+
 **Layer D — on-chain canonicality** — is deliberately separate and not part of
 offline verification. Offline verification may legitimately succeed before a
 tip is anchored on-chain; treating that as a failure would conflate "this is
@@ -228,7 +273,12 @@ header, and the leaf hash binds it.
 Verification is **pure over bytes**. During verify there is no call to the
 registration API, the coordinator, an RPC endpoint, a wallet, or any secret
 store. A single trust bootstrap is allowed *before* verification — fetching or
-loading the genesis document — and is not part of the verify step.
+loading the genesis document — and is not part of the verify step. On-chain
+evidence works the same way. A known accumulator, or an ERC-1271 attestation
+for a KS256 contract root, is fetched by a separate helper (forestrie-cli's
+`fetch-accumulator` and `fetch-ks256-attestation`, and their mcp-resolve
+tools) and handed to the verifier as bytes. No verify function calls the chain
+or accepts a callback that would.
 
 This boundary is what "verifiable offline" means mechanically. A hidden fetch
 inside verify would falsify it silently, which is why it is stated as a

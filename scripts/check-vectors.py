@@ -12,6 +12,12 @@ Standard library only, so the check does not depend on any Forestrie implementat
   0-6, fails.
 - grant_vectors_negative.json: every entry must decode to a map containing at
   least one of the keys it names as obsolete, so a conforming decoder rejects it.
+- delegate-key-voucher.json: for each voucher (claim 4 set, absent, and an
+  explicit 0), re-encode the claims map and require byte identity with
+  payload_hex and with the voucher's payload, verify the ES256 signature
+  against the registrar key (and the key against its test scalar), and check
+  each case: claim 4 present means expired when now >= not_after, absent
+  means not_after_missing only when required.
 """
 import hashlib
 import json
@@ -78,6 +84,11 @@ def cbor_bstr(s: bytes) -> bytes:
     else:
         head = b"\x5a" + n.to_bytes(4, "big")
     return head + s
+
+
+def cbor_tstr(s: str) -> bytes:
+    b = s.encode("utf-8")
+    return bytes([0x60 | len(b)]) + b if len(b) < 24 else bytes([0x78, len(b)]) + b
 
 
 def encode_grant_response(v: dict) -> bytes:
@@ -197,8 +208,138 @@ def check_negative_vectors() -> int:
     return bad
 
 
+# NIST P-256, for the voucher's ES256 signature (stdlib only, verify only).
+P256_P = 2**256 - 2**224 + 2**192 + 2**96 - 1
+P256_N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
+P256_B = 0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
+P256_G = (
+    0x6B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296,
+    0x4FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5,
+)
+
+
+def p256_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    if a[0] == b[0] and (a[1] + b[1]) % P256_P == 0:
+        return None
+    if a == b:
+        m = (3 * a[0] * a[0] - 3) * pow(2 * a[1], -1, P256_P)
+    else:
+        m = (b[1] - a[1]) * pow(b[0] - a[0], -1, P256_P)
+    x = (m * m - a[0] - b[0]) % P256_P
+    return x, (m * (a[0] - x) - a[1]) % P256_P
+
+
+def p256_mul(k: int, pt):
+    out = None
+    while k:
+        if k & 1:
+            out = p256_add(out, pt)
+        pt = p256_add(pt, pt)
+        k >>= 1
+    return out
+
+
+def es256_verify(pub, msg: bytes, sig: bytes) -> bool:
+    if len(sig) != 64:
+        return False
+    r, s = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:], "big")
+    if not (0 < r < P256_N and 0 < s < P256_N):
+        return False
+    if (pub[1] ** 2 - pub[0] ** 3 + 3 * pub[0] - P256_B) % P256_P:
+        return False
+    e = int.from_bytes(hashlib.sha256(msg).digest(), "big")
+    w = pow(s, -1, P256_N)
+    pt = p256_add(p256_mul(e * w % P256_N, P256_G), p256_mul(r * w % P256_N, pub))
+    return pt is not None and pt[0] % P256_N == r
+
+
+def cose_sign1_parts(data: bytes):
+    """Split an untagged COSE_Sign1 into (protected, payload, signature)."""
+    c = Cbor(data)
+    major, count = c.head()
+    if major != 4 or count != 4:
+        raise ValueError("not a 4-element array")
+    parts = []
+    for i in range(4):
+        major, n = c.head()
+        if i == 1:
+            if major != 5:
+                raise ValueError("unprotected header is not a map")
+            if n:
+                raise ValueError("unprotected header must be empty")
+            continue
+        if major != 2:
+            raise ValueError(f"element {i} is not a bstr")
+        parts.append(c.data[c.off:c.off + n])
+        c.off += n
+    if c.off != len(data):
+        raise ValueError("trailing bytes")
+    return parts
+
+
+def check_voucher_vector() -> int:
+    name = "delegate-key-voucher.json"
+    v = load(name)
+    bad = 0
+    xy = bytes.fromhex(v["registrar"]["public_key_xy_hex"])
+    pub = (int.from_bytes(xy[:32], "big"), int.from_bytes(xy[32:], "big"))
+    if p256_mul(int(v["registrar"]["private_key_d_hex"], 16), P256_G) != pub:
+        print(f"{name}: registrar public key is not d*G")
+        bad += 1
+    shapes = set()
+    for entry in v["vouchers"]:
+        where = f"{name}: {entry['name']!r}"
+        claims = entry["claims"]
+        not_after = claims.get("not_after")
+        shapes.add("absent" if not_after is None else "zero" if not_after == 0 else "set")
+        fields = [
+            cbor_uint(1) + cbor_tstr(claims["sealer_id"]),
+            cbor_uint(2) + cbor_uint(claims["epoch"]),
+            cbor_uint(3) + cbor_bstr(bytes.fromhex(claims["public_key_cose_hex"])),
+        ]
+        if not_after is not None:
+            fields.append(cbor_uint(4) + cbor_uint(not_after))
+        payload = bytes([0xA0 | len(fields)]) + b"".join(fields)
+        if payload.hex() != entry["payload_hex"]:
+            print(f"{where}: claims re-encode to {payload.hex()}, payload_hex is {entry['payload_hex']}")
+            bad += 1
+        try:
+            protected, signed_payload, sig = cose_sign1_parts(bytes.fromhex(entry["voucher_hex"]))
+        except (ValueError, IndexError) as e:
+            print(f"{where}: voucher_hex is not an untagged COSE_Sign1: {e}")
+            bad += 1
+            continue
+        if signed_payload != payload:
+            print(f"{where}: the voucher does not sign payload_hex")
+            bad += 1
+        sig_structure = (
+            bytes([0x84]) + cbor_tstr("Signature1") + cbor_bstr(protected) + cbor_bstr(b"") + cbor_bstr(signed_payload)
+        )
+        if not es256_verify(pub, sig_structure, sig):
+            print(f"{where}: ES256 signature does not verify against the registrar key")
+            bad += 1
+        for case in entry["cases"]:
+            # Claim 4, when present (even 0), is checked against now; its
+            # absence fails only when it is required.
+            if not_after is None:
+                want = "not_after_missing" if case["require_not_after"] else "ok"
+            else:
+                want = "expired" if case["now"] >= not_after else "ok"
+            if case["result"] != want:
+                print(f"{where}: case {case['name']!r}: result {case['result']!r}, expected {want!r}")
+                bad += 1
+    if shapes != {"set", "absent", "zero"}:
+        print(f"{name}: needs a voucher with claim 4 set, one without it and one with 4: 0; has {sorted(shapes)}")
+        bad += 1
+    return bad
+
+
 def main() -> int:
-    bad = check_leaf_vectors() + check_grant_vectors()
+    bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):
         bad += check_negative_vectors()
     else:

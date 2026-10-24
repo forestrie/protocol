@@ -432,7 +432,9 @@ exists to eliminate; custodian HA is the mitigation instead.
 - No new secret at rest. The new operator obligations are IAM policy on
   the KMS MAC key, the epoch rotation runbook, and custodian availability
   at sealer boot (unavailable ⇒ the sealer degrades to on-demand-only,
-  which is exactly today's behaviour).
+  which is exactly today's behaviour). *Superseded by [Availability posture
+  and boot](#availability-posture-and-boot-supersedes-the-degrade-to-on-demand-note)
+  and the [amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed): unavailable ⇒ the sealer does no work until its keys load.*
 - Verification paths (offline receipt verify, on-chain, coordinator) are
   untouched — certificates are unchanged in shape and meaning.
 - **Issue-time expiry filter (behaviour change; found on review).** Coverage
@@ -449,7 +451,8 @@ exists to eliminate; custodian HA is the mitigation instead.
   (`DelegateKeySet.KeyFor`). Deploy order is therefore the coordinator
   (additive) → the sealer's consumption of the returned key → enable; keep
   `DELEGATE_KEY_EPOCH=0` until the sealer side ships so a sealer is never
-  handed a certificate it cannot sign with.
+  handed a certificate it cannot sign with. *That rollout is complete; since
+  the [amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed) epoch 0 is an invalid configuration.*
 
 ---
 
@@ -513,7 +516,8 @@ loads the derived keys, requests coverage of its true seal window with no pad,
 accepts a certificate whose range covers that window, and signs with whichever
 held key the returned certificate binds. The specification's description of
 the sealing key — derived at boot, never at rest, one key across logs — is the
-description of a sealer running at epoch 1 or above.
+description of a sealer running at epoch 1 or above. *Superseded by the
+[amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed): epoch 0 and the range pad are removed.*
 
 **Locally held seed is a test seam.** The proposal lets self-hosted sealers
 substitute a locally held seed. The code keeps that seam (`DELEGATE_SEED`) for
@@ -527,7 +531,8 @@ falls through to the on-demand request with a random key; where the
 coordinator enforces registered-key membership, that request records no
 pending demand and fires no webhook, so the seal waits. That is the "cold
 start during a custodian outage cannot seal" posture above, reached through
-the coordinator's check rather than by the sealer refusing.
+the coordinator's check rather than by the sealer refusing. *Superseded by
+the [amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed): the sealer now does no work until its keys load.*
 
 **Registration is best-effort and time-bounded.** The custodian registers
 the standing key and its voucher after deriving the seed, and a registration
@@ -606,3 +611,44 @@ for internal endpoints from here on.
 The description of the sealing key in `spec/` is unchanged: a sealer restart
 still re-derives the *same* key, since the epoch, and now the version, are
 fixed inputs.
+
+---
+
+## Amendment — 2026-10-24: on-demand delegation is removed
+
+Recorded with devdocs plan-2609-12 (delegate key registration hardening),
+ruling D1, and implemented by its slice 10
+([arbor#113](https://github.com/forestrie/arbor/pull/113)).
+
+**What "lazy on-demand" means here.** The Decision keeps "lazy on-demand as
+the fallback", and Consequences retain "the lazy path (pending entry +
+webhook/pull signing)". Both mean the pending demand and owner webhook raised
+for the sealer's **standing** key, when an owner has not yet signed an advance
+certificate for it. That path stays. It never meant the sealer inventing an
+arbitrary per-log key, which [Availability posture and
+boot](#availability-posture-and-boot-supersedes-the-degrade-to-on-demand-note)
+already closed.
+
+**Decision.** The sealer has one delegation model: delegation in advance.
+
+- **The ephemeral path is deleted.** No per-log random key, no certificate
+  request for one, and no `DELEGATION_RANGE_PAD`. With
+  `ENFORCE_DELEGATE_KEY_MEMBERSHIP` on at every deployed coordinator, such a
+  request never created a pending demand or webhook: it was answered 202, or
+  served a certificate bound to the log's standing key, which the
+  ephemeral-key sealer rejected. So it could never seal.
+- **Epoch 0 is invalid.** `DELEGATE_KEY_EPOCH` must be 1 or above, and a seed
+  source must be configured. The sealer refuses to start otherwise.
+- **No work before keys.** The sealer starts consuming, and reports Ready,
+  only once its standing keys are installed. A sealer that cannot load keys
+  does nothing, so during a rollout the previous instance keeps sealing alone
+  rather than beside it. This replaces the "As implemented" boot note: the
+  "cold start during a custodian outage cannot seal" posture is now reached
+  by the sealer waiting, not through the coordinator's check.
+
+The coordinator still serves certificates bound to keys from before the
+migration through its exact-match path until they expire; removing that is a
+coordinator cleanup, not part of this amendment. The description of the
+sealing key in `spec/` is unchanged; it already described a sealer at
+epoch 1 or above.
+

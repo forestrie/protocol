@@ -136,19 +136,23 @@ key; vouchers issued before it was added carry claims 1 to 3 only.
 
 `delegate-key-voucher.json` gives the registrar key (`public_key_xy_hex`, the
 64-byte `x‖y` form a coordinator pins, and the test scalar
-`private_key_d_hex`, never a deployed key), the claims, `payload_hex` (the
-claims re-encoded), `voucher_hex`, and cases of `now`:
+`private_key_d_hex`, never a deployed key) and three vouchers for the same
+key, each with its claims, `payload_hex` (the claims re-encoded),
+`voucher_hex` and cases of `now`. `not_after` is omitted from `claims` when
+the voucher has no claim 4.
 
-| Case | Expected result |
-|---|---|
-| claims re-encoded | byte-identical to `payload_hex`, and to the voucher's payload |
-| voucher against the registrar key | the signature verifies |
-| `now` before `not_after` | `ok` |
-| `now` equal to or after `not_after`, whether or not claim 4 is required | `expired` |
+| Voucher | Case | Expected result |
+|---|---|---|
+| every voucher | claims re-encoded | byte-identical to `payload_hex`, and to the voucher's payload |
+| every voucher | signature against the registrar key | verifies |
+| claim 4 set | `now` before `not_after` | `ok` |
+| claim 4 set | `now` equal to or after `not_after`, whether or not claim 4 is required | `expired` |
+| claim 4 absent | claim 4 not required | `ok` |
+| claim 4 absent | claim 4 required | `not_after_missing` |
+| claim 4 is `0` | either | `expired`: the claim is present, not absent |
 
-A verifier asked to require claim 4 refuses a voucher without it
-(`not_after_missing`); one not asked accepts such a voucher, but checks claim
-4 whenever it is present. The voucher cannot be reproduced: ES256 signatures
+Claims decode strictly: a duplicated key or a claim outside 1 to 4 is
+refused. The vouchers cannot be reproduced: ES256 signatures
 are randomised, so rerunning the generator gives different, equally valid
 bytes. Copies live in canopy `packages/shared/encoding/src/testdata/` and
 arbor `services/custodian/src/testdata/`, each pinned by this file's SHA-256.

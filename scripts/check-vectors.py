@@ -12,10 +12,12 @@ Standard library only, so the check does not depend on any Forestrie implementat
   0-6, fails.
 - grant_vectors_negative.json: every entry must decode to a map containing at
   least one of the keys it names as obsolete, so a conforming decoder rejects it.
-- delegate-key-voucher.json: re-encode the claims map {1, 2, 3, 4} and require
-  byte identity with payload_hex and with the voucher's payload, verify the
-  voucher's ES256 signature against the registrar key (and the key against its
-  test scalar), and check each case's result against now >= not_after.
+- delegate-key-voucher.json: for each voucher (claim 4 set, absent, and an
+  explicit 0), re-encode the claims map and require byte identity with
+  payload_hex and with the voucher's payload, verify the ES256 signature
+  against the registrar key (and the key against its test scalar), and check
+  each case: claim 4 present means expired when now >= not_after, absent
+  means not_after_missing only when required.
 """
 import hashlib
 import json
@@ -283,40 +285,56 @@ def check_voucher_vector() -> int:
     name = "delegate-key-voucher.json"
     v = load(name)
     bad = 0
-    claims = v["claims"]
-    payload = bytes([0xA4]) + b"".join([
-        cbor_uint(1) + cbor_tstr(claims["sealer_id"]),
-        cbor_uint(2) + cbor_uint(claims["epoch"]),
-        cbor_uint(3) + cbor_bstr(bytes.fromhex(claims["public_key_cose_hex"])),
-        cbor_uint(4) + cbor_uint(claims["not_after"]),
-    ])
-    if payload.hex() != v["payload_hex"]:
-        print(f"{name}: claims re-encode to {payload.hex()}, payload_hex is {v['payload_hex']}")
-        bad += 1
-    try:
-        protected, signed_payload, sig = cose_sign1_parts(bytes.fromhex(v["voucher_hex"]))
-    except (ValueError, IndexError) as e:
-        print(f"{name}: voucher_hex is not an untagged COSE_Sign1: {e}")
-        return bad + 1
-    if signed_payload != payload:
-        print(f"{name}: the voucher does not sign payload_hex")
-        bad += 1
     xy = bytes.fromhex(v["registrar"]["public_key_xy_hex"])
     pub = (int.from_bytes(xy[:32], "big"), int.from_bytes(xy[32:], "big"))
     if p256_mul(int(v["registrar"]["private_key_d_hex"], 16), P256_G) != pub:
         print(f"{name}: registrar public key is not d*G")
         bad += 1
-    sig_structure = (
-        bytes([0x84]) + cbor_tstr("Signature1") + cbor_bstr(protected) + cbor_bstr(b"") + cbor_bstr(signed_payload)
-    )
-    if not es256_verify(pub, sig_structure, sig):
-        print(f"{name}: ES256 signature does not verify against the registrar key")
-        bad += 1
-    for case in v["cases"]:
-        want = "expired" if case["now"] >= claims["not_after"] else "ok"
-        if case["result"] != want:
-            print(f"{name}: case {case['name']!r}: result {case['result']!r}, expected {want!r}")
+    shapes = set()
+    for entry in v["vouchers"]:
+        where = f"{name}: {entry['name']!r}"
+        claims = entry["claims"]
+        not_after = claims.get("not_after")
+        shapes.add("absent" if not_after is None else "zero" if not_after == 0 else "set")
+        fields = [
+            cbor_uint(1) + cbor_tstr(claims["sealer_id"]),
+            cbor_uint(2) + cbor_uint(claims["epoch"]),
+            cbor_uint(3) + cbor_bstr(bytes.fromhex(claims["public_key_cose_hex"])),
+        ]
+        if not_after is not None:
+            fields.append(cbor_uint(4) + cbor_uint(not_after))
+        payload = bytes([0xA0 | len(fields)]) + b"".join(fields)
+        if payload.hex() != entry["payload_hex"]:
+            print(f"{where}: claims re-encode to {payload.hex()}, payload_hex is {entry['payload_hex']}")
             bad += 1
+        try:
+            protected, signed_payload, sig = cose_sign1_parts(bytes.fromhex(entry["voucher_hex"]))
+        except (ValueError, IndexError) as e:
+            print(f"{where}: voucher_hex is not an untagged COSE_Sign1: {e}")
+            bad += 1
+            continue
+        if signed_payload != payload:
+            print(f"{where}: the voucher does not sign payload_hex")
+            bad += 1
+        sig_structure = (
+            bytes([0x84]) + cbor_tstr("Signature1") + cbor_bstr(protected) + cbor_bstr(b"") + cbor_bstr(signed_payload)
+        )
+        if not es256_verify(pub, sig_structure, sig):
+            print(f"{where}: ES256 signature does not verify against the registrar key")
+            bad += 1
+        for case in entry["cases"]:
+            # Claim 4, when present (even 0), is checked against now; its
+            # absence fails only when it is required.
+            if not_after is None:
+                want = "not_after_missing" if case["require_not_after"] else "ok"
+            else:
+                want = "expired" if case["now"] >= not_after else "ok"
+            if case["result"] != want:
+                print(f"{where}: case {case['name']!r}: result {case['result']!r}, expected {want!r}")
+                bad += 1
+    if shapes != {"set", "absent", "zero"}:
+        print(f"{name}: needs a voucher with claim 4 set, one without it and one with 4: 0; has {sorted(shapes)}")
+        bad += 1
     return bad
 
 

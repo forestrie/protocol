@@ -432,7 +432,9 @@ exists to eliminate; custodian HA is the mitigation instead.
 - No new secret at rest. The new operator obligations are IAM policy on
   the KMS MAC key, the epoch rotation runbook, and custodian availability
   at sealer boot (unavailable ⇒ the sealer degrades to on-demand-only,
-  which is exactly today's behaviour).
+  which is exactly today's behaviour). *Superseded by [Availability posture
+  and boot](#availability-posture-and-boot-supersedes-the-degrade-to-on-demand-note)
+  and the [amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed): unavailable ⇒ the sealer does no work until its keys load.*
 - Verification paths (offline receipt verify, on-chain, coordinator) are
   untouched — certificates are unchanged in shape and meaning.
 - **Issue-time expiry filter (behaviour change; found on review).** Coverage
@@ -449,7 +451,8 @@ exists to eliminate; custodian HA is the mitigation instead.
   (`DelegateKeySet.KeyFor`). Deploy order is therefore the coordinator
   (additive) → the sealer's consumption of the returned key → enable; keep
   `DELEGATE_KEY_EPOCH=0` until the sealer side ships so a sealer is never
-  handed a certificate it cannot sign with.
+  handed a certificate it cannot sign with. *That rollout is complete; since
+  the [amendment of 2026-10-24](#amendment--2026-10-24-on-demand-delegation-is-removed) epoch 0 is an invalid configuration.*
 
 ---
 
@@ -631,8 +634,9 @@ already closed.
 - **The ephemeral path is deleted.** No per-log random key, no certificate
   request for one, and no `DELEGATION_RANGE_PAD`. With
   `ENFORCE_DELEGATE_KEY_MEMBERSHIP` on at every deployed coordinator, such a
-  request was answered 202 with no pending demand and no webhook, so it could
-  never seal.
+  request never created a pending demand or webhook: it was answered 202, or
+  served a certificate bound to the log's standing key, which the
+  ephemeral-key sealer rejected. So it could never seal.
 - **Epoch 0 is invalid.** `DELEGATE_KEY_EPOCH` must be 1 or above, and a seed
   source must be configured. The sealer refuses to start otherwise.
 - **No work before keys.** The sealer starts consuming, and reports Ready,

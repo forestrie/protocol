@@ -315,6 +315,10 @@ policy.
 
 ### Registrar and standing-key trust (branches 1, 2, 4)
 
+> *Amended 2026-10-31:* the sealer now asserts its own registration with a
+> custodian-issued, expiring voucher; see
+> [the amendment](#amendment--2026-10-31-the-sealer-registers-its-own-keys-vouchers-expire-tombstones-retire).
+
 - **The custodian is the sole registrar.** At seed issuance it re-derives the
   standing **public** keys and registers each with the coordinator, together
   with a **custodian-signed COSE voucher** over `(sealerId, epoch, pubkey)`. The
@@ -652,3 +656,85 @@ coordinator cleanup, not part of this amendment. The description of the
 sealing key in `spec/` is unchanged; it already described a sealer at
 epoch 1 or above.
 
+
+---
+
+## Amendment — 2026-10-31: the sealer registers its own keys, vouchers expire, tombstones retire
+
+Recorded with devdocs plan-2609-12 (delegate-key registration hardening),
+rulings 1′, 4, 4′, 6, 7 and 8 and their amendment of 2026-10-24, and
+implemented by its slices 01, 04, 05, 07 and 08
+([arbor#114](https://github.com/forestrie/arbor/pull/114),
+[arbor#115](https://github.com/forestrie/arbor/pull/115),
+[canopy#267](https://github.com/forestrie/canopy/pull/267),
+[canopy#277](https://github.com/forestrie/canopy/pull/277),
+[canopy#279](https://github.com/forestrie/canopy/pull/279),
+[forestrie-cli#68](https://github.com/forestrie/forestrie-cli/pull/68)).
+It amends [Registrar and standing-key trust](#registrar-and-standing-key-trust-branches-1-2-4)
+and [Epoch and rotation](#epoch-and-rotation).
+
+**Why.** Under the original text the custodian registered each standing key
+once, when it issued the seed. A lost or deleted coordinator row was not
+restored until the custodian next issued a seed, and the sealer's readiness
+did not depend on its key being registered. The
+voucher also carried no expiry, so a voucher captured once could be
+replayed to the coordinator for as long as its key existed.
+
+**Decision.**
+
+- **The sealer asserts its own registration; the custodian vouches.** The
+  custodian still derives the seed and is still the only party that can
+  vouch for a key. It now returns, in the seed response itself, a signed
+  voucher for the key it derived (delegate-seed `apiVersion` 3, which adds
+  `voucher` and `voucherNotAfter`). The sealer then asserts each key it holds
+  to the coordinator with that voucher, once a minute, and is not Ready until
+  the coordinator has accepted its current key. A lost row therefore
+  returns within a minute, with no operator action. This reverses the
+  original "the custodian is the sole registrar" and "no self-registering
+  sealer": registration is the sealer's, but vouching stays the custodian's,
+  and the coordinator still refuses any key without a valid voucher. The
+  custodian's own registration of the same keys remains, redundantly and
+  idempotently, until plan-2609-12 slice 09 removes it.
+- **Vouchers expire.** The voucher's signed claims gain `4: notAfter`, Unix
+  seconds, beside `1: sealerId`, `2: epoch` and `3: delegate key`. The
+  custodian sets it `DELEGATE_KEY_VOUCHER_TTL` after signing: 24 h by default,
+  bounded to 1 h–30 days. The sealer fetches fresh vouchers at a quarter of
+  their lifetime, so at the default a registration survives a custodian
+  outage of 18 h. The coordinator refuses a voucher without claim 4, one
+  already expired, and one more than 31 days out, and never stores a row
+  past its voucher's claim 4. Its lookup treats an expired row as absent.
+  The kit (`forestrie delegate`, from the release after forestrie-cli
+  v0.12.0) refuses a voucher without claim 4 or expired, allowing 5 min of
+  clock skew. A voucher with any claim outside
+  1–4 fails closed everywhere.
+- **One key per (sealer, epoch).** The coordinator refuses, with 409, a
+  registration whose (sealerId, epoch) is already held by a different key.
+  The sealer holds readiness on a 409 for its current key and keeps
+  asserting, so deleting the stale row heals it without a restart.
+- **Retirement faster than expiry is a coordinator tombstone.** An operator
+  route records a tombstone for one key, by its hash, or for every epoch of a
+  sealer up to a bound, on every coordinator shard, and deletes the rows it
+  covers. Registering a tombstoned key is refused with 410, which the sealer
+  treats as final: it stops asserting that key. Without a tombstone, a
+  retired key's row lapses on its own within one voucher lifetime, because
+  the custodian issues no fresh voucher for an epoch whose MAC key version
+  is disabled.
+- **The MAC key is per lane.** Within one environment each lane has its own
+  seed MAC key (lane A `delegate-seed-a`, lane B `delegate-seed`), so a
+  rotation, which is creating a key version and moving a sealer to it, is a
+  single-lane procedure. The custodian service account and the
+  registrar-voucher key stay shared within the environment; whether they
+  should also split is tracked separately (FOR-588).
+
+**Trust model.** The kit's voucher check is still what stops a compromised
+coordinator steering an owner to delegate to a key the sealer does not
+control: the coordinator cannot mint a voucher. Claim 4 bounds how long a
+captured voucher stays usable. One qualification: a key whose MAC key
+version was disabled less than one voucher lifetime ago (24 h by default)
+can still be offered with a voucher that verifies. A tombstone removes it
+at once, but only from an honest coordinator; a compromised one can ignore
+its own tombstones until the voucher expires.
+
+The description of the sealing key in `spec/` is unchanged: what a sealer
+signs with, and how a verifier checks it, do not depend on how the key's
+registration reaches the coordinator.

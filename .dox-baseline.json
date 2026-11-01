@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "check": "placement",
+      "path": "decisions/adr-0045-receipt-verify-offline-contract.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0050-delegation-in-advance.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0064-passkey-session-key-endorsement.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0065-endorsed-session-key-admission.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0066-sec-signed-checkpoint-size.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0067-webauthn-envelope-label-shares-the-algorithm-number.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/adr-0069-grant-flag-bit-35-child-payment-required.md",
+      "message": "adr document: belongs in adr"
+    },
+    {
+      "check": "placement",
+      "path": "decisions/arc-0019-grant-verification-model.md",
+      "message": "arc document: belongs in arc"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0045-receipt-verify-offline-contract.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0050-delegation-in-advance.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0064-passkey-session-key-endorsement.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0065-endorsed-session-key-admission.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0066-sec-signed-checkpoint-size.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0067-webauthn-envelope-label-shares-the-algorithm-number.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/adr-0069-grant-flag-bit-35-child-payment-required.md",
+      "message": "no YAML frontmatter (adr)"
+    },
+    {
+      "check": "schema",
+      "path": "decisions/arc-0019-grant-verification-model.md",
+      "message": "no YAML frontmatter (arc)"
+    },
+    {
+      "check": "schema",
+      "path": "rules/platform.md",
+      "message": "no YAML frontmatter (rules)"
+    }
+  ]
+}

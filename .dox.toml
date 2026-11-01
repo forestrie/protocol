@@ -4,16 +4,6 @@ root = "."
 types = ["adr", "arc", "named-doc", "rules"]
 baseline = ".dox-baseline.json"
 
-# Carried over from scripts/check-links.py: this public repo never links
-# private sources, and decisions/ speaks in its own historical voice.
-[checks.links-local]
-forbid = [
-  "github.com/forestrie/devdocs",
-  "github.com/forestrie/forestrie-agents",
-  "github.com/forestrie/thinker",
-  "github.com/forestrie/product",
-  "linear.app",
-]
-
+# decisions/ speaks in its own historical voice (scripts/check-links.py).
 [checks.no-work-ids]
 exempt = ["decisions/**"]

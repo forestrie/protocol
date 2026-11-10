@@ -1,7 +1,8 @@
 # Conformance vectors
 
-Five sets of public bytes. An implementation that produces or verifies
-Forestrie grants, leaves, checkpoints, receipts or delegate-key vouchers is
+Six sets of public bytes. An implementation that produces or verifies
+Forestrie grants, leaves, checkpoints, receipts, delegate-key vouchers or
+KS256 signatures is
 expected to pass the sets for what it handles; the bytes here, not any
 implementation, are the reference.
 
@@ -12,6 +13,7 @@ implementation, are the reference.
 | Golden grant receipt | `golden/grant-genesis.cbor`, `golden/grant-receipt.cbor`, `golden/manifest.json` | a complete offline verification from a forest genesis document to a sealed grant |
 | Burial bundle | `golden/burial/sth-000{0,1,2,3}.cbor`, `golden/burial/burial-receipt.cbor`, `golden/burial/manifest.json` | a retained checkpoint chain and a receipt whose peak the log has since buried |
 | Delegate-key voucher | `fixtures/delegate-key-voucher.json` | the registrar voucher's claims map, including claim 4 (`notAfter`), and its expiry rule |
+| KS256 low-s | `fixtures/ks256-low-s.json` | the `s` bound every KS256 verifier applies before recovering a signer |
 
 `SHA256SUMS` pins every data file under `vectors/`; `sha256sum -c
 vectors/SHA256SUMS` from the repository root checks them, and CI checks that
@@ -156,6 +158,43 @@ refused. The vouchers cannot be reproduced: ES256 signatures
 are randomised, so rerunning the generator gives different, equally valid
 bytes. Copies live in canopy `packages/shared/encoding/src/testdata/` and
 arbor `services/custodian/src/testdata/`, each pinned by this file's SHA-256.
+
+## KS256 low-s
+
+A KS256 signature is checked by recovering its signer, and recovery alone
+accepts both `s` and `n − s`: from any signature, anyone can make a second
+one that recovers the same address. [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md)
+therefore requires a recovered KS256 signature to be low-s, `s ≤ (n − 1)/2`
+with `n` the secp256k1 group order, as it requires of ES256.
+
+`ks256-low-s.json` is one protected header (`{1: -65799}`) and payload,
+and four signatures over their `Sig_structure`. Each case gives the
+signature as 65 bytes `r ‖ s ‖ v`, with `v` the recovery id 0 or 1, the
+untagged COSE_Sign1 that carries it, and the address it recovers to.
+`digest_hex` is `keccak256(Sig_structure)`, for verifiers that take the
+digest rather than the message.
+
+| Case | `s` | Expected result |
+|---|---|---|
+| `accept/low-s` | the test key's RFC 6979 signature, below the bound | accept |
+| `reject/high-s` | `n − s` of `accept/low-s`, with `v` flipped | reject, `signature_malleable` |
+| `accept/s-at-bound` | `(n − 1)/2`, the largest accepted | accept |
+| `reject/s-above-bound` | `(n + 1)/2`, the smallest rejected | reject, `signature_malleable` |
+
+Each reject case recovers the same address as its accept twin, so only the
+`s` check rejects it. The accept cases keep the reject cases honest: a test
+that rejects `reject/high-s` but not `accept/low-s` has shown only that the
+verifier refuses the input. The second pair fixes the comparison at the
+bound. Its signer is the address that signature recovers to, and no one
+holds its key. The ERC-1271 path, where a contract signer judges its own
+signature, is outside this vector.
+
+The bytes can be reproduced: `accept/low-s` is the deterministic RFC 6979
+signature by the test scalar in `test_key`, and each other case is derived
+from it as its `note` says. `scripts/check-vectors.py` recomputes the
+`Sig_structure` and digest, recovers every signature with the standard
+library, and checks each verdict against the bound and each reject case
+against its twin.
 
 ## Running the checks
 

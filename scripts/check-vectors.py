@@ -18,6 +18,12 @@ Standard library only, so the check does not depend on any Forestrie implementat
   against the registrar key (and the key against its test scalar), and check
   each case: claim 4 present means expired when now >= not_after, absent
   means not_after_missing only when required.
+- ks256-low-s.json: re-encode the Sig_structure and its Keccak-256 digest
+  from the header and payload, recover every signature to its stated
+  signer (recovery does not bound s, so a high-s twin recovers too), and
+  require accept exactly when s <= (n-1)/2. Each reject case must be the
+  twin (r, n-s, v^1) of an accept case, and one pair must straddle the
+  bound itself (spec/checkpoints-and-receipts.md).
 """
 import hashlib
 import json
@@ -338,8 +344,194 @@ def check_voucher_vector() -> int:
     return bad
 
 
+# Keccak-256 and secp256k1 recovery, for the KS256 vector (stdlib only,
+# verify only). Keccak-256 pads with domain byte 0x01, so hashlib.sha3_256,
+# which pads with 0x06, gives different digests.
+_KECCAK_RC = (
+    0x0000000000000001, 0x0000000000008082, 0x800000000000808A, 0x8000000080008000,
+    0x000000000000808B, 0x0000000080000001, 0x8000000080008081, 0x8000000000008009,
+    0x000000000000008A, 0x0000000000000088, 0x0000000080008009, 0x000000008000000A,
+    0x000000008000808B, 0x800000000000008B, 0x8000000000008089, 0x8000000000008003,
+    0x8000000000008002, 0x8000000000000080, 0x000000000000800A, 0x800000008000000A,
+    0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
+)
+_KECCAK_ROT = (
+    (0, 36, 3, 41, 18),
+    (1, 44, 10, 45, 2),
+    (62, 6, 43, 15, 61),
+    (28, 55, 25, 21, 56),
+    (27, 20, 39, 8, 14),
+)
+_M64 = (1 << 64) - 1
+
+
+def _rol64(v: int, n: int) -> int:
+    return ((v << n) | (v >> (64 - n))) & _M64 if n else v
+
+
+def _keccak_f(a):
+    for rc in _KECCAK_RC:
+        c = [a[x][0] ^ a[x][1] ^ a[x][2] ^ a[x][3] ^ a[x][4] for x in range(5)]
+        d = [c[(x - 1) % 5] ^ _rol64(c[(x + 1) % 5], 1) for x in range(5)]
+        a = [[a[x][y] ^ d[x] for y in range(5)] for x in range(5)]
+        b = [[0] * 5 for _ in range(5)]
+        for x in range(5):
+            for y in range(5):
+                b[y][(2 * x + 3 * y) % 5] = _rol64(a[x][y], _KECCAK_ROT[x][y])
+        a = [[b[x][y] ^ (~b[(x + 1) % 5][y] & b[(x + 2) % 5][y]) for y in range(5)] for x in range(5)]
+        a[0][0] ^= rc
+    return a
+
+
+def keccak256(data: bytes) -> bytes:
+    rate = 136
+    p = bytearray(data)
+    p.append(0x01)
+    while len(p) % rate:
+        p.append(0)
+    p[-1] |= 0x80
+    a = [[0] * 5 for _ in range(5)]
+    for off in range(0, len(p), rate):
+        for i in range(rate // 8):
+            a[i % 5][i // 5] ^= int.from_bytes(p[off + 8 * i:off + 8 * i + 8], "little")
+        a = _keccak_f(a)
+    return b"".join(a[i % 5][i // 5].to_bytes(8, "little") for i in range(4))
+
+
+K1_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+K1_HALF_N = K1_N // 2  # (n-1)/2: the largest s a verifier accepts
+K1_G = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798,
+    0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8,
+)
+
+
+def k1_add(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    if a[0] == b[0] and (a[1] + b[1]) % K1_P == 0:
+        return None
+    if a == b:
+        m = 3 * a[0] * a[0] * pow(2 * a[1], -1, K1_P)
+    else:
+        m = (b[1] - a[1]) * pow(b[0] - a[0], -1, K1_P)
+    x = (m * m - a[0] - b[0]) % K1_P
+    return x, (m * (a[0] - x) - a[1]) % K1_P
+
+
+def k1_mul(k: int, pt):
+    out = None
+    while k:
+        if k & 1:
+            out = k1_add(out, pt)
+        pt = k1_add(pt, pt)
+        k >>= 1
+    return out
+
+
+def k1_address(pub) -> bytes:
+    return keccak256(pub[0].to_bytes(32, "big") + pub[1].to_bytes(32, "big"))[12:]
+
+
+def k1_recover_address(digest: bytes, r: int, s: int, recid: int):
+    """The address (r, s, recid) is a valid signature by, or None. s is not bounded."""
+    if not (0 < r < K1_N and 0 < s < K1_N and recid in (0, 1)):
+        return None
+    y2 = (pow(r, 3, K1_P) + 7) % K1_P
+    y = pow(y2, (K1_P + 1) // 4, K1_P)
+    if y * y % K1_P != y2:
+        return None
+    if y & 1 != recid:
+        y = K1_P - y
+    z = int.from_bytes(digest, "big") % K1_N
+    rinv = pow(r, -1, K1_N)
+    pub = k1_add(k1_mul(s * rinv % K1_N, (r, y)), k1_mul(-z * rinv % K1_N, K1_G))
+    return None if pub is None else k1_address(pub)
+
+
+KS256_ALG = -65799
+
+
+def check_ks256_low_s_vector() -> int:
+    name = "ks256-low-s.json"
+    v = load(name)
+    bad = 0
+    protected = bytes.fromhex(v["protected_header_hex"])
+    payload = bytes.fromhex(v["payload_hex"])
+    if v["alg"] != KS256_ALG or protected != bytes([0xA1, 0x01, 0x3A]) + (-1 - KS256_ALG).to_bytes(4, "big"):
+        print(f"{name}: protected header must be {{1: {KS256_ALG}}}")
+        bad += 1
+    sig_structure = (
+        bytes([0x84]) + cbor_tstr("Signature1") + cbor_bstr(protected) + cbor_bstr(b"") + cbor_bstr(payload)
+    )
+    if sig_structure.hex() != v["sig_structure_hex"]:
+        print(f"{name}: Sig_structure re-encodes to {sig_structure.hex()}, sig_structure_hex is {v['sig_structure_hex']}")
+        bad += 1
+    digest = keccak256(sig_structure)
+    if digest.hex() != v["digest_hex"]:
+        print(f"{name}: keccak256(Sig_structure) is {digest.hex()}, digest_hex is {v['digest_hex']}")
+        bad += 1
+    key = v["test_key"]
+    if k1_address(k1_mul(int(key["private_key_d_hex"], 16), K1_G)).hex() != key["address_hex"]:
+        print(f"{name}: test_key address is not the address of its scalar")
+        bad += 1
+
+    cases = {c["name"]: c for c in v["cases"]}
+    parsed = {}
+    for c in v["cases"]:
+        where = f"{name}: {c['name']!r}"
+        sig = bytes.fromhex(c["signature_hex"])
+        if len(sig) != 65 or sig[64] not in (0, 1):
+            print(f"{where}: signature must be 65 bytes r || s || v with v 0 or 1")
+            bad += 1
+            continue
+        r, s, recid = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
+        parsed[c["name"]] = (r, s, recid)
+        got = k1_recover_address(digest, r, s, recid)
+        if got is None or got.hex() != c["signer_address_hex"]:
+            print(f"{where}: signature recovers to {got.hex() if got else None}, not {c['signer_address_hex']}")
+            bad += 1
+        try:
+            parts = cose_sign1_parts(bytes.fromhex(c["cose_sign1_hex"]))
+        except (ValueError, IndexError) as e:
+            print(f"{where}: cose_sign1_hex is not an untagged COSE_Sign1: {e}")
+            bad += 1
+        else:
+            if parts != [protected, payload, sig]:
+                print(f"{where}: cose_sign1_hex does not carry the vector's header, payload and signature")
+                bad += 1
+        want = {"result": "accept"} if s <= K1_HALF_N else {"result": "reject", "reason": "signature_malleable"}
+        if c["expect"] != want:
+            print(f"{where}: expect is {c['expect']}, s {'<=' if s <= K1_HALF_N else '>'} (n-1)/2 means {want}")
+            bad += 1
+    if cases.get("accept/low-s", {}).get("signer_address_hex") != key["address_hex"]:
+        print(f"{name}: 'accept/low-s' must be signed by test_key")
+        bad += 1
+    for c in v["cases"]:
+        if c["expect"].get("result") != "reject":
+            continue
+        twin = c.get("twin_of")
+        if twin not in cases or cases[twin]["expect"].get("result") != "accept":
+            print(f"{name}: {c['name']!r}: twin_of must name an accept case")
+            bad += 1
+            continue
+        if c["name"] in parsed and twin in parsed:
+            (r, s, recid), (tr, ts, trecid) = parsed[c["name"]], parsed[twin]
+            if (r, s, recid) != (tr, K1_N - ts, trecid ^ 1) or c["signer_address_hex"] != cases[twin]["signer_address_hex"]:
+                print(f"{name}: {c['name']!r} is not (r, n-s, v^1) of {twin!r}")
+                bad += 1
+    s_values = {s for (_, s, _) in parsed.values()}
+    if not {K1_HALF_N, K1_HALF_N + 1} <= s_values:
+        print(f"{name}: needs a case with s = (n-1)/2 and its twin with s = (n+1)/2")
+        bad += 1
+    return bad
+
+
 def main() -> int:
-    bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector()
+    bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector() + check_ks256_low_s_vector()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):
         bad += check_negative_vectors()
     else:

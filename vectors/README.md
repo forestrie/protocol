@@ -13,7 +13,7 @@ implementation, are the reference.
 | Golden grant receipt | `golden/grant-genesis.cbor`, `golden/grant-receipt.cbor`, `golden/manifest.json` | a complete offline verification from a forest genesis document to a sealed grant |
 | Burial bundle | `golden/burial/sth-000{0,1,2,3}.cbor`, `golden/burial/burial-receipt.cbor`, `golden/burial/manifest.json` | a retained checkpoint chain and a receipt whose peak the log has since buried |
 | Delegate-key voucher | `fixtures/delegate-key-voucher.json` | the registrar voucher's claims map, including claim 4 (`notAfter`), and its expiry rule |
-| KS256 low-s | `fixtures/ks256-low-s.json` | the `s` bound every KS256 verifier applies before recovering a signer |
+| KS256 low-s | `fixtures/ks256-low-s.json` | the `s` bound applied by every verifier that recovers a KS256 signer |
 
 `SHA256SUMS` pins every data file under `vectors/`; `sha256sum -c
 vectors/SHA256SUMS` from the repository root checks them, and CI checks that

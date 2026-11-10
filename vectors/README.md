@@ -170,7 +170,10 @@ therefore requires a recovered KS256 signature to be low-s, `s ≤ n/2` with
 largest `s` accepted is `(n − 1)/2`, the bound the cases below use.
 
 `ks256-low-s.json` is one protected header (`{1: -65799}`) and payload,
-and four signatures over their `Sig_structure`. Each case gives the
+and four signatures over their `Sig_structure`. The payload is the
+canonical CBOR map `{1: h'…'}`, because a verifier that decodes the payload
+before the signature (arbor's delegation certificate check requires a
+canonical integer-keyed map) must still reach the `s` check. Each case gives the
 signature as 65 bytes `r ‖ s ‖ v`, with `v` the recovery id 0 or 1, the
 untagged COSE_Sign1 that carries it, and the address it recovers to.
 `digest_hex` is `keccak256(Sig_structure)`, for verifiers that take the

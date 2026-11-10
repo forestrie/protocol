@@ -464,6 +464,18 @@ def check_ks256_low_s_vector() -> int:
     if v["alg"] != KS256_ALG or protected != bytes([0xA1, 0x01, 0x3A]) + (-1 - KS256_ALG).to_bytes(4, "big"):
         print(f"{name}: protected header must be {{1: {KS256_ALG}}}")
         bad += 1
+    # A verifier that decodes the payload before the signature (arbor's
+    # delegation certificate check requires a canonical integer-keyed map)
+    # must still reach the s check, or its reject cases pass vacuously.
+    try:
+        keys = Cbor(payload).map_keys()
+    except (ValueError, IndexError, KeyError) as e:
+        print(f"{name}: payload is not a CBOR map with unsigned integer keys: {e}")
+        bad += 1
+    else:
+        if not keys or keys != sorted(set(keys)):
+            print(f"{name}: payload map keys must be non-empty and ascending, got {keys}")
+            bad += 1
     sig_structure = (
         bytes([0x84]) + cbor_tstr("Signature1") + cbor_bstr(protected) + cbor_bstr(b"") + cbor_bstr(payload)
     )

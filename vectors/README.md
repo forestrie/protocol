@@ -164,8 +164,9 @@ arbor `services/custodian/src/testdata/`, each pinned by this file's SHA-256.
 A KS256 signature is checked by recovering its signer, and recovery alone
 accepts both `s` and `n − s`: from any signature, anyone can make a second
 one that recovers the same address. [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md)
-therefore requires a recovered KS256 signature to be low-s, `s ≤ (n − 1)/2`
-with `n` the secp256k1 group order, as it requires of ES256.
+therefore requires a recovered KS256 signature to be low-s, `s ≤ n/2` with
+`n` the secp256k1 group order, as it requires of ES256. `n` is odd, so the
+largest `s` accepted is `(n − 1)/2`, the bound the cases below use.
 
 `ks256-low-s.json` is one protected header (`{1: -65799}`) and payload,
 and four signatures over their `Sig_structure`. Each case gives the

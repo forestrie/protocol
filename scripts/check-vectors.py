@@ -523,6 +523,11 @@ def check_ks256_low_s_vector() -> int:
             if (r, s, recid) != (tr, K1_N - ts, trecid ^ 1) or c["signer_address_hex"] != cases[twin]["signer_address_hex"]:
                 print(f"{name}: {c['name']!r} is not (r, n-s, v^1) of {twin!r}")
                 bad += 1
+    twinned = {c.get("twin_of") for c in v["cases"] if c["expect"].get("result") == "reject"}
+    for c in v["cases"]:
+        if c["expect"].get("result") == "accept" and c["name"] not in twinned:
+            print(f"{name}: {c['name']!r} has no reject case that is its high-s twin")
+            bad += 1
     s_values = {s for (_, s, _) in parsed.values()}
     if not {K1_HALF_N, K1_HALF_N + 1} <= s_values:
         print(f"{name}: needs a case with s = (n-1)/2 and its twin with s = (n+1)/2")

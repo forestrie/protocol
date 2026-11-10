@@ -257,7 +257,8 @@ certificate is checked against a KS256 root.
    chain or accepts a callback that would.
 5. **A known log key may be a 20-byte KS256 address.** As for ES256, it asserts,
    and does not prove, the key-to-log binding.
-6. **Low-s is not enforced on KS256,** matching arbor and univocity. A high-s
+6. **Low-s is not enforced on KS256,** matching arbor and univocity
+   (reversed by the [amendment of 2026-11-10](#amendment--2026-11-10-low-s-on-ks256)). A high-s
    twin re-encodes an authorisation the root already gave and cannot forge one;
    tightening it must happen in every verifier at once, so verdicts don't split.
 
@@ -266,6 +267,19 @@ would run network code inside verify; and an explicit chain mode inside the
 verifiers, where a separate helper keeps every verifier network-free.
 [spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4
 is updated when the implementation lands.
+
+## Amendment — 2026-11-10: low-s on KS256
+
+Item 6 of the 2026-10-18 amendment is reversed. A KS256 signature checked by
+recovering its signer must be low-s (s ≤ n/2), as an ES256 signature must,
+and a verifier rejects the high-s twin of a valid signature. The tightening
+reaches every verifier together, as item 6 required: canopy, arbor and the
+contract's `verifyKS256Raw`, each tested against one shared conformance
+vector under [`vectors/`](../vectors/README.md), so their verdicts do not
+split. A contract root's signature still goes to its
+ERC-1271 check unchanged, because its format belongs to the contract.
+[spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4
+states the rule.
 
 ## References
 

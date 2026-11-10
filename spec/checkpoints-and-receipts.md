@@ -247,8 +247,11 @@ amendment of 2026-10-18):
 A known log key may be a 20-byte KS256 address. As for an ES256 known key, it
 asserts, and does not prove, that the key belongs to the log. KS256 roots come
 only from genesis, a known log key, or an attestation, and never from a
-coordinator's public root. Low-s is not enforced on KS256 signatures, matching
-arbor and univocity.
+coordinator's public root. A KS256 signature checked by recovering the signer
+must be low-s (s ≤ n/2), as an ES256 signature must; a verifier rejects the
+high-s twin of a valid signature. A contract root's signature goes to its
+ERC-1271 check unchanged, because the format of that signature belongs to the
+contract.
 
 **Layer D — on-chain canonicality** — is deliberately separate and not part of
 offline verification. Offline verification may legitimately succeed before a

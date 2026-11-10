@@ -117,7 +117,9 @@ The transparency operator's component that holds KMS custody keys. See
 **Coordinator (delegation coordinator)**:
 The operator service that brokers delegation: it receives delegation
 certificates, records which sealing keys a log may use, and holds the
-hosted-wallet enable bits. It is not a trust source for any verifier.
+hosted-wallet enable bits. It is not a trust source for any verifier, nor
+for the operator's own admission, which takes a log's key only once the log
+is anchored.
 
 **Upgrade admin**:
 The single address that can replace the implementation of the upgradeable
@@ -339,6 +341,30 @@ submit what it withholds.
 The number of sealed checkpoints ahead of the on-chain anchored size — the
 publisher's backlog. Caught up by chaining one consistency proof per sealed
 massif into a single `publishCheckpoint` call.
+
+**Anchored (log authority)**:
+A log whose root key the chain has fixed: the forest root once its contract
+is deployed, a log with a published checkpoint, or a log whose create grant is
+covered by a published checkpoint of its owner. Only an anchored log's key
+authorises admission, and only while the log is not conflicted. See
+[ADR-0070](adr/adr-0070-sec-log-authority-anchored-before-use.md).
+
+**Pending (log authority)**:
+A log whose create grant has been claimed but is not yet anchored. Nothing
+whose authority runs through it is admitted; reserving its children and
+accepting delegation certificates under its key are allowed.
+
+**Reservation (log authority)**:
+A claim whose create grant has not been committed for sequencing, as made
+when a child is prepared before it exists. It lapses after a time the
+operator sets unless the grant is committed; a committed claim never lapses.
+
+**Conflicted (log authority)**:
+A log whose first published checkpoint recorded a different owner, or a
+different owner and key, from the operator's claim for it. Nothing more is
+admitted, sealed or published for it, and its creator starts a new log. It is
+final. See
+[ADR-0070](adr/adr-0070-sec-log-authority-anchored-before-use.md) decision 6.
 
 ## Passkey custody and leaf attribution
 

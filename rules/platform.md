@@ -176,6 +176,22 @@ checkpoint the sealer emits.
 · [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) D9
 · [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3.
 
+### P17 — A log's authority is used only once anchored
+A log's root key authorises admission only once the chain has fixed it: the
+forest root's contract is deployed, the log has a published checkpoint, or a
+published checkpoint of its owner includes the log's create grant. Until then
+the log is pending, and the operator refuses, before sequencing, anything
+whose authority runs through it. Reserving its children, which lapses unless
+committed, and accepting delegation certificates under its key are allowed.
+A log whose first published checkpoint records a different owner or key from
+the operator's claim is conflicted, and is never used.
+**Why:** an off-chain grant
+chain is only as trustworthy as the store that holds it; anchoring makes every
+key the operator acts on one the contract would also accept, so no operator
+store can mint authority.
+[ADR-0070](../adr/adr-0070-sec-log-authority-anchored-before-use.md)
+· [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §5.1.
+
 ---
 
 Accepted direction that is not implemented — bonded reputation, the

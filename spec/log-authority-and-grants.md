@@ -212,6 +212,41 @@ For a statement-registration grant, the flags must additionally mark it as one
 — a data log with extend authority. A grant of the wrong shape is refused
 before its signature is considered.
 
+### 5.1 Anchored before use
+
+The three checks can pass before the chain has seen a grant. Check 1 holds
+once the grant is sequenced into its owner's log, and check 2 may use an
+owner key that itself came from walking stored grants off-chain. A key reached
+that way is a claim, not authority, and an operator does not admit under it.
+
+A log is **anchored** once the chain has fixed its key:
+
+- the forest root, once its contract is deployed. The genesis document does
+  not stand in for the contract;
+- a log with a published checkpoint;
+- a log whose create grant is included in a published checkpoint of its
+  owner, proved against the owner's on-chain accumulator.
+
+Until then the log is **pending**. An operator refuses, before sequencing,
+every statement whose authority runs through a pending log, and tells the
+caller to retry. While a log is pending, an operator may record reservations
+for its children and accept delegation certificates under its key; both are
+checked by the walk, and neither confers authority. A reservation is a claim
+whose create grant is not committed for sequencing. It lapses after a time
+the operator sets, unless the grant is committed. A committed grant is in its
+owner's log for good, so its claim never lapses.
+
+Anchoring is permanent, with one check left. When the log's own first
+checkpoint is published, an operator compares the owner and key the chain
+records there with its claim. If they differ, the log is **conflicted**: the
+operator admits, seals and publishes nothing more for it. So an operator
+reads the chain at most twice per log.
+
+The chain therefore paces onboarding. A new log waits for its owner's next
+published checkpoint, and a chain of new logs waits for one publish per level.
+[ADR-0070](../adr/adr-0070-sec-log-authority-anchored-before-use.md) records
+the decision.
+
 ## 6. Credential versus evidence
 
 Opening a data log under an intermediate authority involves two grants. They

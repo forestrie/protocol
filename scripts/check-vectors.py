@@ -474,8 +474,15 @@ def check_ks256_low_s_vector() -> int:
     if digest.hex() != v["digest_hex"]:
         print(f"{name}: keccak256(Sig_structure) is {digest.hex()}, digest_hex is {v['digest_hex']}")
         bad += 1
+    if v["conventions"]["low_s_bound"] != f"{K1_HALF_N:064x}":
+        print(f"{name}: conventions.low_s_bound is not (n-1)/2")
+        bad += 1
     key = v["test_key"]
-    if k1_address(k1_mul(int(key["private_key_d_hex"], 16), K1_G)).hex() != key["address_hex"]:
+    d = int(key["private_key_d_hex"], 16)
+    if d != int.from_bytes(keccak256(key["label"].encode()), "big") % K1_N:
+        print(f"{name}: test_key scalar is not keccak256(label) mod n")
+        bad += 1
+    if k1_address(k1_mul(d, K1_G)).hex() != key["address_hex"]:
         print(f"{name}: test_key address is not the address of its scalar")
         bad += 1
 

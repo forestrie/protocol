@@ -6,7 +6,7 @@ created: 2026-11-09
 updated: 2026-11-10
 categories: [SECURITY, AUTHORITY]
 decisions: [adr-0045-receipt-verify-offline-contract]
-refs: ["FOR-603", "FOR-601", "FOR-657", "FOR-666", "devdocs:ADR-0075"]
+refs: ["devdocs:ADR-0075"]
 ---
 
 # A log's authority is used only once it is anchored on chain

@@ -192,7 +192,10 @@ signature, is outside this vector.
 
 The bytes can be reproduced: `accept/low-s` is the deterministic RFC 6979
 signature by the test scalar in `test_key`, and each other case is derived
-from it as its `note` says. `scripts/check-vectors.py` recomputes the
+from it as its `note` says. To re-sign it, run `cast wallet sign --no-hash
+--private-key 0x<private_key_d_hex> 0x<digest_hex>` (Foundry); `cast`
+prints `v` as 27 or 28, and the vector stores the recovery id, `v − 27`.
+`scripts/check-vectors.py` recomputes the
 `Sig_structure` and digest, recovers every signature with the standard
 library, and checks each verdict against the bound and each reject case
 against its twin.

@@ -1,9 +1,9 @@
 ---
 id: adr-0070-sec-log-authority-anchored-before-use
 title: A log's authority is used only once it is anchored on chain
-status: discuss
+status: accepted
 created: 2026-11-09
-updated: 2026-11-10
+updated: 2026-11-11
 categories: [SECURITY, AUTHORITY]
 decisions: [adr-0045-receipt-verify-offline-contract]
 refs: ["devdocs:ADR-0075"]

@@ -17,7 +17,7 @@ elsewhere and are not needed to read or apply anything here.
 
 The text is durable and low-churn. Changes go through a pull request, and a
 change that alters the meaning of a receipt, a grant or a trust root is a
-decision recorded under `decisions/` before it appears under `spec/`.
+decision recorded under `adr/` before it appears under `spec/`.
 
 ## Layout
 

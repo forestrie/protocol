@@ -1,10 +1,18 @@
+---
+id: arc-0019-grant-verification-model
+title: "Grant verification (receipt-based inclusion, grant-statement signature, and signer binding)"
+status: accepted
+created: 2026-03-19
+updated: 2026-08-09
+---
+
 # ARC-0019: Grant verification (receipt-based inclusion, grant-statement signature, and signer binding)
 
-**Status**: ACCEPTED — one of the accepted decisions the specification under
+One of the accepted decisions the specification under
 [`spec/`](../spec/) rests on. (Recorded as DRAFT while it was written; the model
-below is the one every implementation verifies against.)  
-**Date**: 2026-03-19 (§6.3 revised 2026-08-09 — the issuer/endorsed-signer split is implemented, not planned)  
-**Related**: [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md) (the grant wire format and the three checks, as specified today), [Statement COSE encoding](https://github.com/forestrie/canopy/blob/main/docs/arc/arc-statement-cose-encoding.md), [canopy implementation map](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)
+below is the one every implementation verifies against.)
+
+**Related:** [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md) (the grant wire format and the three checks, as specified today), [Statement COSE encoding](https://github.com/forestrie/canopy/blob/main/docs/arc/arc-statement-cose-encoding.md), [canopy implementation map](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)
 
 ## Purpose
 
@@ -497,5 +505,5 @@ enqueue_statement(…)
   `GF_*` bands, with values.
 - [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) — the
   leaf commitment, with cross-language vectors.
-- [ADR-0065](./adr-0065-endorsed-session-key-admission.md) — the endorsed
+- [ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) — the endorsed
   session key that §6.3's statement signer may now be.

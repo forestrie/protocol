@@ -1,19 +1,24 @@
+---
+id: adr-0066-sec-signed-checkpoint-size
+title: "Signed checkpoint tree size"
+status: accepted
+created: 2026-09-19
+updated: 2026-09-20
+categories: [SECURITY, WIRE-FORMAT, CHECKPOINTS, VERIFICATION, UNIVOCITY, ARBOR, CANOPY, PROTOCOL]
+---
+
 # ADR-0066: Signed checkpoint tree size
 
-**Status:** ACCEPTED — one of the accepted decisions the specification under
+One of the accepted decisions the specification under
 [`spec/`](../spec/) rests on. Decided by the owner on 2026-09-19 as decisions
-D1–D8 of Forestrie plan-2609-10 (an internal planning document); revised on
+D1–D8 of an internal Forestrie plan; revised on
 2026-09-20 after the implementation reviews (D1–D5 and D8
 narrowed to one signed size, D9 added). This record integrates the
 revisions; each affected section carries an "Alternatives considered" note
 recording what the first cut chose and what the review found. The
 2026-09-19 text is in the internal devdocs history at `c69b1c1`.
-**Date:** 2026-09-19, revised 2026-09-20
-**Categories:** [SECURITY, WIRE-FORMAT, CHECKPOINTS, VERIFICATION,
-UNIVOCITY, ARBOR, CANOPY, PROTOCOL]
-**Tracking:** Forestrie issue FOR-568 (internal tracker). Plan:
-plan-2609-10-signed-checkpoint-size (internal).
-**Related:**
+
+**Related:** 
 [spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md)
 (the checkpoint envelope this ADR changes),
 [spec/label-registry.md](../spec/label-registry.md)
@@ -22,7 +27,7 @@ plan-2609-10-signed-checkpoint-size (internal).
 P14 (whose wording this ADR corrects),
 [draft-bryce-cose-receipts-mmr-profile](https://github.com/robinbryce/draft-bryce-cose-receipts-mmr-profile)
 (the profile the checkpoint receipt follows). Implementation: univocity
-[PR #42](https://github.com/forestrie/univocity/pull/42) (FOR-567, the
+[PR #42](https://github.com/forestrie/univocity/pull/42) (the
 shape-checked fold this ADR completes) and
 [PR #43](https://github.com/forestrie/univocity/pull/43) (the signed size
 and header parsing); go-merklelog
@@ -44,7 +49,7 @@ in the arbor sealer, not in any off-chain verifier, and not in the
 univocity contract, which nevertheless stores `tree-size-2` as the log's
 anchored size.
 
-The 2026-09-19 adversarial review of univocity (FOR-567, FOR-568) showed
+The 2026-09-19 adversarial review of univocity showed
 what an unsigned size permits. The attacker never alters a signed value:
 the peaks in the payload are the sealer's own. What the attacker chooses
 is the tree size the contract records those peaks *as*, because the size
@@ -89,7 +94,7 @@ The same gap is in the draft's own verification procedure: the signed
 statement is the accumulator, and the sizes are prover-supplied context
 that the verifier reads but nothing attests.
 
-A previous resolution of FOR-568 marked the size-inflation half fixed by
+A previous resolution of the finding marked the size-inflation half fixed by
 PR #42. That was wrong for the two cases above, and this ADR exists so that
 "path-length pinning alone defeats keyless replay" is not claimed again.
 
@@ -106,7 +111,7 @@ decisions below and are recorded once here:
   the origin size (reviewed on
   [arbor #102](https://github.com/forestrie/arbor/pull/102) and
   [go-merklelog #11](https://github.com/forestrie/go-merklelog/pull/11);
-  summarised on FOR-568).
+  summarised in the internal tracker).
 - **Verifiers must agree on which headers are valid.** Under univocity
   rule U7 the contract is the arbiter of what the canonical wire bytes are.
   The review of [univocity #43](https://github.com/forestrie/univocity/pull/43)
@@ -246,7 +251,7 @@ the same KAT-39 vectors. `consistent_roots_for_sizes` does not call the
 draft's earlier `consistent_roots`; an implementation that keeps
 `consistent_roots` reaches the same accept set only with the five checks
 above applied around it, including a root-count check in place of the
-direct same-root comparison (plan-2609-10 slice 01, "Fold formulations").
+direct same-root comparison.
 
 These MUSTs apply to **every** verifier of a receipt of consistency, not
 only to split-view detection: a consistency proof relates two states, so
@@ -281,14 +286,13 @@ No compatibility mode. Per environment:
    with, or after, the contract in each environment; the window between
    them is a publish outage, not a safety gap.
 4. Logs anchored before the change are retired or re-anchored. No legacy
-   state is supported (owner decision, plan-2609-09).
+   state is supported (owner decision).
 
 ### D7 — Interim mitigation
 
 Until deployed, issue grants with a non-zero `maxHeight`, which caps how far
 a relayer can inflate a declared size. It does not prevent mislabelling
-within the cap. Operational note in plan-2609-10 slice 06, not a code
-change.
+within the cap. This is an operational note, not a code change.
 
 ### D8 — What each verifier compares
 
@@ -431,7 +435,7 @@ per-implementation interpretation D9 exists to close off.
 ### What is deliberately not bound
 
 `logId`, chain id and contract address stay outside the signature.
-Cross-log replay was examined in FOR-568 and refuted: a replayed receipt is
+Cross-log replay was examined in the review and refuted: a replayed receipt is
 the victim's own key over the victim's own content in a log the attacker
 created, which the protocol permits as replication and which is visible
 on-chain. No capability is gained and neither consistency nor
@@ -480,7 +484,7 @@ Negative and accepted:
 
 ## Implementation
 
-Sliced in plan-2609-10: 01 spec, ADR and label (this document, the
+Sliced in an internal plan: 01 spec, ADR and label (this document, the
 registry row, the draft text); 02 go-merklelog and arbor; 03 univocity;
 04 canopy shared packages; 05 clients; 06 cross-language KAT, adversarial
 re-review, deployment and re-anchoring. 02, 03 and 04 are independent once
@@ -508,10 +512,10 @@ The remaining alternatives to the design as a whole:
 
 ## References
 
-- FOR-568 (internal tracker) — the finding, the reopening of 2026-09-19,
-  the cross-log replay refutation, and the 2026-09-20 decisions.
-- plan-2609-10-signed-checkpoint-size (internal devdocs) and its
-  decisions.md, which this record supersedes as the authoritative text.
+- The internal tracker issue for the finding (its reopening of
+  2026-09-19, the cross-log replay refutation, the 2026-09-20 decisions)
+  and the internal plan's decision record, which this ADR supersedes as
+  the authoritative text.
 - univocity [PR #42](https://github.com/forestrie/univocity/pull/42)
   (`src/algorithms/consistentRoots.sol`, `consistentRootsForSizes`);
   [PR #43](https://github.com/forestrie/univocity/pull/43) (signed size and
@@ -520,7 +524,7 @@ The remaining alternatives to the design as a whole:
   [PR #255](https://github.com/forestrie/canopy/pull/255).
 - The 2026-09-19 slice 02 and 2026-09-20 PR #43 adversarial reviews. Their
   public trace is the review discussion on arbor #102 and univocity #43
-  and the summary comments on FOR-568 (internal); the full reports are held
+  and the summary comments in the internal tracker; the full reports are held
   in the owner's review folder outside git.
 - [merkle-mountain-range-proofs PR #1](https://github.com/robinbryce/merkle-mountain-range-proofs/pull/1)
   (`consistent_roots_for_sizes`).

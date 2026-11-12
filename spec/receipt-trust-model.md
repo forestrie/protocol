@@ -3,9 +3,9 @@
 **Audience:** relying parties, monitors, and anyone deciding what a Forestrie
 receipt lets them conclude without trusting the transparency operator.
 **Related:**
-[ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) (the
+[ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md) (the
 offline verify contract, layers A–C),
-[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (§4 — the
+[ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) (§4 — the
 attribution question), the platform invariants
 [P2, P3 and P4](../rules/platform.md), and [glossary.md](../glossary.md) for the
 terms used below.
@@ -91,7 +91,7 @@ so one key serves every log whose owner has leased it. The derivation is
 stated once, in
 [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-operator-powers.md)
 §3, and the decision behind it is
-[ADR-0050](../decisions/adr-0050-delegation-in-advance.md). What scopes the key is the lease: the delegation certificate binds one
+[ADR-0050](../adr/adr-0050-delegation-in-advance.md). What scopes the key is the lease: the delegation certificate binds one
 log, one MMR range and an expiry, and exists only because that log's root key
 signed it; the on-chain delegation proof binds the same log and range and
 **no expiry**, and the contract checks the log and the inclusive range only.
@@ -180,7 +180,7 @@ Nothing on the chain inspects a leaf signer. The sequencer content-hashes
 leaves, the sealer verifies delegation leases, the publisher lifts proofs, and
 the contract verifies the root and the delegation. **Admission at the SCRAPI
 edge is the only enforcement point for who may sign a leaf**, for every custody
-shape ([ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) §1).
+shape ([ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) §1).
 A design that asks any other component to be authoritative
 for the leaf signer fails open for every client that is not that component,
 because the SCRAPI is permissionless and the grant is the only credential.
@@ -449,9 +449,9 @@ stated in [trust-boundaries-and-operator-powers.md](./trust-boundaries-and-opera
   — the attribution chain at wire level.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   hierarchy question 3 walks.
-- [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
+- [ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md) — the
   offline verify contract, layers A–C.
-- [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) —
+- [ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) —
   attribution, and the admission rules that enforce it.
 - [rules/platform.md](../rules/platform.md) — the platform invariants that cite
   this document.

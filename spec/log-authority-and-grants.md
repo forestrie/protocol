@@ -4,7 +4,7 @@
 tracing where a log's authority comes from.
 **Related:** [receipt-trust-model.md](./receipt-trust-model.md)
 (question 3, authority),
-[ARC-0019](../decisions/arc-0019-grant-verification-model.md) (the accepted
+[ARC-0019](../arc/arc-0019-grant-verification-model.md) (the accepted
 grant verification model),
 [label-registry.md](./label-registry.md),
 [checkpoints-and-receipts.md](./checkpoints-and-receipts.md),
@@ -326,7 +326,7 @@ Solidity leaf-encoding library's padding comment, are recorded in
 
 - [receipt-trust-model.md](./receipt-trust-model.md) — how authority sits
   among the four trust questions.
-- [ARC-0019](../decisions/arc-0019-grant-verification-model.md) — the three
+- [ARC-0019](../arc/arc-0019-grant-verification-model.md) — the three
   verification obligations in full, with the pseudocode.
 - [vectors/grant-and-leaf-format.md](../vectors/grant-and-leaf-format.md) — the
   leaf commitment with cross-language vectors.

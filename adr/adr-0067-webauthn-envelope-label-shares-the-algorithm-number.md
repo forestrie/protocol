@@ -1,9 +1,17 @@
+---
+id: adr-0067-webauthn-envelope-label-shares-the-algorithm-number
+title: "The WebAuthn assertion envelope label shares the algorithm's number"
+status: accepted
+created: 2026-09-19
+updated: 2026-11-27
+---
+
 # ADR-0067: The WebAuthn assertion envelope label shares the algorithm's number
 
-**Status:** PROPOSED — records a wire convention every implementation already
+Records a wire convention every implementation already
 follows, so that the specification can state it as a decision rather than a
 defect with no owner.
-**Date:** 2026-09-19
+
 **Related:** [spec/label-registry.md](../spec/label-registry.md) §4,
 [spec/delegation-and-webauthn-envelopes.md](../spec/delegation-and-webauthn-envelopes.md)
 §2, [ADR-0064](./adr-0064-passkey-session-key-endorsement.md).

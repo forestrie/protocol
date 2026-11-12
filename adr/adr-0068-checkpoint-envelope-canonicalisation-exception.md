@@ -1,11 +1,19 @@
+---
+id: adr-0068-checkpoint-envelope-canonicalisation-exception
+title: "The checkpoint envelope keeps length-first canonical key order"
+status: accepted
+created: 2026-09-19
+updated: 2026-11-27
+---
+
 # ADR-0068: The checkpoint envelope keeps length-first canonical key order
 
-**Status:** PROPOSED — records the key order every checkpoint already has,
+Records the key order every checkpoint already has,
 which [ADR-0066](./adr-0066-sec-signed-checkpoint-size.md) D9 has since made
 normative for the protected header, and names it as the one exception to
 core deterministic encoding rather than leaving two normative statements in
 conflict.
-**Date:** 2026-09-19, revised 2026-09-20
+
 **Related:** [rules/platform.md](../rules/platform.md) P16,
 [spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3,
 [ADR-0066](./adr-0066-sec-signed-checkpoint-size.md) D9,

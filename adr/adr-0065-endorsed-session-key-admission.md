@@ -1,16 +1,24 @@
+---
+id: adr-0065-endorsed-session-key-admission
+title: "Endorsed session-key admission (the endorsement rides every leaf)"
+status: accepted
+created: 2026-08-29
+updated: 2026-08-29
+categories: [DELEGATION, WEBAUTHN, CUSTODY, VERIFICATION, ADMISSION, WIRE-FORMAT]
+amends: [adr-0064-passkey-session-key-endorsement]
+---
+
 # ADR-0065: Endorsed session-key admission (the endorsement rides every leaf)
 
-**Status:** ACCEPTED — one of the accepted decisions the specification under
+One of the accepted decisions the specification under
 [`spec/`](../spec/) rests on. Records the live-run finding of 2026-08-29 and
 the review of the same day, in which every ruling below was ratified.
-**Date:** 2026-08-29
-**Categories:** [DELEGATION, WEBAUTHN, CUSTODY, VERIFICATION, ADMISSION,
-WIRE-FORMAT]
+
 **Related:** [ADR-0064](./adr-0064-passkey-session-key-endorsement.md)
 (the endorsement artifact this ADR admits and moves to payload v2 —
 amended by this ADR), [spec/delegation-and-webauthn-envelopes.md](../spec/delegation-and-webauthn-envelopes.md)
 (the `-65800` envelope and its user-presence / user-verification policy split),
-[ARC-0019](./arc-0019-grant-verification-model.md) §6 (statement signer
+[ARC-0019](../arc/arc-0019-grant-verification-model.md) §6 (statement signer
 binding = `grantData`), univocity
 [ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md)
 (the on-chain algorithm and the `GF_REQUIRES_USER_VERIFICATION` policy band),

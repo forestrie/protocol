@@ -1,15 +1,22 @@
+---
+id: adr-0050-delegation-in-advance
+title: "Delegation in advance: standing delegate keys + coverage-matched retrieval"
+status: accepted
+created: 2026-07-13
+updated: 2026-09-26
+---
+
 # ADR-0050 — Delegation in advance: standing delegate keys + coverage-matched retrieval
 
-**Status:** ACCEPTED — one of the accepted decisions the specification under
-[`spec/`](../spec/) rests on.  
+One of the accepted decisions the specification under
+[`spec/`](../spec/) rests on.
 Promoted on 2026-09-26 from the operator's private decision record, where it
 was written as Proposed; the implementation it records is live in arbor
 ([`services/pkgs/delegatekeys/derive.go`](https://github.com/forestrie/arbor/blob/main/services/pkgs/delegatekeys/derive.go),
 [`services/custodian/src/handle_delegate_seed.go`](https://github.com/forestrie/arbor/blob/main/services/custodian/src/handle_delegate_seed.go)).
 Where the shipped code differs from the text below, [As implemented](#as-implemented)
-says how.  
-**Date:** 2026-07-13 (revised on review the same day; extended 2026-07-14 and
-2026-07-25)  
+says how.
+
 **Related:** [spec/receipt-trust-model.md](../spec/receipt-trust-model.md)
 (question 2, the sealing key as specified today),
 [spec/trust-boundaries-and-operator-powers.md](../spec/trust-boundaries-and-operator-powers.md)
@@ -620,8 +627,8 @@ fixed inputs.
 
 ## Amendment — 2026-10-24: on-demand delegation is removed
 
-Recorded with devdocs plan-2609-12 (delegate key registration hardening),
-ruling D1, and implemented by its slice 10
+Recorded from the operator's delegate-key registration hardening work
+(its ruling D1) and implemented in
 ([arbor#113](https://github.com/forestrie/arbor/pull/113)).
 
 **What "lazy on-demand" means here.** The Decision keeps "lazy on-demand as
@@ -661,9 +668,9 @@ epoch 1 or above.
 
 ## Amendment — 2026-10-31: the sealer registers its own keys, vouchers expire, tombstones retire
 
-Recorded with devdocs plan-2609-12 (delegate-key registration hardening),
-rulings 1′, 4, 4′, 6, 7 and 8 and their amendment of 2026-10-24, and
-implemented by its slices 01, 04, 05, 07 and 08
+Recorded from the operator's delegate-key registration hardening work
+(its rulings 1′, 4, 4′, 6, 7 and 8 and their amendment of 2026-10-24),
+and implemented in
 ([arbor#114](https://github.com/forestrie/arbor/pull/114),
 [arbor#115](https://github.com/forestrie/arbor/pull/115),
 [canopy#267](https://github.com/forestrie/canopy/pull/267),
@@ -694,7 +701,7 @@ replayed to the coordinator for as long as its key existed.
   sealer": registration is the sealer's, but vouching stays the custodian's,
   and the coordinator still refuses any key without a valid voucher. The
   custodian's own registration of the same keys remains, redundantly and
-  idempotently, until plan-2609-12 slice 09 removes it.
+  idempotently, until a later change removes it.
 - **Vouchers expire.** The voucher's signed claims gain `4: notAfter`, Unix
   seconds, beside `1: sealerId`, `2: epoch` and `3: delegate key`. The
   custodian sets it `DELEGATE_KEY_VOUCHER_TTL` after signing: 24 h by default,
@@ -724,7 +731,7 @@ replayed to the coordinator for as long as its key existed.
   rotation, which is creating a key version and moving a sealer to it, is a
   single-lane procedure. The custodian service account and the
   registrar-voucher key stay shared within the environment; whether they
-  should also split is tracked separately (FOR-588).
+  should also split is an open question.
 
 **Trust model.** The kit's voucher check is still what stops a compromised
 coordinator steering an owner to delegate to a key the sealer does not

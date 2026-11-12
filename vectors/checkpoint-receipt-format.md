@@ -6,7 +6,7 @@ pinned in [`SHA256SUMS`](./SHA256SUMS).
 reference, [robinbryce/merkle-mountain-range-proofs](https://github.com/robinbryce/merkle-mountain-range-proofs)
 (the reference is the arbiter; the generator asserts its tree equals
 go-merklelog's literal KAT tables before emitting).
-**Decision:** [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md)
+**Decision:** [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md)
 (signed `tree-size-2`, verification MUSTs D5, receipt encoding conformance
 D9); [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md)
 §1.3.

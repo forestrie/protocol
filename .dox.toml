@@ -2,11 +2,6 @@ schema_ref = "v1.1.0"
 namespace = "protocol"
 root = "."
 types = ["adr", "arc", "named-doc", "rules"]
-baseline = ".dox-baseline.json"
-
-# decisions/ speaks in its own historical voice (scripts/check-links.py).
-[checks.no-work-ids]
-exempt = ["decisions/**"]
 
 # The rules digest agents load; this repo owns the platform rules, so
 # nothing is included from elsewhere (devdocs ADR-0074).

@@ -404,7 +404,7 @@ equality rather than merely "it verified".
   the root, and what else can be.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — what the
   delegated key goes on to sign.
-- [ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md) — the
+- [ADR-0064](../adr/adr-0064-passkey-session-key-endorsement.md) — the
   custody split that reuses this envelope for the session-key endorsement.
 - univocity [ADR-0008](https://github.com/forestrie/univocity/blob/main/docs/adr/adr-0008-webauthn-assertion-delegation-alg.md) (the
   on-chain algorithm, `algData`, the policy band) and

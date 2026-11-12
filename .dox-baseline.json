@@ -90,11 +90,6 @@
       "check": "schema",
       "path": "decisions/arc-0019-grant-verification-model.md",
       "message": "no YAML frontmatter (arc)"
-    },
-    {
-      "check": "schema",
-      "path": "rules/platform.md",
-      "message": "no YAML frontmatter (rules)"
     }
   ]
 }

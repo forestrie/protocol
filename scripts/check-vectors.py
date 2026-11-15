@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Recompute every cross-language fixture under vectors/fixtures/ from its input fields.
 
-Standard library only, so the check does not depend on any Forestrie implementation:
+Standard library only, so the check does not depend on any Forestrie implementation.
+With --self-test it instead checks mutated copies of the delegated-spend
+fixtures, and fails unless every mutation is caught. Without it:
 
 - leaf_vectors.json: recompute expected_inner_hex and expected_leaf_hex from the
   grant fields (spec/log-authority-and-grants.md section 4).
@@ -180,7 +182,12 @@ class Cbor:
         return keys
 
 
+_MUTATED = {}  # name -> fixture; --self-test checks mutated copies, never the files
+
+
 def load(name):
+    if name in _MUTATED:
+        return _MUTATED[name]
     with open(os.path.join(FIXTURES, name), encoding="utf-8") as f:
         return json.load(f)
 
@@ -1040,6 +1047,34 @@ def check_statement(name: str, st, hops, keys) -> int:
     return bad
 
 
+def check_map_key_order(name: str, m) -> int:
+    """A map whose labels differ in encoded length: both orders' bytes, each refused under
+    the other order, and the vector provisional until the platform settles which is canon."""
+    where = f"{name}: map_key_order"
+    value = {int(k): bytes.fromhex(x) for k, x in m["map"].items()}
+    lengths = {len(cbor_encode(k)) for k in value}
+    got = {order: cbor_encode(value, order) for order in ("bytewise", "length-first")}
+    bad = 0
+    if len(lengths) < 2 or got["bytewise"] == got["length-first"]:
+        print(f"{where}: the labels must differ in encoded length and the two orders give different bytes")
+        bad += 1
+    for order, field in (("bytewise", "bytewise_hex"), ("length-first", "length_first_hex")):
+        if m[field] != got[order].hex():
+            print(f"{where}: {field} is {m[field]}, recomputed {got[order].hex()}")
+            bad += 1
+        other = "length-first" if order == "bytewise" else "bytewise"
+        try:
+            cbor_decode(got[order], other)
+            print(f"{where}: {order} bytes decode under {other} order; a strict decoder refuses them")
+            bad += 1
+        except ValueError:
+            pass
+    if m.get("status") != "provisional" or m.get("canonical") != "unsettled":
+        print(f"{where}: stays provisional, canonical unsettled, until the map key order is decided")
+        bad += 1
+    return bad
+
+
 def check_delegated_spend_statements() -> int:
     name = "erc7710-statements.json"
     v = load(name)
@@ -1074,6 +1109,7 @@ def check_delegated_spend_statements() -> int:
     if not any(c["expect"]["route"] == "refused:tag-present" for c in v["audit_cases"]):
         print(f"{name}: needs a revocation or spend statement that the route check refuses")
         bad += 1
+    bad += check_map_key_order(name, v["map_key_order"])
     if not {c["expect"]["publications"][0]["verdict"] for c in v["audit_cases"] if c["expect"]["publications"]} >= {
         "well-formed", "flag:outside-key-2", "flag:hash-mismatch"
     }:
@@ -1362,7 +1398,7 @@ def check_leaf_salt() -> int:
     if len(first) != 1 or len(second) != 1 or first[0]["salt_hex"] != second[0]["salt_hex"] or (
             first[0]["delegation_hash_hex"] == second[0]["delegation_hash_hex"]):
         print(f"{name}: repay: the varied leaf must bind the same nonce under another identity")
-        bad += 1
+        return bad + 1
     a, b = (bytes.fromhex(x) for x in rp["same_leaf_other_args"]["event_data_hex"])
     try:
         ha, hb = hop_struct_hash(abi_decode_delegation(a)), hop_struct_hash(abi_decode_delegation(b))
@@ -1384,7 +1420,106 @@ LEAF_SALT_FRAMEWORK = "MetaMask Delegation Framework v1.3.0"
 LEAF_SALT_MANAGER = "db9b1e94b5b69df7e401ddbede43491141047db3"
 
 
+def _flip(hex_string: str, at: int = -2) -> str:
+    """Change one byte of a hex string."""
+    i = len(hex_string) + at if at < 0 else at
+    return hex_string[:i] + f"{int(hex_string[i:i + 2], 16) ^ 1:02x}" + hex_string[i + 2:]
+
+
+def _named(items, name):
+    return next(x for x in items if x["name"] == name)
+
+
+def _set(item, **fields):
+    item.update(fields)
+
+
+# Each mutation breaks one rule of a delegated-spend fixture; --self-test requires
+# the checker to report at least one problem for every one of them.
+SELF_TEST_MUTATIONS = [
+    ("erc7710-statements.json", "a delegation signature byte",
+     lambda v: _set(_named(v["delegations"], "D_AB"), signature_hex=_flip(_named(v["delegations"], "D_AB")["signature_hex"], 10))),
+    ("erc7710-statements.json", "a caveat's terms",
+     lambda v: _set(_named(v["delegations"], "D_HA")["caveats"][1],
+                    terms_hex=_flip(_named(v["delegations"], "D_HA")["caveats"][1]["terms_hex"]))),
+    ("erc7710-statements.json", "the signed digest recorded as the struct hash",
+     lambda v: _set(_named(v["delegations"], "D_AB"), struct_hash_hex=_named(v["delegations"], "D_AB")["typed_data_digest_hex"])),
+    ("erc7710-statements.json", "a statement byte",
+     lambda v: _set(_named(v["statements"], "delegation/D_AB"),
+                    cose_sign1_hex=_flip(_named(v["statements"], "delegation/D_AB")["cose_sign1_hex"], 200))),
+    ("erc7710-statements.json", "a statement's signer",
+     lambda v: _set(_named(v["statements"], "revocation/D_AB"), signer=_named(v["statements"], "spend/credits")["signer"])),
+    ("erc7710-statements.json", "a publication's idtimestamp",
+     lambda v: _set(_named(v["statements"], "delegation/D_HA")["publication"], idtimestamp_hex="019a8f6e2c000002")),
+    ("erc7710-statements.json", "an audit verdict",
+     lambda v: _set(_named(v["audit_cases"], "flag/hash-mismatch")["expect"]["publications"][0], verdict="well-formed")),
+    ("erc7710-statements.json", "a refused statement's route",
+     lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"], route="accepted")),
+    ("erc7710-statements.json", "the spend leaf's salt",
+     lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
+    ("erc7710-statements.json", "the provisional vector frozen",
+     lambda v: _set(v["map_key_order"], status="frozen", canonical="bytewise")),
+    ("erc7710-statements.json", "the map key orders swapped",
+     lambda v: _set(v["map_key_order"], bytewise_hex=v["map_key_order"]["length_first_hex"])),
+    ("payment-nonce.json", "a nonce byte",
+     lambda v: _set(_named(v["vectors"], "onboarding"), nonce_hex=_flip(_named(v["vectors"], "onboarding")["nonce_hex"]))),
+    ("payment-nonce.json", "a purpose field",
+     lambda v: _set(_named(v["vectors"], "credits")["purpose"], credits=101)),
+    ("payment-nonce.json", "the payer",
+     lambda v: _set(_named(v["vectors"], "grant"), payer_hex=_named(v["vectors"], "grant/another-payer")["payer_hex"])),
+    ("payment-nonce.json", "a canonical preimage among the non-canonical",
+     lambda v: _set(v["not_canonical"][0], preimage_hex=_named(v["vectors"], "grant")["preimage_hex"],
+                    salt_hex=_named(v["vectors"], "grant")["nonce_hex"])),
+    ("erc7710-leaf-salt-v1.json", "a payment's Transfer position",
+     lambda v: _set(_named(v["cases"], "one-payment")["expect"]["payments"][0], transfer_position=0)),
+    ("erc7710-leaf-salt-v1.json", "the leaf binding beneath a salted hop",
+     lambda v: _set(_named(v["cases"], "salted-hop-above-salted-leaf")["requests"][1],
+                    binds=_named(v["delegations"], "leaf/under-salted-hop")["struct_hash_hex"])),
+    ("erc7710-leaf-salt-v1.json", "both bindings paid by one Transfer",
+     lambda v: _set(_named(v["cases"], "two-bindings-one-transfer")["expect"], unpaired_bindings=[])),
+    ("erc7710-leaf-salt-v1.json", "an EIP-3009 Transfer counted as unbound",
+     lambda v: _set(_named(v["cases"], "eip3009-transfer-beside-binding")["expect"], unbound_transfers=[1])),
+    ("erc7710-leaf-salt-v1.json", "a RedeemedDelegation byte",
+     lambda v: _set(_named(v["cases"], "one-payment")["receipt"]["logs"][-1],
+                    data_hex=_flip(_named(v["cases"], "one-payment")["receipt"]["logs"][-1]["data_hex"], 100))),
+    ("erc7710-leaf-salt-v1.json", "the re-pay leaf given the first leaf's identity",
+     lambda v: _set(v["repay"], second_case=v["repay"]["first_case"])),
+    ("erc7710-leaf-salt-v1.json", "another delegation manager listed",
+     lambda v: _set(v["config"]["delegation_managers"][0], delegation_manager_hex="00" * 20)),
+]
+
+
+def self_test() -> int:
+    """Run the checks on mutated copies of the delegated-spend fixtures; each must fail."""
+    import contextlib
+    import copy
+    import io
+
+    checks = {"erc7710-statements.json": check_delegated_spend_statements, "payment-nonce.json": check_payment_nonce,
+              "erc7710-leaf-salt-v1.json": check_leaf_salt}
+    missed = 0
+    for name, what, mutate in SELF_TEST_MUTATIONS:
+        fixture = copy.deepcopy(load(name))
+        mutate(fixture)
+        _MUTATED[name] = fixture
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                found = checks[name]()
+        except (ValueError, KeyError, IndexError, TypeError, StopIteration):
+            found = 1
+        finally:
+            del _MUTATED[name]
+        if not found:
+            print(f"self-test: {name}: {what}: the checker reported nothing")
+            missed += 1
+    print(f"{'FAIL' if missed else 'OK'}: self-test, {len(SELF_TEST_MUTATIONS) - missed} of "
+          f"{len(SELF_TEST_MUTATIONS)} mutations caught")
+    return 1 if missed else 0
+
+
 def main() -> int:
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
     bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector() + check_ks256_low_s_vector()
     bad += check_delegated_spend_statements() + check_payment_nonce() + check_leaf_salt()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):

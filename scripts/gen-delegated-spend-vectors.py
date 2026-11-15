@@ -308,6 +308,21 @@ SELLER_TX = cv.keccak256(b"protocol vectors delegated spend: the seller payment 
 CREDITS_DIGEST = cv.purpose_digest("credits", CREDITS_PURPOSE)
 
 
+def map_key_order():
+    m = {1: b"\x01", 100: b"\x64", -1: b"\xff"}
+    return {
+        "status": "provisional",
+        "canonical": "unsettled",
+        "note": "PROVISIONAL. A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in "
+                "two. Bytewise order (rules/platform.md P16) gives 1, 100, -1; length-first order, which a shared "
+                "implementation uses, gives 1, -1, 100. Which is canon is not settled, so neither set of bytes is "
+                "frozen; no statement map in this file has such labels, so no other vector depends on it.",
+        "map": {str(k): v.hex() for k, v in m.items()},
+        "bytewise_hex": "a3" + "0141" + "01" + "1864" + "41" + "64" + "20" + "41" + "ff",
+        "length_first_hex": "a3" + "0141" + "01" + "20" + "41" + "ff" + "1864" + "41" + "64",
+    }
+
+
 def statements_fixture():
     st_ha, _, _ = delegation_statement(
         "delegation/D_HA", D_HA, KEYS["human statement key"], L_A, 3,
@@ -393,7 +408,8 @@ def statements_fixture():
          "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "accepted"}},
         {"name": "refuse/spend-with-tag", "rule": "1a",
-         "note": "a spend statement whose unprotected header carries TAG ‖ H(D_AB): the registration service "
+         "note": "a spend statement whose unprotected header carries TAG ‖ H(D_AB), under -70000, a label nothing "
+                 "assigns: the registration service "
                  "refuses it on its route; were it anchored anyway, it would publish D_AB and auditors would flag it",
          "cose_sign1_hex": tagged_spend.hex(),
          "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
@@ -429,6 +445,7 @@ def statements_fixture():
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER]],
         "statements": [st_ha, st_ab, st_revoke, st_spend, st_seller],
         "audit_cases": audit_cases,
+        "map_key_order": map_key_order(),
     }
 
 

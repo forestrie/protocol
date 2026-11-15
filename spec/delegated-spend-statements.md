@@ -357,7 +357,10 @@ the statement's type and version do not define.
 Every label these types use encodes in one byte, so bytewise key order and
 length-first key order give the same bytes, and these encodings do not
 depend on which of the two applies to longer labels (see
-[Open questions](#open-questions)).
+[Open questions](#open-questions)). The vectors include one map whose labels
+differ in encoded length, `map_key_order`, with its bytes in both orders.
+It is **provisional**: neither encoding is frozen until the order is
+settled.
 
 ## Open questions
 

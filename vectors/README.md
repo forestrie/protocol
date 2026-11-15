@@ -257,8 +257,18 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
 
+**`map_key_order` is provisional.** It is a map whose labels differ in
+encoded length (`1`, `100`, `-1`), with its bytes in bytewise order and in
+length-first order. Which order is canon for such labels is not settled
+(see [implementation-status.md](../spec/implementation-status.md)), so the
+entry carries `status: provisional` and `canonical: unsettled`, and the
+check fails if either changes before the order is decided. No statement in
+the file has such labels, so no other vector depends on the order.
+
 `scripts/check-vectors.py` recomputes every hash, digest, signer and leaf,
 decodes every statement strictly, and runs the audit on each case's bytes.
+`--self-test` mutates the delegated-spend fixtures in memory and fails
+unless the checks catch every mutation.
 
 ## Payment nonce
 
@@ -305,6 +315,7 @@ unchanged. The cases are listed in the spec's §3.4.
 
 ```
 python3 scripts/check-vectors.py
+python3 scripts/check-vectors.py --self-test
 python3 scripts/gen-delegated-spend-vectors.py --check
 python3 scripts/check-pins.py
 sha256sum -c vectors/SHA256SUMS

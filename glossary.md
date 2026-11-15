@@ -441,6 +441,57 @@ always required regardless.
 _Avoid_: a per-verifier constant or environment variable — the flag is the one
 declaration.
 
+## Delegated spend
+
+**ERC-7710 delegation**:
+A signed grant of spending authority from a delegator to a delegate, held and
+enforced on chain by a delegation manager: delegate, delegator, authority (the
+parent's delegation hash, or `ROOT_AUTHORITY`), caveats, salt and signature
+([delegated-spend-statements.md](spec/delegated-spend-statements.md) §1).
+_Avoid_: bare "delegation" where the sealing delegation of a log's root key
+could be meant; that is the **delegation certificate**.
+
+**Hop / payment leaf**:
+A **hop** is a reusable ERC-7710 delegation conferring standing authority
+(caps, an expiry, payees), published as a delegation statement. A **payment
+leaf** is a single-use delegation beneath a hop that pins one transfer; it is
+never published.
+
+**Delegation hash**:
+The EIP-712 struct hash of an ERC-7710 delegation, the value the delegation
+manager hands caveat enforcers. It covers every field but the caveats' `args`
+and the signature. Not the typed-data digest the delegator signs.
+_Avoid_: calling the signed digest the delegation hash.
+
+**Delegation statement / revocation statement / spend statement**:
+The three delegated-spend statements: a delegation statement publishes one
+hop, carrying `DELEGATION_TAG ‖ delegation hash` at payload key 2; a
+revocation statement records that a delegator disabled a hop on chain; a spend
+statement records the payment a payment leaf made, by transaction hash
+([delegated-spend-statements.md](spec/delegated-spend-statements.md)).
+
+**Publication (of a delegation hash)**:
+An anchored statement whose bytes contain `DELEGATION_TAG ‖ H` publishes `H`
+in its log; the on-chain publication check proves presence, not form. Only
+`TAG ‖ H` at key 2 of a delegation statement whose hop hashes to `H` is well
+formed.
+
+**Payment nonce**:
+`SHA-256("univocity/payment-nonce/v1" ‖ kind ‖ purposeDigest ‖ payer)`: the
+one value that ties a payment to the grant, onboarding or credit purchase it
+pays for, carried as a delegated payment's salt
+([payment-nonce-and-binding.md](spec/payment-nonce-and-binding.md) §2).
+
+**Binding delegation / `erc7710-leaf-salt/v1`**:
+In a redeemed chain, the delegation nearest the root that pins a transfer to
+the payee; with `LimitedCallsEnforcer(1)` and a paired `Transfer` it is a
+payment, identified by its delegation manager and delegation hash.
+`erc7710-leaf-salt/v1` is the rule that finds it, pairs it and matches it to a
+request ([payment-nonce-and-binding.md](spec/payment-nonce-and-binding.md)
+§3).
+_Avoid_: "the leaf binds" as a rule; the leaf binds only when no delegation
+nearer the root pins a transfer.
+
 ## Receipt verification
 
 **Offline receipt verification**:

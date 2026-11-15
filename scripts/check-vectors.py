@@ -916,20 +916,26 @@ def lenient_cose_sign1(data: bytes):
     """Locate the four elements of a COSE_Sign1 as found, however the signer or a relayer encoded
     them: non-shortest heads, an indefinite outer array or byte strings, any leading tags, simple
     values anywhere. Offsets are into `data`. Only byte-string elements the signature covers matter
-    here; it raises if the bytes are not a four-element array of the right types."""
+    here; it raises if the bytes are not an array of four or more elements whose first, third and
+    fourth are byte strings. The unprotected header is never signed, so any well-formed item will do
+    for it, and elements after the fourth are skipped."""
     major, n, off = _lenient_head(data, 0)
     while major == 6:
         major, n, off = _lenient_head(data, off)
-    if major != 4 or n not in (4, None):
-        raise ValueError("not a 4-element COSE_Sign1")
+    if major != 4 or (n is not None and n < 4):
+        raise ValueError("not a COSE_Sign1 of at least four elements")
     elements = []
     for _ in range(4):
+        if n is None and data[off:off + 1] == b"\xff":
+            raise ValueError("not a COSE_Sign1 of at least four elements")
         item, off = _lenient_item(data, off)
         elements.append(item)
-    if n is None and data[off:off + 1] != b"\xff":
-        raise ValueError("not a 4-element COSE_Sign1")
+    for _ in range(n - 4 if n is not None else 0):
+        _, off = _lenient_item(data, off)
+    while n is None and data[off:off + 1] != b"\xff":
+        _, off = _lenient_item(data, off)
     protected_bytes, unprotected, payload, signature = elements
-    if not (is_bstr(protected_bytes) and isinstance(unprotected, dict) and is_bstr(payload) and is_bstr(signature)):
+    if not (is_bstr(protected_bytes) and is_bstr(payload) and is_bstr(signature)):
         raise ValueError("COSE_Sign1 element of the wrong type")
     return {"protected_bytes": protected_bytes, "protected": _lenient_item(protected_bytes, 0)[0],
             "unprotected": unprotected, "payload": payload, "signature": signature}
@@ -1672,6 +1678,12 @@ SELF_TEST_MUTATIONS = [
                     signer_hex=None)),
     ("erc7710-statements.json", "a high-s signature: the tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-high-s")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "an unprotected header that is not a map: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-unprotected-not-a-map")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a 24-element outer array: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-24-element-array")["expect"]["publications"][0],
                     signer_hex=None)),
     ("erc7710-statements.json", "a tag ending in the protected header and running into the unprotected: left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-protected-header-running-into-unprotected")["expect"]["publications"][0],

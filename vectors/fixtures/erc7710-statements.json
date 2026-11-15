@@ -893,6 +893,40 @@
       }
     },
     {
+      "name": "flag/tag-in-another-statement-type-unprotected-not-a-map",
+      "rule": "1b",
+      "note": "the stranger's statement with the integer 0 as its unprotected header: the signature does not cover it, canopy's grant-data path reads it as an empty map and admits the statement, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273d005868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-24-element-array",
+      "rule": "1b",
+      "note": "the stranger's statement in an outer array of 24 elements, the first four the COSE_Sign1 and twenty more after them: the signature covers none of that, canopy admits any array of four or more, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "98185838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe3509000000000000000000000000000000000000000000",
+      "expect": {
+        "publications": [
+          {
+            "offset": 103,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
       "name": "flag/tag-in-protected-header-running-into-unprotected",
       "rule": "1b",
       "note": "the stranger's statement whose protected header ends in TAG ‖ H[:31], the empty unprotected header's 0xa0 being H's last byte: the signer wrote every byte of the tag, so an auditor attributes it to the stranger, though the 32 bytes of H reach into the unsigned header",

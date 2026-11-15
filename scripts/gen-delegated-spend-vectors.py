@@ -420,6 +420,10 @@ def statements_fixture():
                      + cv.cbor_encode(other_payload[half:]) + b"\xff" + other[pay_at + len(other_payload):])
     s_, recid_ = int.from_bytes(other[sig_at + 34:sig_at + 66], "big"), other[-1]
     other_high_s = (other[:sig_at + 34] + (cv.K1_N - s_).to_bytes(32, "big") + bytes([recid_ ^ 1]))
+    # Unsigned choices that canopy admits: an unprotected header that is not a map, and an outer array
+    # of more than four elements. Neither is signed, so neither may unattribute a tag in the payload.
+    other_unprotected_int = other[:unprot_at] + b"\x00" + other[unprot_at + 1:]
+    other_long_array = b"\x98\x18" + other[1:] + b"\x00" * 20
     # TAG ‖ H whose last byte is the 0xa0 of the empty unprotected header: the signer ends a protected-header
     # value with TAG ‖ H[:31] and the unsigned byte after the protected header supplies H's last byte (about
     # 256 salts of a real hop reach an H that ends in 0xa0; this H is only a stand-in that does).
@@ -691,6 +695,20 @@ def statements_fixture():
          "cose_sign1_hex": other_high_s.hex(),
          "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "accepted"}},
+        {"name": "flag/tag-in-another-statement-type-unprotected-not-a-map", "rule": "1b",
+         "note": "the stranger's statement with the integer 0 as its unprotected header: the signature does not "
+                 "cover it, canopy's grant-data path reads it as an empty map and admits the statement, and the "
+                 "tag in the signed payload is still the stranger's",
+         "cose_sign1_hex": other_unprotected_int.hex(),
+         "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-24-element-array", "rule": "1b",
+         "note": "the stranger's statement in an outer array of 24 elements, the first four the COSE_Sign1 and "
+                 "twenty more after them: the signature covers none of that, canopy admits any array of four or "
+                 "more, and the tag in the signed payload is still the stranger's",
+         "cose_sign1_hex": other_long_array.hex(),
+         "expect": {"publications": [pub(other_off + 1, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
         {"name": "flag/tag-in-protected-header-running-into-unprotected", "rule": "1b",
          "note": "the stranger's statement whose protected header ends in TAG ‖ H[:31], the empty unprotected "
                  "header's 0xa0 being H's last byte: the signer wrote every byte of the tag, so an auditor "

@@ -373,6 +373,9 @@ tag's bytes, so no relayer can frame it by what it adds after them.
 
 The signer, and the bytes the signature covers, are found by a lenient read
 of the four COSE_Sign1 elements as they are, not by the strict decode of §9.
+The read takes the first four items of an outer array of any length, and
+any well-formed item as the unprotected header: neither is signed, and a
+signer or a relayer can choose them (canopy admits both).
 The outer array's head, the byte-string heads and the form of tag 18 are not
 signed, and the signer chooses the encoding of its own protected header, so
 a statement that fails the strict decode still has its signed tags

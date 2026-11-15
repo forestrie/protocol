@@ -938,6 +938,8 @@ def lenient_cose_sign1(data: bytes):
 def ks256_statement_signer(sign1):
     """The address a KS256 statement signature recovers to, or None. A high s still proves the key
     signed (the verifier refuses it, the key still made it), so it is normalised before recovery."""
+    if not isinstance(sign1["protected"], dict):
+        raise ValueError("protected header is not a map")
     if sign1["protected"].get(1) != KS256_ALG or len(sign1["signature"]) != 65:
         return None
     sig = sign1["signature"]
@@ -949,6 +951,8 @@ def ks256_statement_signer(sign1):
 
 
 def statement_type_of(sign1):
+    if not isinstance(sign1["protected"], dict):
+        raise ValueError("protected header is not a map")
     cty = sign1["protected"].get(3)
     return next((t for t, c in CONTENT_TYPES.items() if c == cty), None)
 
@@ -970,7 +974,7 @@ def audit_publications(statement: bytes):
         # The signature covers the protected header and the payload, not the unprotected header.
         signed = [r for k in ("protected_bytes", "payload") for r in lenient[k].ranges]
         signer = ks256_statement_signer(lenient)
-    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError, RecursionError):
         pass
     try:
         sign1 = parse_cose_sign1(statement)
@@ -978,7 +982,7 @@ def audit_publications(statement: bytes):
             payload = parse_statement_payload("delegation", cbor_decode(sign1["payload"]))
             anchor_offset = sign1["shift"] + sign1["payload"].offset + payload[2].offset
             struct_hash = hop_struct_hash(parse_hop(payload[5]))
-    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError, RecursionError):
         pass
     out = []
     for off, h in found:
@@ -1000,7 +1004,7 @@ def route_check(statement: bytes) -> str:
     Bytes that hold the tag and do not decode strictly cannot be classified, so it refuses those too."""
     try:
         statement_type = statement_type_of(parse_cose_sign1(statement))
-    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError, RecursionError):
         return "refused:tag-present" if DELEGATION_TAG in statement else "not-a-statement"
     if statement_type in ("revocation", "spend") and DELEGATION_TAG in statement:
         return "refused:tag-present"
@@ -1263,7 +1267,7 @@ def check_delegated_spend_statements() -> int:
             parse_statement_payload(neg["type"], cbor_decode(sign1["payload"]))
             if set(sign1["unprotected"]) - {SESSION_ENDORSEMENT_LABEL}:
                 raise ValueError("an unprotected label other than the session endorsement's")
-        except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+        except (ValueError, KeyError, IndexError, UnicodeDecodeError, RecursionError):
             continue
         print(f"{name}: decode negative {neg['name']!r}: a conforming decoder refuses it, and it decoded")
         bad += 1
@@ -1669,6 +1673,8 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "a high-s signature: the tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-high-s")["expect"]["publications"][0],
                     signer_hex=None)),
+    ("erc7710-statements.json", "a protected header that is not a map: the tag left unflagged",
+     lambda v: _named(v["audit_cases"], "flag/tag-in-statement-with-protected-not-a-map")["expect"]["publications"].pop()),
     ("erc7710-leaf-salt-v1.json", "a pin with a trailing byte treated as a pin",
      lambda v: _set(_named(v["cases"], "pin-trailing-bytes")["expect"]["chains"][0],
                     binding=_named(v["cases"], "pin-trailing-bytes")["expect"]["chains"][0]["delegations"][0])),

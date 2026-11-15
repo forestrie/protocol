@@ -401,6 +401,10 @@ def statements_fixture():
     other_tag18_long = b"\xd8\x12" + other
     # Encodings of the same statement that only the lenient read follows: none changes what the
     # signature covers, and the tag stays in the signed payload (or the protected header's bytes).
+    # A protected header that is a bstr-wrapped integer, not a map: the bytes decode, nothing reads a type or
+    # an algorithm from them, and an auditor must flag the tag in the payload, not crash on the entry.
+    not_a_map = sign_statement(cv.cbor_encode(5), other_payload, stranger)
+    not_a_map_off = not_a_map.find(cv.DELEGATION_TAG)
     other_indefinite_array = b"\x9f" + other[1:] + b"\xff"
     other_protected = cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address})
     unprot_at = 1 + len(cv.cbor_encode(other_protected))
@@ -676,6 +680,13 @@ def statements_fixture():
          "cose_sign1_hex": other_high_s.hex(),
          "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "accepted"}},
+        {"name": "flag/tag-in-statement-with-protected-not-a-map", "rule": "1b",
+         "note": "a statement whose protected header is the integer 5, not a map: it has no content type and no "
+                 "algorithm, so the route refuses it as unclassifiable and an auditor flags the tag in its "
+                 "payload and attributes it to nobody, rather than failing on the entry",
+         "cose_sign1_hex": not_a_map.hex(),
+         "expect": {"publications": [pub(not_a_map_off, D_AB.struct_hash, "flag:outside-key-2", None)],
+                    "route": "refused:tag-present"}},
     ]
     return {
         "version": 1,

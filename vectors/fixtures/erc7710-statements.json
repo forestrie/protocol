@@ -891,6 +891,23 @@
         ],
         "route": "accepted"
       }
+    },
+    {
+      "name": "flag/tag-in-statement-with-protected-not-a-map",
+      "rule": "1b",
+      "note": "a statement whose protected header is the integer 5, not a map: it has no content type and no algorithm, so the route refuses it as unclassifiable and an auditor flags the tag in its payload and attributes it to nobody, rather than failing on the entry",
+      "cose_sign1_hex": "844105a05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c584193d362711ee2f6b15c8c51eb263ebde01867d08210688ccf192c89378eaffa1a272a230f9ecea361401d0a583373d29cdf38ed463213f699c183cffc2215210b01",
+      "expect": {
+        "publications": [
+          {
+            "offset": 46,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
     }
   ],
   "map_key_order": {

@@ -282,6 +282,7 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/tag-in-another-statement-type-unprotected-simple` | the same, with `{-70000: true}` in the unprotected header | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
 | `flag/tag-in-another-statement-type-chunked-payload` | the same, the payload an indefinite-length byte string of two chunks | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
 | `flag/tag-in-another-statement-type-high-s` | the same, the KS256 signature malleated to high s | `flag:outside-key-2` attributed to the stranger, and the route accepts it (it decodes strictly) |
+| `flag/tag-in-statement-with-protected-not-a-map` | `H(D_AB)` in the payload of a statement whose protected header is the integer `5` | `flag:outside-key-2` with no signer, and the route refuses it; neither crashes |
 | `refuse/revocation-with-tag` | `H(D_AB)`, in a revocation statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `well-formed/D_AB-tag18` | `H(D_AB)`, in a tag-18 delegation statement | `well-formed`, one byte later than in `well-formed/D_AB` |
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |

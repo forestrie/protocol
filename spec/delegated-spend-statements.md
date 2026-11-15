@@ -277,7 +277,16 @@ A spend's kind says whom it paid and for what:
 For kinds 1 to 3 the purpose digest is the one the payment nonce is built
 from ([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §2), so
 an auditor checks a spend against its leaf: the nonce over the kind, the
-purpose digest and the chain's root delegator is the leaf's salt. A seller's
+purpose digest and the chain's root delegator is the leaf's salt. That is
+not enough on its own: key 8 of a kind 1 to 3 spend must be a **payment** of
+key 9's transaction. The auditor runs the binding rule
+([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §3.2) on
+that transaction's receipt and requires key 8, under the spend's chain and
+delegation manager, to be among its payments, with the nonce over the kind,
+the purpose digest and that payment's root equal to the payment's salt. A
+leaf salted beneath a salted hop pays nothing, because the hop nearest the
+root binds; a spend that names such a leaf is refused, although its leaf's
+salt matches. A seller's
 payment (kind 4) carries no payment nonce, and its digest is whatever
 reference the seller gave.
 
@@ -371,6 +380,7 @@ published hop.
 | `revocation/D_AB` | agent A disables `D_AB` | a bare hash, a reason and the disabling transaction |
 | `spend/credits` | agent B buys credits through a payment leaf | the credits purpose digest, whose nonce is the leaf's salt |
 | `spend/seller` | agent B pays a seller | kind 4, with the seller's reference as digest |
+| `spend/credits-under-salted-hop` (`refused_spends`) | a credits spend naming a leaf that sits beneath a salted hop | refused: key 8 is not a payment of the receipt |
 
 ## 9. Encoding
 

@@ -379,8 +379,19 @@ def statements_fixture():
          "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
         "agent B records, in L_B, the payment leaf/credits made; amount, asset and payee are read from the "
         "transaction, and the purpose digest is the credits nonce's",
-        paid_by={"delegation": LEAF_CREDITS.name, "root_hex": W_H.hex()},
+        paid_by={"delegation": LEAF_CREDITS.name, "root_hex": W_H.hex(), "receipt_case": "one-payment"},
     )
+    st_unbound, _ = plain_statement(
+        "spend/credits-under-salted-hop", "spend", b_stmt,
+        {"delegation_hash_hex": LEAVES["leaf/under-salted-hop"].struct_hash.hex(),
+         "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
+        "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's "
+        "binding delegation is the salted hop above it (Q52), so the leaf is not a payment, and an auditor "
+        "refuses the spend although the nonce over its purpose and root is the leaf's salt",
+        paid_by={"root_hex": W_H.hex(), "receipt_case": "salted-hop-above-salted-leaf"},
+    )
+    st_unbound["refused"] = "binding"
     st_seller, _ = plain_statement(
         "spend/seller", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_SELLER.struct_hash.hex(), "transaction_hash_hex": SELLER_TX.hex(),
@@ -490,6 +501,7 @@ def statements_fixture():
         "accounts": [a.json() for a in ACCOUNTS.values()],
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
+        "refused_spends": [st_unbound],
         "audit_cases": audit_cases,
         "map_key_order": map_key_order(),
     }

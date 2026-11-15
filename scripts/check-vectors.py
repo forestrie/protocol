@@ -1054,26 +1054,53 @@ def check_statement(name: str, st, hops, keys) -> int:
         bad += 1
     paid = st.get("paid_by")
     if paid:
-        # An auditor ties a spend of a registration-service purpose back to its
-        # leaf: the nonce over the purpose and the chain's root is the leaf's salt.
-        leaf = hops[paid["delegation"]]
-        by_hash = {hop_struct_hash(h): h for h in hops.values()}
-        root_hop = leaf
-        for _ in range(len(hops)):  # follow authority links to the hop that names ROOT_AUTHORITY
-            if root_hop["authority"] == ROOT_AUTHORITY or root_hop["authority"] not in by_hash:
-                break
-            root_hop = by_hash[root_hop["authority"]]
-        if root_hop["authority"] != ROOT_AUTHORITY or root_hop["delegator"].hex() != paid["root_hex"]:
-            print(f"{where}: paid_by.root_hex is not the delegator at the root of the leaf's authority chain")
-            bad += 1
+        codes = {}
         p = payload[10]
         kind = {v_: k for k, v_ in PAYMENT_KINDS.items()}.get(p[1])
-        if hop_struct_hash(leaf) != bytes(payload[8]) or kind is None or hashlib.sha256(
-            payment_nonce_preimage(kind, bytes(p[2]), bytes.fromhex(paid["root_hex"]))
-        ).digest() != leaf["salt"]:
-            print(f"{where}: the nonce over its purpose and root is not the salt of the leaf it names")
+        if "delegation" in paid:
+            # An auditor ties a spend of a registration-service purpose back to its
+            # leaf: the nonce over the purpose and the chain's root is the leaf's salt.
+            leaf = hops[paid["delegation"]]
+            by_hash = {hop_struct_hash(h): h for h in hops.values()}
+            root_hop = leaf
+            for _ in range(len(hops)):  # follow authority links to the hop that names ROOT_AUTHORITY
+                if root_hop["authority"] == ROOT_AUTHORITY or root_hop["authority"] not in by_hash:
+                    break
+                root_hop = by_hash[root_hop["authority"]]
+            if root_hop["authority"] != ROOT_AUTHORITY or root_hop["delegator"].hex() != paid["root_hex"]:
+                codes["root"] = "paid_by.root_hex is not the delegator at the root of the leaf's authority chain"
+            if hop_struct_hash(leaf) != bytes(payload[8]) or kind is None or hashlib.sha256(
+                payment_nonce_preimage(kind, bytes(p[2]), bytes.fromhex(paid["root_hex"]))
+            ).digest() != leaf["salt"]:
+                codes["nonce"] = "the nonce over its purpose and root is not the salt of the leaf it names"
+        if "receipt_case" in paid and not receipt_pays(payload, kind, paid["receipt_case"]):
+            codes["binding"] = ("key 8 is not a payment of the receipt's binding rule whose salt is the nonce over "
+                                "its purpose and the payment's root")
+        want = {st["refused"]} if "refused" in st else set()
+        if set(codes) != want:
+            for message in codes.values():
+                print(f"{where}: {message}")
+            if not codes:
+                print(f"{where}: refused for {sorted(want)}, but every spend check passes")
             bad += 1
     return bad
+
+
+def receipt_pays(payload: dict, kind, case_name: str) -> bool:
+    """Whether key 8 of a kind 1 to 3 spend is a payment of the erc7710-leaf-salt/v1 receipt
+    that key 9's transaction stands for, on the spend's chain and manager, and the nonce over the
+    spend's kind, purpose digest and that payment's root is the payment's salt."""
+    v = load("erc7710-leaf-salt-v1.json")
+    case = next(c for c in v["cases"] if c["name"] == case_name)
+    got = leaf_salt_v1(v["config"], case["receipt"]["logs"])
+    for pay in got["payments"]:
+        if (pay["delegation_hash_hex"] == bytes(payload[8]).hex()
+                and pay["delegation_manager_hex"] == bytes(payload[4]).hex()
+                and v["config"]["chain_id"] == payload[3]):
+            return kind is not None and hashlib.sha256(
+                payment_nonce_preimage(kind, bytes(payload[10][2]), bytes.fromhex(pay["root_hex"]))
+            ).hexdigest() == pay["salt_hex"]
+    return False
 
 
 def check_map_key_order(name: str, m) -> int:
@@ -1121,8 +1148,11 @@ def check_delegated_spend_statements() -> int:
     bad += check_delegations(name, v)
     hops = {d["name"]: hop_from_fields(d) for d in v["delegations"]}
     keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v["keys"]}
-    for st in v["statements"]:
+    for st in v["statements"] + v["refused_spends"]:
         bad += check_statement(name, st, hops, keys)
+    if not {"binding"} <= {st["refused"] for st in v["refused_spends"]}:
+        print(f"{name}: needs a spend refused because key 8 is no payment of its receipt")
+        bad += 1
     if {st["type"] for st in v["statements"]} != set(CONTENT_TYPES):
         print(f"{name}: needs a statement of every type")
         bad += 1
@@ -1492,6 +1522,8 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-tag18")["expect"], route="accepted")),
     ("erc7710-statements.json", "an unreadable statement holding the tag, route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-reencoded")["expect"], route="not-a-statement")),
+    ("erc7710-statements.json", "the spend's receipt swapped for one whose hop binds beneath the leaf",
+     lambda v: _set(_named(v["statements"], "spend/credits")["paid_by"], receipt_case="salted-hop-above-salted-leaf")),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",

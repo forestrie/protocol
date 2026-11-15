@@ -1153,8 +1153,8 @@ def check_statement(name: str, st, hops, keys) -> int:
                 payment_nonce_preimage(kind, bytes(p[2]), bytes.fromhex(paid["root_hex"]))
             ).digest() != leaf["salt"]:
                 codes["nonce"] = "the nonce over its purpose and root is not the salt of the leaf it names"
-        if "receipt_case" in paid:
-            refusal = receipt_refusal(payload, kind, paid["receipt_case"])
+        if paid.get("receipt_checked"):
+            refusal = receipt_refusal(payload, kind)
             if refusal:
                 codes[refusal[0]] = refusal[1]
         want = {st["refused"]} if "refused" in st else set()
@@ -1167,13 +1167,15 @@ def check_statement(name: str, st, hops, keys) -> int:
     return bad
 
 
-def receipt_refusal(payload: dict, kind, case_name: str):
+def receipt_refusal(payload: dict, kind):
     """Why key 8 of a kind 1 to 3 spend is no payment of the erc7710-leaf-salt/v1 receipt that
     key 9's transaction stands for, as (code, message), or None when it is one: key 8 is a payment
     of the receipt (`binding`), on the spend's delegation manager (`manager`) and chain (`chain`),
     and the nonce over the spend's kind, purpose digest and that payment's root is its salt (`purpose`)."""
     v = load("erc7710-leaf-salt-v1.json")
-    case = next(c for c in v["cases"] if c["name"] == case_name)
+    case = next((c for c in v["cases"] if c["transaction_hash_hex"] == bytes(payload[9]).hex()), None)
+    if case is None:
+        return "binding", "key 9 names no receipt"
     got = leaf_salt_v1(v["config"], case["receipt"]["logs"])
     pay = next((p for p in got["payments"] if p["delegation_hash_hex"] == bytes(payload[8]).hex()), None)
     if pay is None:
@@ -1546,6 +1548,9 @@ def check_leaf_salt() -> int:
         print(f"{name}: the v1 rule lists one framework version and its delegation manager")
         bad += 1
     results = {}
+    if len({c["transaction_hash_hex"] for c in v["cases"]}) != len(v["cases"]):
+        print(f"{name}: each case's transaction_hash_hex must be its own, for a spend's key 9 to select it")
+        bad += 1
     for case in v["cases"]:
         where = f"{name}: case {case['name']!r}"
         got = leaf_salt_v1(v["config"], case["receipt"]["logs"])
@@ -1654,8 +1659,12 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-tag18")["expect"], route="accepted")),
     ("erc7710-statements.json", "an unreadable statement holding the tag, route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-reencoded")["expect"], route="not-a-statement")),
-    ("erc7710-statements.json", "the spend's receipt swapped for one whose hop binds beneath the leaf",
-     lambda v: _set(_named(v["statements"], "spend/credits")["paid_by"], receipt_case="salted-hop-above-salted-leaf")),
+    ("erc7710-statements.json", "a spend naming a receipt without its leaf accepted",
+     lambda v: _set(_named(v["refused_spends"], "spend/credits-wrong-receipt"), refused="chain")),
+    ("erc7710-statements.json", "the receipt check dropped from a refused spend",
+     lambda v: _named(v["refused_spends"], "spend/credits-under-salted-hop")["paid_by"].pop("receipt_checked")),
+    ("erc7710-leaf-salt-v1.json", "two receipts under one transaction hash",
+     lambda v: _set(v["cases"][1], transaction_hash_hex=v["cases"][0]["transaction_hash_hex"])),
     ("erc7710-leaf-salt-v1.json", "a leaf binding on its own pin, not the verifier's payee",
      lambda v: _set(_named(v["cases"], "agent-pays-itself")["expect"]["chains"][0],
                     binding=_named(v["cases"], "agent-pays-itself")["expect"]["chains"][0]["delegations"][0])),

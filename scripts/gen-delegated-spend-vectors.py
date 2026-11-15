@@ -326,9 +326,16 @@ def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, 
     return entry, data
 
 
-ONE_PAYMENT_TX = cv.keccak256(b"protocol vectors delegated spend: the one-payment transaction")
+def receipt_tx(case_name: str) -> bytes:
+    """The hash standing for the transaction whose receipt is the named erc7710-leaf-salt/v1 case."""
+    return cv.keccak256(f"protocol vectors delegated spend: the {case_name} transaction".encode())
+
+
+ONE_PAYMENT_TX = receipt_tx("one-payment")
+SALTED_HOP_TX = receipt_tx("salted-hop-above-salted-leaf")
+NO_CALL_LIMIT_TX = receipt_tx("no-call-limit")
 DISABLE_TX = cv.keccak256(b"protocol vectors delegated spend: the disableDelegation(D_AB) transaction")
-PAY_SELF_TX = cv.keccak256(b"protocol vectors delegated spend: the agent-pays-itself transaction")
+PAY_SELF_TX = receipt_tx("agent-pays-itself")
 SELLER_TX = cv.keccak256(b"protocol vectors delegated spend: the seller payment transaction")
 CREDITS_DIGEST = cv.purpose_digest("credits", CREDITS_PURPOSE)
 
@@ -406,17 +413,17 @@ def statements_fixture():
          "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
         "agent B records, in L_B, the payment leaf/credits made; amount, asset and payee are read from the "
         "transaction, and the purpose digest is the credits nonce's",
-        paid_by={"delegation": LEAF_CREDITS.name, "root_hex": W_H.hex(), "receipt_case": "one-payment"},
+        paid_by={"delegation": LEAF_CREDITS.name, "root_hex": W_H.hex(), "receipt_checked": True},
     )
     st_unbound, _ = plain_statement(
         "spend/credits-under-salted-hop", "spend", b_stmt,
         {"delegation_hash_hex": LEAVES["leaf/under-salted-hop"].struct_hash.hex(),
-         "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "transaction_hash_hex": SALTED_HOP_TX.hex(),
          "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
         "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's "
         "binding delegation is the salted hop above it (Q52), so the leaf is not a payment, and an auditor "
         "refuses the spend although the nonce over its purpose and root is the leaf's salt",
-        paid_by={"root_hex": W_H.hex(), "receipt_case": "salted-hop-above-salted-leaf"},
+        paid_by={"root_hex": W_H.hex(), "receipt_checked": True},
     )
     st_unbound["refused"] = "binding"
     st_pays_self, _ = plain_statement(
@@ -427,14 +434,14 @@ def statements_fixture():
         "a credits spend whose leaf is salted with the credits nonce over the root, and pins the transfer to "
         "agent B's own account: an auditor runs the binding rule with the registration service's payee from its "
         "own configuration, not the leaf's pin, so the leaf binds nothing and the spend is refused",
-        paid_by={"root_hex": W_H.hex(), "receipt_case": "agent-pays-itself"},
+        paid_by={"root_hex": W_H.hex(), "receipt_checked": True},
     )
     st_pays_self["refused"] = "binding"
     credits_fields = {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(),
                       "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
                       "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(),
                                   "description": "100 credits for the test instance"}}
-    paid_one = {"root_hex": W_H.hex(), "receipt_case": "one-payment"}
+    paid_one = {"root_hex": W_H.hex(), "receipt_checked": True}
     st_other_purchase, _ = plain_statement(
         "spend/credits-another-purchase", "spend", b_stmt,
         dict(credits_fields, purpose={"kind": 3, "description": "100 credits for the test instance",
@@ -462,6 +469,13 @@ def statements_fixture():
         "the listed manager's, so an auditor refuses it", paid_by=paid_one,
         manager=UNLISTED_MANAGER)
     st_other_manager["refused"] = "manager"
+    st_wrong_receipt, _ = plain_statement(
+        "spend/credits-wrong-receipt", "spend", b_stmt,
+        dict(credits_fields, transaction_hash_hex=NO_CALL_LIMIT_TX.hex()),
+        "a credits spend whose leaf pays in the one-payment transaction but whose key 9 names another "
+        "transaction, whose receipt holds no payment of that leaf: an auditor reads the receipt key 9 names, so "
+        "it refuses the spend, and one that ignores key 9 would pass it", paid_by=paid_one)
+    st_wrong_receipt["refused"] = "binding"
     st_wrong_root, _ = plain_statement(
         "spend/credits-salted-over-own-delegator", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_WRONG_ROOT.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
@@ -647,7 +661,7 @@ def statements_fixture():
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER, LEAF_WRONG_ROOT]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
         "refused_spends": [st_unbound, st_pays_self, st_other_purchase, st_grant_kind, st_other_chain,
-                          st_other_manager, st_wrong_root],
+                          st_other_manager, st_wrong_receipt, st_wrong_root],
         "decode_negatives": decode_negatives,
         "decode_accepts": [
             {"name": "purpose-kind-5", "type": "spend",
@@ -836,7 +850,8 @@ def case(name, note, named_logs, expect, requests):
                       "transfer_position": positions[t]} for b, t, amount in expect.get("payments", [])],
         "unbound_transfers": [positions[n] for n in expect.get("unbound", [])],
     }
-    return {"name": name, "note": note, "receipt": {"status": 1, "logs": [log for _, log in named_logs],
+    return {"name": name, "note": note, "transaction_hash_hex": receipt_tx(name).hex(),
+            "receipt": {"status": 1, "logs": [log for _, log in named_logs],
                                                     "log_names": [n for n, _ in named_logs]},
             "expect": out,
             "requests": [{"purpose": p, "binds": d(b).struct_hash.hex() if b else None} for p, b in requests]}

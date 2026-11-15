@@ -541,6 +541,7 @@
     {
       "name": "one-payment",
       "note": "one chain, one Transfer of the pinned amount from the root: one payment",
+      "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
       "receipt": {
         "status": 1,
         "logs": [
@@ -656,6 +657,7 @@
     {
       "name": "two-payments-one-root",
       "note": "two chains from one root in one transaction, each moving its pinned amount: two payments, each with its own identity and Transfer",
+      "transaction_hash_hex": "e55ffe8090f17ba5283c16e06e1a03e6698a12f5cf511e4b3c0cd4fa7e413a5c",
       "receipt": {
         "status": 1,
         "logs": [
@@ -838,6 +840,7 @@
     {
       "name": "salted-hop-above-salted-leaf",
       "note": "agent B salts its own hop and the leaf beneath it: only the hop, nearest the root, can bind",
+      "transaction_hash_hex": "4c509d19013dbf80b1fa57a72dae6e3f9645ce3f98cc496df3fd8245c3c14268",
       "receipt": {
         "status": 1,
         "logs": [
@@ -954,6 +957,7 @@
     {
       "name": "stranger-extends-leaf",
       "note": "a stranger signs a child under the open leaf and redeems the chain: the leaf still binds",
+      "transaction_hash_hex": "d8ad94f5ba148c610cea31827c586d804f43d0dd851803f13e6a88acdd784969",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1070,6 +1074,7 @@
     {
       "name": "no-call-limit",
       "note": "a leaf salted with the nonce but without LimitedCallsEnforcer(1): it pairs and binds nothing, so its Transfer is money nothing can bind",
+      "transaction_hash_hex": "f2d44ce35a8190665a2304dec939994d87ae1b4b62637123544fc290a87a599e",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1152,6 +1157,7 @@
     {
       "name": "no-call-limit-takes-part",
       "note": "a leaf without the call limit comes first in log order and takes the one Transfer, so the leaf with the call limit pairs with nothing: the Transfer is counted once",
+      "transaction_hash_hex": "4800eff109b04cf1a3cf94d1603350bb828311031af0f3f2e1efcde89845cb3f",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1290,6 +1296,7 @@
     {
       "name": "two-bindings-one-transfer",
       "note": "two binding leaves from one root whose code moves the money once: exactly one binds, the first in log order, which only pairing across the whole receipt shows",
+      "transaction_hash_hex": "fe8def692a091d2126cc5fe8caefb093f468295c14a2efe472b495c3096e02d2",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1447,6 +1454,7 @@
     {
       "name": "two-roots-pair-by-root",
       "note": "a chain from another root, whose code moves nothing, binds first in log order and pins the same amount: it pairs with nothing, and the first root's leaf takes its own root's Transfer",
+      "transaction_hash_hex": "d862c9a6700dc04a31fa9c04533c087d095dcd90545e993f3cccea037bfbaea5",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1582,6 +1590,7 @@
     {
       "name": "call-limit-two",
       "note": "a leaf pinned to the payee with LimitedCallsEnforcer(2), which lets one delegation pay twice: it pairs and binds nothing, so its Transfer is money nothing can bind",
+      "transaction_hash_hex": "df609428be0f5c2aafc755cc4de5478b4c36c9897561c9e150ef1fca41bf7c99",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1664,6 +1673,7 @@
     {
       "name": "call-limit-unlisted",
       "note": "a leaf pinned to the payee with a call limit of one under an enforcer the verifier does not list: it pairs and binds nothing, so its Transfer is money nothing can bind",
+      "transaction_hash_hex": "9402fa4357189e39df95b9820709d1011d22fec669122bc18c5d3111bed70506",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1746,6 +1756,7 @@
     {
       "name": "pin-unlisted-enforcer",
       "note": "pin-shaped terms under an enforcer the verifier does not list pin nothing: no binding, so nothing pairs and the Transfer is unbound",
+      "transaction_hash_hex": "dc31d00ce621f5988e6edb6f4f065e492c7465bbaa7b00d9dafc16a9cbdd0414",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1834,6 +1845,7 @@
     {
       "name": "pin-to-another-payee",
       "note": "a leaf from the same root pins the amount to an account that is not the payee, and comes first in log order: it binds nothing, and the valid leaf still binds and takes the Transfer",
+      "transaction_hash_hex": "51ae102a069a6e345a5fa0957eb9bc70d8a198c5723c589d77e2723b45bb21e2",
       "receipt": {
         "status": 1,
         "logs": [
@@ -1989,6 +2001,7 @@
     {
       "name": "agent-pays-itself",
       "note": "agent B pins the amount to its own account under the credits nonce, and the root's code moves it there: the pin is not to the verifier's payee, so the leaf binds nothing, and a Transfer to another account than the payee is not counted at all",
+      "transaction_hash_hex": "7b8d9499dbbd2012a9126af04eff377431c15ceb205efe17c4a16dda2e97d81d",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2075,6 +2088,7 @@
     {
       "name": "eip3009-transfer-beside-binding",
       "note": "an EIP-3009 Transfer from the root beside a binding leaf whose root moved nothing: the Transfer belongs to x402 and pairs with nothing",
+      "transaction_hash_hex": "07ec5dfe236d0bec6553420d9e095b4536a796e45b2add0233cae6d7395d72b0",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2175,6 +2189,7 @@
     {
       "name": "transfer-from-another-contract",
       "note": "a contract that is not USDC emits Transfer(root, payee, price), as a root whose code moves nothing could arrange: it is no USDC Transfer, so the binding leaf pairs with nothing",
+      "transaction_hash_hex": "c5c48f359ed96aa44efbbd81413459edf14b296720dbe929d9c71f9f223c1042",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2263,6 +2278,7 @@
     {
       "name": "authorization-used-from-another-contract",
       "note": "a contract that is not USDC emits AuthorizationUsed for the root right before the root's real Transfer: it is not USDC's event, so the Transfer is no EIP-3009 one and still pairs",
+      "transaction_hash_hex": "e9170042b62c39fbe721da958bb07bc7b9f75db5d97ae39efc3f08d90ce3bf9c",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2374,6 +2390,7 @@
     {
       "name": "authorization-used-for-another-account",
       "note": "USDC's AuthorizationUsed for another account sits right before the root's real Transfer: it names a different from, so the Transfer is no EIP-3009 one and still pairs",
+      "transaction_hash_hex": "88e0906aacebcbefe3d0b399ab820de41c8c3a70290095607d521a09375906d1",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2485,6 +2502,7 @@
     {
       "name": "pin-other-target",
       "note": "a leaf pins a call on a contract that is not USDC: no binding, so nothing pairs and the root's real Transfer is unbound",
+      "transaction_hash_hex": "95c7f2f9b80f7cabf9e1b94da676b822879ba6c3cc154cd88a10dda0a77fd853",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2573,6 +2591,7 @@
     {
       "name": "pin-approve",
       "note": "a leaf pins a call on approve, not transfer, on USDC: no binding, so nothing pairs and the root's real Transfer is unbound",
+      "transaction_hash_hex": "041e715828aca6223e4a6a90c6883b3a65f3fd3d5b3f9280bd39976c4276307f",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2661,6 +2680,7 @@
     {
       "name": "pin-trailing-bytes",
       "note": "a leaf whose ExactExecutionEnforcer terms are the 120-byte pin and one more byte: the framework redeems it and the Transfer happens, but the terms are not exactly the pin, so the leaf binds nothing and the Transfer is unbound, a refund (Q54), not a payment",
+      "transaction_hash_hex": "153b8a76e579bf39118a6f267995db1f4908a976739d72251bc4c1ce4df8f867",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2749,6 +2769,7 @@
     {
       "name": "unlisted-manager",
       "note": "the events come from a delegation manager the verifier does not list: no chain, and the Transfer is unbound",
+      "transaction_hash_hex": "f8cdfc464a9ab9dfebe56ee2b355c0f001297bca85c0c880e287492418f3e4fc",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2827,6 +2848,7 @@
     {
       "name": "transfer-differs-from-pin",
       "note": "the root's code moves another amount than the leaf pins: the leaf pairs with nothing and the Transfer is unbound",
+      "transaction_hash_hex": "6fc257c9bf323c85c552821fac19d34c3f7135238b5f0b6f22f7546ea9803faa",
       "receipt": {
         "status": 1,
         "logs": [
@@ -2917,6 +2939,7 @@
     {
       "name": "repay/first-leaf",
       "note": "the first payment for the onboarding nonce",
+      "transaction_hash_hex": "0f89c5d6fb15a3213b87dacf10a4cdf78d61e3bd5878ed8726332bc20e9f154d",
       "receipt": {
         "status": 1,
         "logs": [
@@ -3018,6 +3041,7 @@
     {
       "name": "repay/varied-leaf",
       "note": "the re-pay: a leaf varied by its TimestampEnforcer bound binds the same nonce as a new payment",
+      "transaction_hash_hex": "e705cb2666ab184d96c002c18603016a9bffbbbd53d00650898e9f46d57c40f9",
       "receipt": {
         "status": 1,
         "logs": [

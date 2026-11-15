@@ -214,6 +214,8 @@ transfers, and which requests it pays.
 | `pin-other-target`, `pin-approve` | a pin on a contract that is not USDC, or on `approve` rather than `transfer`: no binding, the real `Transfer` unbound |
 | `transfer-from-another-contract` | a `Transfer`-shaped log from a contract that is not USDC pairs with nothing |
 | `authorization-used-from-another-contract`, `authorization-used-for-another-account` | an `AuthorizationUsed` from another contract, or USDC's for another account, before the root's `Transfer` does not make it an EIP-3009 one: it still pairs |
+| `pin-trailing-bytes` | a pin of 120 bytes and one more: the framework's `ExactExecutionEnforcer` redeems it and the `Transfer` happens, but the terms are not exactly the pin, so there is no binding and the `Transfer` is unbound |
+| `agent-pays-itself` | a leaf salted with a nonce that pins the amount to the agent's own account, the root's code moving it there: no binding, and a `Transfer` to another account than the payee is not counted |
 | `pin-to-another-payee` | a leaf pinning the amount to another account, first in log order, binds nothing; the valid leaf still binds |
 | `no-call-limit-takes-part` | it takes the one `Transfer` before a leaf with the call limit, which pairs with nothing |
 | `two-bindings-one-transfer` | two binding leaves, one `Transfer`: the first in log order binds |

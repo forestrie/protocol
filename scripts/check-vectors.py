@@ -1581,7 +1581,7 @@ def check_leaf_salt() -> int:
             "call-limit-two", "call-limit-unlisted", "pin-unlisted-enforcer", "pin-to-another-payee",
             "transfer-from-another-contract", "authorization-used-from-another-contract",
             "authorization-used-for-another-account", "pin-other-target", "pin-approve",
-            "agent-pays-itself"} <= set(results):
+            "agent-pays-itself", "pin-trailing-bytes"} <= set(results):
         print(f"{name}: a case the rule requires is missing")
         bad += 1
     return bad
@@ -1633,6 +1633,9 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "a long tag 18 statement's tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-tag18-long")["expect"]["publications"][0],
                     signer_hex=None)),
+    ("erc7710-leaf-salt-v1.json", "a pin with a trailing byte treated as a pin",
+     lambda v: _set(_named(v["cases"], "pin-trailing-bytes")["expect"]["chains"][0],
+                    binding=_named(v["cases"], "pin-trailing-bytes")["expect"]["chains"][0]["delegations"][0])),
     ("erc7710-statements.json", "no spend refused for another chain",
      lambda v: v["refused_spends"].remove(_named(v["refused_spends"], "spend/credits-on-another-chain"))),
     ("erc7710-statements.json", "no spend refused for another delegation manager",

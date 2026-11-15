@@ -730,6 +730,12 @@ LEAVES = {d.name: d for d in (
          caveats=((EXACT_EXECUTION, transfer_pin(SELLER, PRICE), "ExactExecutionEnforcer: USDC, value 0, transfer(seller, 10000)"),
                   CALL_LIMIT),
          note="pins the amount to an account that is not the payee, one call"),
+    leaf("leaf/pin-trailing-bytes", "credits",
+         caveats=((EXACT_EXECUTION, transfer_pin(PAYEE, PRICE) + b"\x00",
+                   "ExactExecutionEnforcer: USDC, value 0, transfer(payee, 10000) and one trailing byte"),
+                  CALL_LIMIT),
+         note="the pin's 120 bytes and one more: ExactExecutionEnforcer v1.3.0 redeems it, USDC's decoder "
+              "ignores the extra byte, and the rule treats it as no pin"),
     leaf("leaf/pin-other-target", "grant",
          caveats=((EXACT_EXECUTION, transfer_pin(PAYEE, PRICE, target=IMPOSTOR.address),
                    "ExactExecutionEnforcer: another contract, value 0, transfer(payee, 10000)"), CALL_LIMIT),
@@ -1009,6 +1015,15 @@ def leaf_salt_cases():
                       pre + ev,
                       {"chains": [([name, "D_AB", "D_HA"], None)], "payments": [], "unbound": ["r:transfer0"]},
                       [("grant", None)]))
+    pre, ev = redemption("r", [L["leaf/pin-trailing-bytes"]] + above, [PRICE])
+    c.append(case("pin-trailing-bytes",
+                  "a leaf whose ExactExecutionEnforcer terms are the 120-byte pin and one more byte: the framework "
+                  "redeems it and the Transfer happens, but the terms are not exactly the pin, so the leaf binds "
+                  "nothing and the Transfer is unbound, a refund (Q54), not a payment",
+                  pre + ev,
+                  {"chains": [(["leaf/pin-trailing-bytes", "D_AB", "D_HA"], None)], "payments": [],
+                   "unbound": ["r:transfer0"]},
+                  [("credits", None)]))
     pre, ev = redemption("r", [L["leaf/credits"]] + above, [PRICE], manager=UNLISTED_MANAGER)
     c.append(case("unlisted-manager",
                   "the events come from a delegation manager the verifier does not list: no chain, and the "

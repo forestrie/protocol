@@ -892,11 +892,12 @@ def audit_publications(statement: bytes):
 
 def route_check(statement: bytes) -> str:
     """What a registration service does with a statement of these types: it strips tag 18, then
-    refuses a revocation or spend statement whose bytes, headers included, hold the delegation tag."""
+    refuses a revocation or spend statement whose bytes, headers included, hold the delegation tag.
+    Bytes that hold the tag and do not decode strictly cannot be classified, so it refuses those too."""
     try:
         statement_type = statement_type_of(parse_cose_sign1(statement))
     except (ValueError, KeyError, IndexError, UnicodeDecodeError):
-        return "not-a-statement"
+        return "refused:tag-present" if DELEGATION_TAG in statement else "not-a-statement"
     if statement_type in ("revocation", "spend") and DELEGATION_TAG in statement:
         return "refused:tag-present"
     return "accepted"
@@ -1481,6 +1482,8 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"], route="accepted")),
     ("erc7710-statements.json", "a tag-18 spend statement's route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-tag18")["expect"], route="accepted")),
+    ("erc7710-statements.json", "an unreadable statement holding the tag, route",
+     lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-reencoded")["expect"], route="not-a-statement")),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",

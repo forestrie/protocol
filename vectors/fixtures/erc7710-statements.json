@@ -477,6 +477,23 @@
         ],
         "route": "refused:tag-present"
       }
+    },
+    {
+      "name": "refuse/spend-with-tag-reencoded",
+      "rule": "1a",
+      "note": "the same spend statement with its outer array's head re-encoded longer than it needs: the KS256 signature still verifies, a strict decoder refuses it, so it cannot be classified and carries the tag: the route refuses it, and an auditor flags the tag with no signer",
+      "cose_sign1_hex": "980458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841417648aa1a8ac596ad374086cb7ca107cf863b394e16675f0df16fa32795ce5b6f5727e65911e55369087f7c774478de58f0452b095565b818e1480086b8b98401",
+      "expect": {
+        "publications": [
+          {
+            "offset": 196,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
     }
   ],
   "map_key_order": {

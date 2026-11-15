@@ -402,6 +402,10 @@ def statements_fixture():
         "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash}, tag18=True,
     )
     ts18_off = tagged18_spend.find(cv.DELEGATION_TAG)
+    # The outer array's head re-encoded longer than it needs (0x98 0x04 for 0x84): the signature covers only
+    # the protected header and the payload, so it still verifies, and no strict decoder reads the statement.
+    reencoded_spend = b"\x98\x04" + tagged_spend[1:]
+    re_off = reencoded_spend.find(cv.DELEGATION_TAG)
 
     def pub(off, h, verdict, key):
         return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex()}
@@ -445,6 +449,14 @@ def statements_fixture():
                  "classifies it as a spend and refuses it all the same",
          "cose_sign1_hex": tagged18_spend.hex(),
          "expect": {"publications": [pub(ts18_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
+                    "route": "refused:tag-present"}},
+        {"name": "refuse/spend-with-tag-reencoded", "rule": "1a",
+         "note": "the same spend statement with its outer array's head re-encoded longer than it needs: the KS256 "
+                 "signature still verifies, a strict decoder refuses it, so it cannot be classified and carries "
+                 "the tag: the route refuses it, and an auditor flags the tag with no signer",
+         "cose_sign1_hex": reencoded_spend.hex(),
+         "expect": {"publications": [{"offset": re_off, "hash_hex": D_AB.struct_hash.hex(),
+                                      "verdict": "flag:outside-key-2", "signer_hex": None}],
                     "route": "refused:tag-present"}},
     ]
     return {

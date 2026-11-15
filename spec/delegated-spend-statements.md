@@ -318,7 +318,10 @@ A revocation or spend statement carries its delegation hash bare, at key 8,
 and never encodes `DELEGATION_TAG`, anywhere in its bytes. A registration
 service that accepts these two types strips a single leading tag 18 (§3),
 classifies the statement by its content type, and refuses, on its route, a
-statement of either type whose bytes hold the tag, headers included. That keeps a
+statement of either type whose bytes hold the tag, headers included. Bytes
+that hold the tag and do not decode strictly as a COSE_Sign1 cannot be
+classified, and it refuses those too: re-encoding the outer array leaves
+the signature valid, so a statement must not pass by being unreadable. That keeps a
 revocation from publishing the very hop it revokes, and a spend from
 publishing anything, by accident or on purpose.
 
@@ -352,6 +355,7 @@ published hop.
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
 | `well-formed/D_AB-tag18` | `H(D_AB)` in a tag-18 delegation statement, one byte later than in `well-formed/D_AB` | well formed |
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
+| `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is longer than it needs; refused on the route (§8.1) | `outside-key-2`, no signer |
 
 ### 8.3 The statement vectors
 

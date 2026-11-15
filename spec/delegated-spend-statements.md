@@ -283,7 +283,8 @@ from ([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §2), so
 an auditor checks a spend against its leaf: the nonce over the kind, the
 purpose digest and the chain's root delegator is the leaf's salt. That is
 not enough on its own: key 8 of a kind 1 to 3 spend must be a **payment** of
-key 9's transaction. The auditor runs the binding rule
+key 9's transaction, so the receipt the auditor uses is the one key 9
+names, and no other. The auditor runs the binding rule
 ([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §3.2) on
 that transaction's receipt and requires key 8, under the spend's chain and
 delegation manager, to be among its payments, with the nonce over the kind,

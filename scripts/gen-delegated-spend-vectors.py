@@ -257,13 +257,16 @@ def sign_statement(protected: bytes, payload: bytes, key: Key) -> bytes:
 
 
 def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, depth: int, purpose: dict,
-                         idtimestamp: bytes, anchor: bytes = None, note: str = ""):
-    """A delegation statement; `anchor` overrides key 2's hash for the malformed audit cases."""
+                         idtimestamp: bytes, anchor: bytes = None, note: str = "", tag18: bool = False):
+    """A delegation statement; `anchor` overrides key 2's hash for the malformed audit cases, and
+    `tag18` registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover."""
     anchor = d.struct_hash if anchor is None else anchor
     payload = {1: 1, 2: cv.DELEGATION_TAG + anchor, 3: CHAIN_ID, 4: MANAGER, 5: cv.hop_array(d.hop()),
                6: delegate_log, 7: depth, 10: cv.purpose_map(purpose)}
     protected = cv.statement_protected("delegation", signer.address, signer.address.hex(), anchor.hex())
     data = sign_statement(protected, cv.cbor_encode(payload), signer)
+    if tag18:
+        data = b"\xd2" + data
     off = data.find(cv.DELEGATION_TAG + anchor)
     entry = {
         "name": name, "type": "delegation", "note": note, "signer": signer.label,
@@ -280,8 +283,9 @@ def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, 
 
 
 def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, paid_by=None,
-                    unprotected=None):
-    """A revocation or spend statement; `unprotected` only for the refused audit case."""
+                    unprotected=None, tag18: bool = False):
+    """A revocation or spend statement; `unprotected` only for the refused audit cases, and `tag18`
+    registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover."""
     payload = {1: 1, 3: CHAIN_ID, 4: MANAGER, 8: bytes.fromhex(fields["delegation_hash_hex"])}
     if "transaction_hash_hex" in fields:
         payload[9] = bytes.fromhex(fields["transaction_hash_hex"])
@@ -294,6 +298,8 @@ def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, 
     payload_bytes = cv.cbor_encode(payload)
     sig_structure = cv.cbor_encode(["Signature1", protected, b"", payload_bytes])
     data = cv.cbor_encode([protected, unprotected or {}, payload_bytes, signer.sign(cv.keccak256(sig_structure), 0)])
+    if tag18:
+        data = b"\xd2" + data
     entry = {"name": name, "type": statement_type, "note": note, "signer": signer.label,
              "fields": dict({"chain_id": CHAIN_ID, "delegation_manager_hex": MANAGER.hex()}, **fields)}
     if paid_by:
@@ -336,6 +342,13 @@ def statements_fixture():
         {"description": "Agent B pays the registration fees of log L_B"},
         bytes.fromhex("019a8f7a11000003"),
         note="a reusable hop, published in agent A's log L_A by A's statement key, never its spending key",
+    )
+    st_ab_tagged, ab_tagged_bytes, ab_tagged_off = delegation_statement(
+        "delegation/D_AB-tag18", D_AB, KEYS["agent A statement key"], L_B, 2,
+        {"description": "Agent B pays the registration fees of log L_B"},
+        bytes.fromhex("019a8f7a11000004"), tag18=True,
+        note="delegation/D_AB registered as a tag-18 COSE_Sign1: the entry commits to the bytes as registered, "
+             "so the publication prefix starts with 0xd2, and the publication is the same hash at one byte more",
     )
     a_stmt = KEYS["agent A statement key"]
     _, mismatch, mm_off = delegation_statement(
@@ -382,11 +395,24 @@ def statements_fixture():
         "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash},
     )
     ts_off = tagged_spend.find(cv.DELEGATION_TAG)
+    _, tagged18_spend = plain_statement(
+        "", "spend", b_stmt,
+        {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex()}},
+        "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash}, tag18=True,
+    )
+    ts18_off = tagged18_spend.find(cv.DELEGATION_TAG)
 
     def pub(off, h, verdict, key):
         return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex()}
 
     audit_cases = [
+        {"name": "well-formed/D_AB-tag18", "rule": "1b",
+         "note": "delegation/D_AB as a tag-18 COSE_Sign1: the route check and the auditor strip the tag before "
+                 "classifying, and the publication sits one byte later",
+         "cose_sign1_hex": ab_tagged_bytes.hex(),
+         "expect": {"publications": [pub(ab_tagged_off, D_AB.struct_hash, "well-formed", a_stmt)],
+                    "route": "accepted"}},
         {"name": "well-formed/D_AB", "rule": "1b",
          "note": "TAG ‖ H at key 2 of a delegation statement, H the struct hash of the hop at key 5",
          "cose_sign1_hex": ab_bytes.hex(),
@@ -414,6 +440,12 @@ def statements_fixture():
          "cose_sign1_hex": tagged_spend.hex(),
          "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
                     "route": "refused:tag-present"}},
+        {"name": "refuse/spend-with-tag-tag18", "rule": "1a",
+         "note": "the same spend statement registered as a tag-18 COSE_Sign1: the route check strips the tag, "
+                 "classifies it as a spend and refuses it all the same",
+         "cose_sign1_hex": tagged18_spend.hex(),
+         "expect": {"publications": [pub(ts18_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
+                    "route": "refused:tag-present"}},
     ]
     return {
         "version": 1,
@@ -434,7 +466,8 @@ def statements_fixture():
             "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
             "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
             "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1, low s",
-            "cose_sign1": "untagged, attached payload, empty unprotected header except in refuse/spend-with-tag",
+            "cose_sign1": "attached payload, empty unprotected header except in the refuse cases; untagged, or a "
+                          "single leading tag 18 (0xd2) in the -tag18 vectors, which the entry commits to as registered",
             "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a "
                         "deployed key",
             "account": "address_hex is the low 20 bytes of keccak256 of the label; nobody holds its key",
@@ -443,7 +476,7 @@ def statements_fixture():
         "keys": [k.json() for k in KEYS.values()],
         "accounts": [a.json() for a in ACCOUNTS.values()],
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER]],
-        "statements": [st_ha, st_ab, st_revoke, st_spend, st_seller],
+        "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
         "audit_cases": audit_cases,
         "map_key_order": map_key_order(),
     }

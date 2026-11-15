@@ -230,7 +230,8 @@ one USDC transfer and allows one call, and `leaf/credits` carries the
 credits payment nonce as its salt.
 
 **`statements`.** Each statement gives its fields, its bytes
-(`cose_sign1_hex`, an untagged KS256 COSE_Sign1) and, for a delegation
+(`cose_sign1_hex`, a KS256 COSE_Sign1, untagged except in the `-tag18` vector,
+which carries a leading `0xd2`) and, for a delegation
 statement, `publication`: the bytes before and after `DELEGATION_TAG ‖ H`,
 an idtimestamp and the leaf `SHA-256(idtimestamp ‖ SHA-256(statement))`,
 which is what the on-chain publication check rebuilds.
@@ -256,6 +257,8 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/signed-digest-not-struct-hash` | the digest `D_AB`'s delegator signed | `flag:hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
+| `well-formed/D_AB-tag18` | `H(D_AB)`, in a tag-18 delegation statement | `well-formed`, one byte later than in `well-formed/D_AB` |
+| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
 
 **`map_key_order` is provisional.** It is a map whose labels differ in
 encoded length (`1`, `100`, `-1`), with its bytes in bytewise order and in

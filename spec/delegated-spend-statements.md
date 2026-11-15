@@ -98,6 +98,16 @@ like any other statement and admitted under the log's usual signer rules
 key that signs delegations: the agent tooling refuses to use one key for
 both.
 
+A statement is registered either as the bare COSE_Sign1 array or as a
+**tag-18** COSE_Sign1: CBOR tag 18, the byte `0xd2`, then the array. The
+entry commits to the bytes as registered, so a tagged statement's bytes
+start with `0xd2`, and so does the `prefix` the publication check rebuilds
+for a tagged delegation statement (§8). The signature and the protected
+header do not cover the tag. Tag 18 is the only tag a statement may hold,
+once, outermost; everything this document says of a statement's bytes
+applies to the bytes as registered, and everything it says of its
+structure applies to the array inside the tag.
+
 ```cddl
 spend-statement-protected = {
   1 => int,              ; alg: -7 (ES256) or -65799 (KS256)
@@ -306,8 +316,9 @@ the tag, so a delegator names a log whose grants it controls.
 
 A revocation or spend statement carries its delegation hash bare, at key 8,
 and never encodes `DELEGATION_TAG`, anywhere in its bytes. A registration
-service that accepts these two types refuses, on its route, a statement of
-either type whose bytes hold the tag, headers included. That keeps a
+service that accepts these two types strips a single leading tag 18 (§3),
+classifies the statement by its content type, and refuses, on its route, a
+statement of either type whose bytes hold the tag, headers included. That keeps a
 revocation from publishing the very hop it revokes, and a spend from
 publishing anything, by accident or on purpose.
 
@@ -318,10 +329,11 @@ from putting the tag in some other statement. So:
 
 - every `DELEGATION_TAG ‖ H` in an anchored statement's bytes is a
   publication of `H`, which is what the chain accepts;
-- an auditor finds publications by scanning statement bytes for the tag,
-  and accepts one as **well formed** only when the statement is a
-  delegation statement, the tag and `H` are its payload's key 2, and `H` is
-  the delegation hash recomputed from key 5;
+- an auditor finds publications by scanning statement bytes, as registered,
+  for the tag, and accepts one as **well formed** only when the statement
+  (after a single leading tag 18 is stripped, §3) is a delegation
+  statement, the tag and `H` are its payload's key 2, and `H` is the
+  delegation hash recomputed from key 5;
 - it flags anything else, attributed to the statement's signer where the
   bytes are signed: the tag outside key 2 of a delegation statement
   (`outside-key-2`), or a key 2 hash that is not the hash of the hop at key 5
@@ -338,6 +350,8 @@ published hop.
 | `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
+| `well-formed/D_AB-tag18` | `H(D_AB)` in a tag-18 delegation statement, one byte later than in `well-formed/D_AB` | well formed |
+| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
 
 ### 8.3 The statement vectors
 
@@ -345,6 +359,7 @@ published hop.
 |---|---|---|
 | `delegation/D_HA` | the root hop, published by the human owner's statement key | a purpose with a description and an intent digest |
 | `delegation/D_AB` | a hop beneath it, published by agent A's statement key | a purpose with a description only |
+| `delegation/D_AB-tag18` | `delegation/D_AB` registered as a tag-18 COSE_Sign1 | the publication `prefix` starts with `0xd2` |
 | `revocation/D_AB` | agent A disables `D_AB` | a bare hash, a reason and the disabling transaction |
 | `spend/credits` | agent B buys credits through a payment leaf | the credits purpose digest, whose nonce is the leaf's salt |
 | `spend/seller` | agent B pays a seller | kind 4, with the seller's reference as digest |
@@ -355,8 +370,9 @@ Every map in these statements, the protected header and the CWT claims
 included, uses Core Deterministic Encoding
 ([P16](../rules/platform.md#p16--conformant-cosecbor-everywhere-with-one-named-exception)),
 on encode and on decode. A decoder refuses a head longer than it needs, an
-indefinite length, a repeated or out-of-order key, and a payload key that
-the statement's type and version do not define.
+indefinite length, a tag other than the one leading tag 18 of §3, a repeated
+or out-of-order key, and a payload key that the statement's type and version
+do not define.
 
 Every label these types use encodes in one byte, so bytewise key order and
 length-first key order give the same bytes, and these encodings do not

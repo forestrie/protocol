@@ -818,17 +818,28 @@ def parse_statement_payload(statement_type: str, payload: dict) -> dict:
     return payload
 
 
+COSE_SIGN1_TAG = 0xD2  # CBOR tag 18, one byte
+
+
+def strip_tag18(data: bytes):
+    """Drop a single leading tag 18 (spec/delegated-spend-statements.md section 3) and say how many
+    bytes that shifted every offset: (the bytes after it, 1), or (the same bytes, 0)."""
+    return (data[1:], 1) if data[:1] == bytes([COSE_SIGN1_TAG]) else (data, 0)
+
+
 def parse_cose_sign1(data: bytes):
-    """Split an untagged COSE_Sign1 and decode its protected header."""
+    """Split a COSE_Sign1, tagged 18 or not, and decode its protected header. `shift` is the
+    length of the tag, so an offset in a decoded byte string plus `shift` is an offset in `data`."""
+    data, shift = strip_tag18(data)
     item = cbor_decode(data)
     if not (isinstance(item, list) and len(item) == 4):
-        raise ValueError("not an untagged 4-element COSE_Sign1")
+        raise ValueError("not a 4-element COSE_Sign1")
     protected_bytes, unprotected, payload, signature = item
     if not (is_bstr(protected_bytes) and isinstance(unprotected, dict) and is_bstr(payload) and is_bstr(signature)):
         raise ValueError("COSE_Sign1 element of the wrong type")
     return {
         "protected_bytes": protected_bytes, "protected": cbor_decode(protected_bytes),
-        "unprotected": unprotected, "payload": payload, "signature": signature,
+        "unprotected": unprotected, "payload": payload, "signature": signature, "shift": shift,
     }
 
 
@@ -863,7 +874,7 @@ def audit_publications(statement: bytes):
         signer = ks256_statement_signer(sign1)
         if statement_type_of(sign1) == "delegation":
             payload = parse_statement_payload("delegation", cbor_decode(sign1["payload"]))
-            anchor_offset = sign1["payload"].offset + payload[2].offset
+            anchor_offset = sign1["shift"] + sign1["payload"].offset + payload[2].offset
             struct_hash = hop_struct_hash(parse_hop(payload[5]))
     except (ValueError, KeyError, IndexError, UnicodeDecodeError):
         pass
@@ -880,8 +891,8 @@ def audit_publications(statement: bytes):
 
 
 def route_check(statement: bytes) -> str:
-    """What a registration service does with a statement of these types: it refuses a
-    revocation or spend statement whose bytes, headers included, hold the delegation tag."""
+    """What a registration service does with a statement of these types: it strips tag 18, then
+    refuses a revocation or spend statement whose bytes, headers included, hold the delegation tag."""
     try:
         statement_type = statement_type_of(parse_cose_sign1(statement))
     except (ValueError, KeyError, IndexError, UnicodeDecodeError):
@@ -1468,6 +1479,8 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "flag/hash-mismatch")["expect"]["publications"][0], verdict="well-formed")),
     ("erc7710-statements.json", "a refused statement's route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"], route="accepted")),
+    ("erc7710-statements.json", "a tag-18 spend statement's route",
+     lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-tag18")["expect"], route="accepted")),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",

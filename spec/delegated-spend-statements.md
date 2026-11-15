@@ -117,7 +117,11 @@ spend-statement-protected = {
 | Spend | `application/univocity.erc7710-spend+cbor` | The spender, the delegator of the payment leaf, in its own log |
 
 `sub` names the hop for a delegation or revocation statement and the
-payment leaf for a spend statement. The unprotected header is empty.
+payment leaf for a spend statement. The unprotected header is empty,
+except that a log whose signer rules require the session endorsement
+([leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+§4, §5.1) carries it, and only it, at `-65801`. The §8.1 tag scan covers
+the endorsement's bytes like any other.
 
 The payload of every statement type is a map in one key space: a key means
 the same thing in every type that uses it.

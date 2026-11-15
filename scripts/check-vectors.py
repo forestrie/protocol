@@ -984,6 +984,9 @@ def statement_payload_from_fields(st, hops) -> dict:
     return payload
 
 
+SESSION_ENDORSEMENT_LABEL = -65801  # spec/leaf-admission-and-session-endorsement.md section 4
+
+
 def check_statement(name: str, st, hops, keys) -> int:
     where = f"{name}: statement {st['name']!r}"
     bad = 0
@@ -1003,8 +1006,8 @@ def check_statement(name: str, st, hops, keys) -> int:
     if statement_protected(st["type"], kid, kid.hex(), sub) != bytes(sign1["protected_bytes"]):
         print(f"{where}: protected header is not {{1: KS256, 3: its content type, 4: kid, 15: {{1: iss, 2: sub}}}}")
         bad += 1
-    if sign1["unprotected"]:
-        print(f"{where}: the unprotected header must be empty")
+    if set(sign1["unprotected"]) - {SESSION_ENDORSEMENT_LABEL}:
+        print(f"{where}: the unprotected header must be empty, or hold only the session endorsement")
         bad += 1
     if ks256_statement_signer(sign1) != kid:
         print(f"{where}: the KS256 signature does not recover, low-s, to its kid")

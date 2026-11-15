@@ -208,6 +208,7 @@ transfers, and which requests it pays.
 | `no-call-limit` | a binding delegation without the call limit pairs and binds nothing; its `Transfer` is unbound |
 | `no-call-limit-takes-part` | it takes the one `Transfer` before a leaf with the call limit, which pairs with nothing |
 | `two-bindings-one-transfer` | two binding leaves, one `Transfer`: the first in log order binds |
+| `two-roots-pair-by-root` | a chain from another root binds first and pins the same amount, its root moving nothing: it pairs with nothing, and the first root's leaf is the payment |
 | `eip3009-transfer-beside-binding` | an EIP-3009 `Transfer` pairs with nothing |
 | `unlisted-manager` | events from a manager the verifier does not list: no chain, the `Transfer` unbound |
 | `transfer-differs-from-pin` | the root's code moves another amount: nothing pairs |

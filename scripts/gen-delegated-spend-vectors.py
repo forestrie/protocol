@@ -521,6 +521,14 @@ STRANGER_CHILD = Delegation(
     "a stranger's child beneath the open leaf/credits, salted with a nonce of its own choosing",
 )
 LEAVES[STRANGER_CHILD.name] = STRANGER_CHILD
+# A second payer's whole chain: one root hop that pins the same transfer and salts it, whose
+# account's code moves nothing. The root is a contract account, so its owner's key signs.
+ROOT_SECOND = Delegation(
+    "root/second", cv.ANY_DELEGATE, SECOND_ROOT, cv.ROOT_AUTHORITY, [PIN, CALL_LIMIT],
+    nonce("grant/another-payer"), B_SPEND, "contract",
+    "a one-hop chain from another root, pinning the same transfer as the leaves of the first root",
+)
+LEAVES[ROOT_SECOND.name] = ROOT_SECOND
 
 
 def topic_address(a: bytes) -> str:
@@ -557,9 +565,9 @@ def increased_count_log(d, redeemer):
             "data_hex": (cv.u256(1) + cv.u256(1)).hex()}
 
 
-def chain_logs(prefix, chain, redeemer, manager=MANAGER):
+def chain_logs(prefix, chain, redeemer, manager=MANAGER, root=W_H):
     """The RedeemedDelegation logs of one redeemed chain, leaf first, as the manager emits them."""
-    return [(f"{prefix}:{d.name}", rd_log(d, W_H, redeemer, manager)) for d in chain]
+    return [(f"{prefix}:{d.name}", rd_log(d, root, redeemer, manager)) for d in chain]
 
 
 def case(name, note, named_logs, expect, requests):
@@ -573,8 +581,9 @@ def case(name, note, named_logs, expect, requests):
 
     out = {
         "eip3009_transfers": [positions[n] for n in expect.get("eip3009", [])],
-        "chains": [{"root_hex": W_H.hex(), "delegations": hashes(c), "binding": d(b).struct_hash.hex() if b else None}
-                   for c, b in expect.get("chains", [])],
+        "chains": [{"root_hex": (root[0] if root else W_H).hex(), "delegations": hashes(c),
+                    "binding": d(b).struct_hash.hex() if b else None}
+                   for c, b, *root in expect.get("chains", [])],
         "pairs": [{"binding": d(b).struct_hash.hex(), "transfer_position": positions[t]}
                   for b, t in expect.get("pairs", [])],
         "unpaired_bindings": hashes(expect.get("unpaired", [])),
@@ -589,11 +598,11 @@ def case(name, note, named_logs, expect, requests):
             "requests": [{"purpose": p, "binds": d(b).struct_hash.hex() if b else None} for p, b in requests]}
 
 
-def redemption(prefix, chain, moves, redeemer=GAS_B, manager=MANAGER):
+def redemption(prefix, chain, moves, redeemer=GAS_B, manager=MANAGER, root=W_H):
     """One redeemed chain: the call-limit count, the transfers the root's code makes, then the events."""
     logs = [(f"{prefix}:count", increased_count_log(chain[0], redeemer))] if CALL_LIMIT in chain[0].caveats else []
-    logs += [(f"{prefix}:transfer{i}", transfer_log(W_H, PAYEE, a)) for i, a in enumerate(moves)]
-    return logs, chain_logs(prefix, chain, redeemer, manager)
+    logs += [(f"{prefix}:transfer{i}", transfer_log(root, PAYEE, a)) for i, a in enumerate(moves)]
+    return logs, chain_logs(prefix, chain, redeemer, manager, root)
 
 
 def leaf_salt_cases():
@@ -665,6 +674,17 @@ def leaf_salt_cases():
                    "pairs": [("leaf/grant", "a:transfer0")], "unpaired": ["leaf/credits"],
                    "payments": [("leaf/grant", "a:transfer0", PRICE)], "unbound": []},
                   [("grant", "leaf/grant"), ("credits", None)]))
+    p1, e1 = redemption("a", [L["root/second"]], [], root=SECOND_ROOT)
+    p2, e2 = redemption("b", [L["leaf/credits"]] + above, [PRICE])
+    c.append(case("two-roots-pair-by-root",
+                  "a chain from another root, whose code moves nothing, binds first in log order and pins the "
+                  "same amount: it pairs with nothing, and the first root's leaf takes its own root's Transfer",
+                  p1 + p2 + e1 + e2,
+                  {"chains": [(["root/second"], "root/second", SECOND_ROOT),
+                              (["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "b:transfer0")], "unpaired": ["root/second"],
+                   "payments": [("leaf/credits", "b:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits"), ("grant", None)]))
     pre, ev = redemption("r", [L["leaf/credits"]] + above, [])
     auth = [("x402:authorization", authorization_used_log(W_H, cv.keccak256(b"an x402 authorization nonce"))),
             ("x402:transfer", transfer_log(W_H, PAYEE, PRICE))]

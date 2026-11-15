@@ -1410,7 +1410,7 @@ def check_leaf_salt() -> int:
         bad += 1
     if not {"one-payment", "two-payments-one-root", "salted-hop-above-salted-leaf", "stranger-extends-leaf",
             "no-call-limit", "no-call-limit-takes-part", "two-bindings-one-transfer",
-            "eip3009-transfer-beside-binding"} <= set(results):
+            "eip3009-transfer-beside-binding", "two-roots-pair-by-root"} <= set(results):
         print(f"{name}: a case the rule requires is missing")
         bad += 1
     return bad

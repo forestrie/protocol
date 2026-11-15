@@ -412,6 +412,29 @@
       "refused": "binding"
     },
     {
+      "name": "spend/credits-pays-the-agent",
+      "type": "spend",
+      "note": "a credits spend whose leaf is salted with the credits nonce over the root, and pins the transfer to agent B's own account: an auditor runs the binding rule with the registration service's payee from its own configuration, not the leaf's pin, so the leaf binds nothing and the spend is refused",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "d0da6845c421fcbd31de48254c8b4aea7e3950f2209c57ab2da809d3df2971d7",
+        "transaction_hash_hex": "7b8d9499dbbd2012a9126af04eff377431c15ceb205efe17c4a16dda2e97d81d",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_case": "agent-pays-itself"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784064306461363834356334323166636264333164653438323534633862346165613765333935306632323039633537616232646138303964336466323937316437a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820d0da6845c421fcbd31de48254c8b4aea7e3950f2209c57ab2da809d3df2971d70958207b8d9499dbbd2012a9126af04eff377431c15ceb205efe17c4a16dda2e97d81d0aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841cc3be52315159c6d8af66b3d2dc70af50ab09bbb132989a60cff1b0ab7363201596f696e647f948d24b5231831271e918e40ffb25a806930c83cf275a9c6917401",
+      "refused": "binding"
+    },
+    {
       "name": "spend/credits-salted-over-own-delegator",
       "type": "spend",
       "note": "a credits spend whose leaf is salted with the nonce over the leaf's own delegator, and whose root_hex says that delegator is the root: the nonce matches, but the root of the leaf's authority chain is the human's account, so an auditor refuses it",

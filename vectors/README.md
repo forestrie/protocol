@@ -243,7 +243,7 @@ which is what the on-chain publication check rebuilds.
 | a delegation statement | key 2 is `DELEGATION_TAG ‖` the struct hash of key 5, and `prefix ‖ TAG ‖ H ‖ suffix` is the statement |
 | a revocation or spend statement | key 8 is the bare hash, and the bytes never hold `DELEGATION_TAG` |
 | `spend/credits` | the payment nonce over its purpose and `D_HA`'s delegator is the salt of the leaf at key 8, and key 8 is a payment of the `one-payment` receipt in `erc7710-leaf-salt-v1.json` |
-| each `refused_spends` entry | a spend whose signature and shape are sound, which an auditor refuses for the reason in `refused`; `spend/credits-under-salted-hop` names a leaf beneath a salted hop (receipt case `salted-hop-above-salted-leaf`), so key 8 is no payment (`binding`); `spend/credits-salted-over-own-delegator` names a leaf salted over its own delegator, with `root_hex` to match, so only the root of its authority chain refuses it (`root`) |
+| each `refused_spends` entry | a spend whose signature and shape are sound, which an auditor refuses for the reason in `refused`; `spend/credits-under-salted-hop` names a leaf beneath a salted hop (receipt case `salted-hop-above-salted-leaf`), so key 8 is no payment (`binding`); `spend/credits-pays-the-agent` names a leaf that pins the transfer to agent B's own account (receipt case `agent-pays-itself`), which the binding rule, run with the registration payee, does not bind (`binding`); `spend/credits-salted-over-own-delegator` names a leaf salted over its own delegator, with `root_hex` to match, so only the root of its authority chain refuses it (`root`) |
 
 **`decode_negatives`.** Each entry is a signed statement of the stated `type`
 that a conforming decoder refuses: a head longer than it needs

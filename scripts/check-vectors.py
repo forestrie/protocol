@@ -1493,7 +1493,8 @@ def check_leaf_salt() -> int:
             "eip3009-transfer-beside-binding", "two-roots-pair-by-root",
             "call-limit-two", "call-limit-unlisted", "pin-unlisted-enforcer", "pin-to-another-payee",
             "transfer-from-another-contract", "authorization-used-from-another-contract",
-            "authorization-used-for-another-account", "pin-other-target", "pin-approve"} <= set(results):
+            "authorization-used-for-another-account", "pin-other-target", "pin-approve",
+            "agent-pays-itself"} <= set(results):
         print(f"{name}: a case the rule requires is missing")
         bad += 1
     return bad
@@ -1551,6 +1552,9 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-reencoded")["expect"], route="not-a-statement")),
     ("erc7710-statements.json", "the spend's receipt swapped for one whose hop binds beneath the leaf",
      lambda v: _set(_named(v["statements"], "spend/credits")["paid_by"], receipt_case="salted-hop-above-salted-leaf")),
+    ("erc7710-leaf-salt-v1.json", "a leaf binding on its own pin, not the verifier's payee",
+     lambda v: _set(_named(v["cases"], "agent-pays-itself")["expect"]["chains"][0],
+                    binding=_named(v["cases"], "agent-pays-itself")["expect"]["chains"][0]["delegations"][0])),
     ("erc7710-statements.json", "a refused decode swapped for a conforming statement",
      lambda v: _set(_named(v["decode_negatives"], "purpose-kind-text"),
                     cose_sign1_hex=_named(v["statements"], "spend/credits")["cose_sign1_hex"])),

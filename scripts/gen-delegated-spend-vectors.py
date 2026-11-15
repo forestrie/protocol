@@ -328,6 +328,7 @@ def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, 
 
 ONE_PAYMENT_TX = cv.keccak256(b"protocol vectors delegated spend: the one-payment transaction")
 DISABLE_TX = cv.keccak256(b"protocol vectors delegated spend: the disableDelegation(D_AB) transaction")
+PAY_SELF_TX = cv.keccak256(b"protocol vectors delegated spend: the agent-pays-itself transaction")
 SELLER_TX = cv.keccak256(b"protocol vectors delegated spend: the seller payment transaction")
 CREDITS_DIGEST = cv.purpose_digest("credits", CREDITS_PURPOSE)
 
@@ -416,6 +417,17 @@ def statements_fixture():
         paid_by={"root_hex": W_H.hex(), "receipt_case": "salted-hop-above-salted-leaf"},
     )
     st_unbound["refused"] = "binding"
+    st_pays_self, _ = plain_statement(
+        "spend/credits-pays-the-agent", "spend", b_stmt,
+        {"delegation_hash_hex": LEAVES["leaf/pay-self"].struct_hash.hex(),
+         "transaction_hash_hex": PAY_SELF_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
+        "a credits spend whose leaf is salted with the credits nonce over the root, and pins the transfer to "
+        "agent B's own account: an auditor runs the binding rule with the registration service's payee from its "
+        "own configuration, not the leaf's pin, so the leaf binds nothing and the spend is refused",
+        paid_by={"root_hex": W_H.hex(), "receipt_case": "agent-pays-itself"},
+    )
+    st_pays_self["refused"] = "binding"
     st_wrong_root, _ = plain_statement(
         "spend/credits-salted-over-own-delegator", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_WRONG_ROOT.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
@@ -586,7 +598,7 @@ def statements_fixture():
         "accounts": [a.json() for a in ACCOUNTS.values()],
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER, LEAF_WRONG_ROOT]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
-        "refused_spends": [st_unbound, st_wrong_root],
+        "refused_spends": [st_unbound, st_pays_self, st_wrong_root],
         "decode_negatives": decode_negatives,
         "decode_accepts": [
             {"name": "purpose-kind-5", "type": "spend",
@@ -682,6 +694,10 @@ LEAVES = {d.name: d for d in (
          note="pins the transfer; the call limit of one sits under an enforcer the verifier does not list"),
     leaf("leaf/under-salted-hop", "credits", authority=H_B.struct_hash, signer=B_SPEND_2,
          note="a leaf beneath hop/B-salted, the credits nonce as salt"),
+    leaf("leaf/pay-self", "credits",
+         caveats=((EXACT_EXECUTION, transfer_pin(B_SPEND.address, PRICE),
+                   "ExactExecutionEnforcer: USDC, value 0, transfer(agent B's own account, 10000)"), CALL_LIMIT),
+         note="the credits nonce as salt, and a pin that pays agent B's own account, not the registration payee"),
     leaf("leaf/repay-1", "onboarding", caveats=(PIN, CALL_LIMIT, timestamp_until(1_795_000_000, "2026-11-18T09:46:40Z")),
          note="a leaf for the onboarding nonce whose payment was refunded"),
     leaf("leaf/repay-2", "onboarding", caveats=(PIN, CALL_LIMIT, timestamp_until(1_795_003_600, "2026-11-18T10:46:40Z")),
@@ -887,6 +903,15 @@ def leaf_salt_cases():
                    "pairs": [("leaf/credits", "b:transfer0")],
                    "payments": [("leaf/credits", "b:transfer0", PRICE)], "unbound": []},
                   [("credits", "leaf/credits"), ("grant", None)]))
+    pre, ev = redemption("r", [L["leaf/pay-self"]] + above, [])
+    pre.append(("r:transfer-to-agent", transfer_log(W_H, B_SPEND.address, PRICE)))
+    c.append(case("agent-pays-itself",
+                  "agent B pins the amount to its own account under the credits nonce, and the root's code moves "
+                  "it there: the pin is not to the verifier's payee, so the leaf binds nothing, and a Transfer "
+                  "to another account than the payee is not counted at all",
+                  pre + ev,
+                  {"chains": [(["leaf/pay-self", "D_AB", "D_HA"], None)], "payments": [], "unbound": []},
+                  [("credits", None)]))
     pre, ev = redemption("r", [L["leaf/credits"]] + above, [])
     auth = [("x402:authorization", authorization_used_log(W_H, cv.keccak256(b"an x402 authorization nonce"))),
             ("x402:transfer", transfer_log(W_H, PAYEE, PRICE))]

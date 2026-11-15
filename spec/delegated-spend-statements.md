@@ -287,7 +287,12 @@ key 9's transaction. The auditor runs the binding rule
 ([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §3.2) on
 that transaction's receipt and requires key 8, under the spend's chain and
 delegation manager, to be among its payments, with the nonce over the kind,
-the purpose digest and that payment's root equal to the payment's salt. A
+the purpose digest and that payment's root equal to the payment's salt. The
+auditor runs the rule with the USDC contract and the registration payee from
+its own configuration for the spend's chain and manager
+([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §3.1),
+never the payee a leaf's pin names; a leaf pinned elsewhere binds nothing,
+and the spend is refused. A
 leaf salted beneath a salted hop pays nothing, because the hop nearest the
 root binds; a spend that names such a leaf is refused, although its leaf's
 salt matches. A seller's

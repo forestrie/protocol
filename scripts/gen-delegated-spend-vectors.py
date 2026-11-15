@@ -399,6 +399,23 @@ def statements_fixture():
     other_off = other.find(cv.DELEGATION_TAG)
     other_reencoded = b"\x98\x04" + other[1:]
     other_tag18_long = b"\xd8\x12" + other
+    # Encodings of the same statement that only the lenient read follows: none changes what the
+    # signature covers, and the tag stays in the signed payload (or the protected header's bytes).
+    other_indefinite_array = b"\x9f" + other[1:] + b"\xff"
+    other_protected = cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address})
+    unprot_at = 1 + len(cv.cbor_encode(other_protected))
+    assert other[unprot_at] == 0xA0  # the empty unprotected header
+    other_unprotected_true = other[:unprot_at] + b"\xa1\x3a\x00\x01\x11\x6f\xf5" + other[unprot_at + 1:]
+    sig_at = len(other) - 67  # head 0x58 0x41, then 65 signature bytes
+    assert other[sig_at:sig_at + 2] == b"\x58\x41"
+    half = other_payload.find(cv.DELEGATION_TAG) - 3
+    pay_at = other.find(other_payload)
+    pay_head = cv.cbor_encode(other_payload)[:len(cv.cbor_encode(other_payload)) - len(other_payload)]
+    assert other[pay_at - len(pay_head):pay_at] == pay_head
+    other_chunked = (other[:pay_at - len(pay_head)] + b"\x5f" + cv.cbor_encode(other_payload[:half])
+                     + cv.cbor_encode(other_payload[half:]) + b"\xff" + other[pay_at + len(other_payload):])
+    s_, recid_ = int.from_bytes(other[sig_at + 34:sig_at + 66], "big"), other[-1]
+    other_high_s = (other[:sig_at + 34] + (cv.K1_N - s_).to_bytes(32, "big") + bytes([recid_ ^ 1]))
 
     b_stmt = KEYS["agent B statement key"]
     st_revoke, _ = plain_statement(
@@ -629,6 +646,36 @@ def statements_fixture():
          "cose_sign1_hex": other_tag18_long.hex(),
          "expect": {"publications": [pub(other_off + 2, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-indefinite-array", "rule": "1b",
+         "note": "the stranger's statement with its outer array written indefinite (0x9f ... 0xff): a strict "
+                 "decoder refuses it, the signature does not cover it, and the tag in the signed payload is "
+                 "still the stranger's",
+         "cose_sign1_hex": other_indefinite_array.hex(),
+         "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-unprotected-simple", "rule": "1b",
+         "note": "the stranger's statement with {-70000: true} in the unprotected header, a simple value anyone "
+                 "holding the statement can add: the signature does not cover it, and the tag in the signed "
+                 "payload is still the stranger's",
+         "cose_sign1_hex": other_unprotected_true.hex(),
+         "expect": {"publications": [pub(other_off + 6, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-chunked-payload", "rule": "1b",
+         "note": "the stranger's statement with its payload written as an indefinite-length byte string of two "
+                 "chunks: the signature covers the chunks' concatenation, so the tag, inside one chunk, is "
+                 "the stranger's",
+         "cose_sign1_hex": other_chunked.hex(),
+         "expect": {"publications": [pub(other_chunked.find(cv.DELEGATION_TAG), D_AB.struct_hash,
+                                         "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-high-s", "rule": "1b",
+         "note": "the stranger's statement with its KS256 signature malleated to (r, n - s, recid ^ 1): it is "
+                 "not low-s, so no verifier accepts it, but it still proves the stranger's key signed these "
+                 "bytes, and the tag in the signed payload is the stranger's; it decodes strictly, so the "
+                 "route accepts it",
+         "cose_sign1_hex": other_high_s.hex(),
+         "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "accepted"}},
     ]
     return {
         "version": 1,

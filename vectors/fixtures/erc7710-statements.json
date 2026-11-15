@@ -823,6 +823,74 @@
         ],
         "route": "refused:tag-present"
       }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-indefinite-array",
+      "rule": "1b",
+      "note": "the stranger's statement with its outer array written indefinite (0x9f ... 0xff): a strict decoder refuses it, the signature does not cover it, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "9f5838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900ff",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-unprotected-simple",
+      "rule": "1b",
+      "note": "the stranger's statement with {-70000: true} in the unprotected header, a simple value anyone holding the statement can add: the signature does not cover it, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da13a0001116ff55868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 108,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-chunked-payload",
+      "rule": "1b",
+      "note": "the stranger's statement with its payload written as an indefinite-length byte string of two chunks: the signature covers the chunks' concatenation, so the tag, inside one chunk, is the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05f5825612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f745843657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497cff5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 105,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-high-s",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature malleated to (r, n - s, recid ^ 1): it is not low-s, so no verifier accepts it, but it still proves the stranger's key signed these bytes, and the tag in the signed payload is the stranger's; it decodes strictly, so the route accepts it",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce7db4a9a1a1aedf548609fc01c49a7b82b4cdbfcd5577e983a6c4e0a3071780c3801",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
     }
   ],
   "map_key_order": {

@@ -862,22 +862,39 @@ def _lenient_head(data: bytes, off: int):
 
 
 def _lenient_item(data: bytes, off: int):
-    """Decode one item without the deterministic rules: heads longer than they need, indefinite
-    lengths, tags and any map key order. Definite byte strings come back as Span; the content of an
-    indefinite one is not located, so it raises."""
+    """Decode one well-formed item without the deterministic rules: heads longer than they need,
+    indefinite lengths, tags, simple values and floats, and any map key order. A byte string
+    comes back as a Span holding its content, with `ranges`, the (start, end) offsets in `data` of
+    each chunk the content comes from (one for a definite string)."""
     major, n, off = _lenient_head(data, off)
     if major in (0, 1) and n is not None:
         return (n if major == 0 else -1 - n), off
-    if major in (2, 3) and n is not None:
-        if off + n > len(data):
+    if major in (2, 3):
+        chunks = []
+        if n is not None:
+            chunks.append((off, off + n))
+            off += n
+        else:
+            while data[off:off + 1] != b"\xff":
+                cmajor, cn, off = _lenient_head(data, off)
+                if cmajor != major or cn is None:
+                    raise ValueError("a bad chunk of an indefinite string")
+                chunks.append((off, off + cn))
+                off += cn
+            off += 1
+        if off > len(data):
             raise ValueError("truncated string")
+        content = b"".join(data[a:b] for a, b in chunks)
         if major == 3:
-            return data[off:off + n].decode("utf-8"), off + n
-        s = Span(data[off:off + n])
-        s.offset = off
-        return s, off + n
+            return content.decode("utf-8"), off
+        s = Span(content)
+        s.ranges = chunks
+        s.offset = chunks[0][0] if chunks else off
+        return s, off
     if major == 6 and n is not None:
         return _lenient_item(data, off)
+    if major == 7 and n is not None:
+        return None, off
     if major in (4, 5):
         items = []
         while True:
@@ -892,25 +909,26 @@ def _lenient_item(data: bytes, off: int):
             return items, off
         return {(bytes(k) if isinstance(k, Span) else k): v for k, v in zip(items[::2], items[1::2])
                 if not isinstance(k, (list, dict))}, off
-    raise ValueError("an item the lenient decoder does not read")
+    raise ValueError("not a well-formed item")
 
 
 def lenient_cose_sign1(data: bytes):
     """Locate the four elements of a COSE_Sign1 as found, however the signer or a relayer encoded
-    the heads: non-shortest array and byte-string heads, tag 18 as 0xd2 or as 0xd8 0x12. Offsets
-    are into `data`. Only byte-string elements the signature covers matter here; it raises if
-    the bytes are not a four-element array of the right types."""
+    them: non-shortest heads, an indefinite outer array or byte strings, any leading tags, simple
+    values anywhere. Offsets are into `data`. Only byte-string elements the signature covers matter
+    here; it raises if the bytes are not a four-element array of the right types."""
     major, n, off = _lenient_head(data, 0)
-    if major == 6:
-        if n != 18:
-            raise ValueError("a tag other than 18")
+    while major == 6:
         major, n, off = _lenient_head(data, off)
-    if major != 4 or n != 4:
+    if major != 4 or n not in (4, None):
         raise ValueError("not a 4-element COSE_Sign1")
-    protected_bytes, off = _lenient_item(data, off)
-    unprotected, off = _lenient_item(data, off)
-    payload, off = _lenient_item(data, off)
-    signature, off = _lenient_item(data, off)
+    elements = []
+    for _ in range(4):
+        item, off = _lenient_item(data, off)
+        elements.append(item)
+    if n is None and data[off:off + 1] != b"\xff":
+        raise ValueError("not a 4-element COSE_Sign1")
+    protected_bytes, unprotected, payload, signature = elements
     if not (is_bstr(protected_bytes) and isinstance(unprotected, dict) and is_bstr(payload) and is_bstr(signature)):
         raise ValueError("COSE_Sign1 element of the wrong type")
     return {"protected_bytes": protected_bytes, "protected": _lenient_item(protected_bytes, 0)[0],
@@ -918,13 +936,14 @@ def lenient_cose_sign1(data: bytes):
 
 
 def ks256_statement_signer(sign1):
-    """The address a KS256 statement signature recovers to, or None (low-s required)."""
+    """The address a KS256 statement signature recovers to, or None. A high s still proves the key
+    signed (the verifier refuses it, the key still made it), so it is normalised before recovery."""
     if sign1["protected"].get(1) != KS256_ALG or len(sign1["signature"]) != 65:
         return None
     sig = sign1["signature"]
     r, s, recid = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
     if s > K1_HALF_N:
-        return None
+        s, recid = K1_N - s, recid ^ 1
     sig_structure = cbor_encode(["Signature1", bytes(sign1["protected_bytes"]), b"", bytes(sign1["payload"])])
     return k1_recover_address(keccak256(sig_structure), r, s, recid)
 
@@ -948,9 +967,9 @@ def audit_publications(statement: bytes):
         # the byte-string heads are not covered by the signature, so whoever holds the statement, or
         # the signer, can choose them, and no tag in signed bytes may escape its signer that way.
         lenient = lenient_cose_sign1(statement)
-        signer = ks256_statement_signer(lenient)
         # The signature covers the protected header and the payload, not the unprotected header.
-        signed = [(lenient[k].offset, lenient[k].offset + len(lenient[k])) for k in ("protected_bytes", "payload")]
+        signed = [r for k in ("protected_bytes", "payload") for r in lenient[k].ranges]
+        signer = ks256_statement_signer(lenient)
     except (ValueError, KeyError, IndexError, UnicodeDecodeError):
         pass
     try:
@@ -1637,6 +1656,18 @@ SELF_TEST_MUTATIONS = [
                     signer_hex=None)),
     ("erc7710-statements.json", "a long tag 18 statement's tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-tag18-long")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "an indefinite outer array: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-indefinite-array")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a simple value in the unprotected header: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-unprotected-simple")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a chunked payload: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-chunked-payload")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a high-s signature: the tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-high-s")["expect"]["publications"][0],
                     signer_hex=None)),
     ("erc7710-leaf-salt-v1.json", "a pin with a trailing byte treated as a pin",
      lambda v: _set(_named(v["cases"], "pin-trailing-bytes")["expect"]["chains"][0],

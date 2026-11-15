@@ -169,8 +169,11 @@ a partial one.
    computes its payment nonce (§2) over each payment's root. It is paid by
    the payment whose salt equals that nonce.
 
-A payment's **identity** is its delegation manager and its binding
-delegation's hash. Two payments in one transaction stay two, and a payment
+A payment's **identity** is the CAIP-2 chain of its receipt, its
+delegation manager and its binding delegation's hash. The delegation hash
+leaves out the chain id, and the framework's manager has one address on
+every chain it is deployed to, so without the chain one leaf redeemed on
+two payment chains would give one identity. Two payments in one transaction stay two, and a payment
 keeps its identity when a reorganisation re-includes its transaction. A
 `Transfer` to the payee is **unbound** when no payment holds it: an
 EIP-3009 transfer is not, while a `Transfer` that a binding delegation

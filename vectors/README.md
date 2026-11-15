@@ -303,7 +303,7 @@ Each case expects:
 | `chains` | each rebuilt chain, leaf first, its root and its binding delegation |
 | `pairs` | each binding delegation and the position of the `Transfer` it takes |
 | `unpaired_bindings` | binding delegations that found no `Transfer` |
-| `payments` | identity (manager, delegation hash), salt, root, amount and `Transfer` |
+| `payments` | identity (manager, delegation hash; the chain is the config's `chain_id`), salt, root, amount and `Transfer` |
 | `unbound_transfers` | positions of `Transfer` logs to the payee that no payment holds |
 
 `requests` names a purpose from `payment-nonce.json` and the payment it

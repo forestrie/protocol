@@ -374,8 +374,12 @@ a statement that fails the strict decode still has its signed tags
 attributed: otherwise a signer could make a tag in its own payload
 unattributable by writing a head longer than it needs. For KS256 the auditor
 recovers the signer over the protected header and the payload as found. A
-KS256 recovery yields an address (a high s still recovers the key that signed); an ES256 statement yields none, so the
-auditor resolves its `kid` to a key and attributes to that key.
+KS256 recovery yields an address (a high s still recovers the key that signed).
+An ES256 statement yields none, so the auditor resolves its `kid` to a key
+and, only when the signature verifies under that key, attributes to it,
+otherwise to nobody: a `kid` alone names whoever the header claims, not
+whoever signed. The reference checker and the vectors attribute KS256
+statements only; ES256 attribution by `kid` is outside them.
 
 An auditor never trusts key 2 alone; it recomputes the hash from the
 published hop, and it scans every byte of a delegation statement, not only

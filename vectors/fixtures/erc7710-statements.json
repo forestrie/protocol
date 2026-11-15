@@ -435,6 +435,98 @@
       "refused": "binding"
     },
     {
+      "name": "spend/credits-another-purchase",
+      "type": "spend",
+      "note": "a credits spend that names leaf/credits, a genuine payment of the receipt, but states the purpose digest of credits/another-purchase: the nonce over it is not the payment's salt, so the spend misstates what was bought and an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "description": "100 credits for the test instance",
+          "digest_hex": "e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7e"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_case": "one-payment"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa30103025820e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7e037821313030206372656469747320666f7220746865207465737420696e7374616e63655841570120cddcfd6311a545a1063c69e2f8762098cd80ee70b1df49d5060b758ae06527ce49d3037dca51077ab17feb9504239337d9f07a1629f008f4c17dbb77ef00",
+      "refused": "purpose"
+    },
+    {
+      "name": "spend/credits-claimed-as-grant",
+      "type": "spend",
+      "note": "a kind 1 spend with the grant's digest that names leaf/credits, a genuine payment of the receipt: the nonce over a grant is not the payment's salt, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 1,
+          "digest_hex": "c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb",
+          "description": "a grant"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_case": "one-payment"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a05895a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa30101025820c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb036761206772616e745841c642a5ac20215b4a055c3b04af5521a7ee427e5aa0cd454ba47a7ec1865594914a739468d5ac4f20a43377a02a4a705c512ebe665835ff40d8f2c0ed621b8e1400",
+      "refused": "purpose"
+    },
+    {
+      "name": "spend/credits-on-another-chain",
+      "type": "spend",
+      "note": "a credits spend that names the one-payment payment on chain 1: the payment is on the receipt's chain, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 1,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_case": "one-payment"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058aca6010103010454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e636558415da052a040f63a7faff75e4f5e8bb93fe1f41f0a6e5cd5f498f859866defeabe5efd5896dbc0259fe925e8a6f50c5d0536efc1c07019a207c1b3328b7ba30b4901",
+      "refused": "chain"
+    },
+    {
+      "name": "spend/credits-under-another-manager",
+      "type": "spend",
+      "note": "a credits spend that names the one-payment payment under another delegation manager: the payment is the listed manager's, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "fdfc0f338b32b0e83011acb1e92f7bc2175cb1b9",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_case": "one-payment"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454fdfc0f338b32b0e83011acb1e92f7bc2175cb1b9085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841bcb021ae8c0d54f9ef881dfbd125d5feebdf72ab24b5fc97dde8682573734ab233ef93d79a81336169af3ab490d9c674e9cc387d0f62fa567e1705b50650396e01",
+      "refused": "manager"
+    },
+    {
       "name": "spend/credits-salted-over-own-delegator",
       "type": "spend",
       "note": "a credits spend whose leaf is salted with the nonce over the leaf's own delegator, and whose root_hex says that delegator is the root: the nonce matches, but the root of the leaf's authority chain is the human's account, so an auditor refuses it",

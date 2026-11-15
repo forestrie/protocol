@@ -1153,9 +1153,10 @@ def check_statement(name: str, st, hops, keys) -> int:
                 payment_nonce_preimage(kind, bytes(p[2]), bytes.fromhex(paid["root_hex"]))
             ).digest() != leaf["salt"]:
                 codes["nonce"] = "the nonce over its purpose and root is not the salt of the leaf it names"
-        if "receipt_case" in paid and not receipt_pays(payload, kind, paid["receipt_case"]):
-            codes["binding"] = ("key 8 is not a payment of the receipt's binding rule whose salt is the nonce over "
-                                "its purpose and the payment's root")
+        if "receipt_case" in paid:
+            refusal = receipt_refusal(payload, kind, paid["receipt_case"])
+            if refusal:
+                codes[refusal[0]] = refusal[1]
         want = {st["refused"]} if "refused" in st else set()
         if set(codes) != want:
             for message in codes.values():
@@ -1166,21 +1167,26 @@ def check_statement(name: str, st, hops, keys) -> int:
     return bad
 
 
-def receipt_pays(payload: dict, kind, case_name: str) -> bool:
-    """Whether key 8 of a kind 1 to 3 spend is a payment of the erc7710-leaf-salt/v1 receipt
-    that key 9's transaction stands for, on the spend's chain and manager, and the nonce over the
-    spend's kind, purpose digest and that payment's root is the payment's salt."""
+def receipt_refusal(payload: dict, kind, case_name: str):
+    """Why key 8 of a kind 1 to 3 spend is no payment of the erc7710-leaf-salt/v1 receipt that
+    key 9's transaction stands for, as (code, message), or None when it is one: key 8 is a payment
+    of the receipt (`binding`), on the spend's delegation manager (`manager`) and chain (`chain`),
+    and the nonce over the spend's kind, purpose digest and that payment's root is its salt (`purpose`)."""
     v = load("erc7710-leaf-salt-v1.json")
     case = next(c for c in v["cases"] if c["name"] == case_name)
     got = leaf_salt_v1(v["config"], case["receipt"]["logs"])
-    for pay in got["payments"]:
-        if (pay["delegation_hash_hex"] == bytes(payload[8]).hex()
-                and pay["delegation_manager_hex"] == bytes(payload[4]).hex()
-                and v["config"]["chain_id"] == payload[3]):
-            return kind is not None and hashlib.sha256(
-                payment_nonce_preimage(kind, bytes(payload[10][2]), bytes.fromhex(pay["root_hex"]))
-            ).hexdigest() == pay["salt_hex"]
-    return False
+    pay = next((p for p in got["payments"] if p["delegation_hash_hex"] == bytes(payload[8]).hex()), None)
+    if pay is None:
+        return "binding", "key 8 is not a payment of the receipt's binding rule"
+    if pay["delegation_manager_hex"] != bytes(payload[4]).hex():
+        return "manager", "the payment is under another delegation manager than the spend names"
+    if v["config"]["chain_id"] != payload[3]:
+        return "chain", "the payment is on another chain than the spend names"
+    if kind is None or hashlib.sha256(
+            payment_nonce_preimage(kind, bytes(payload[10][2]), bytes.fromhex(pay["root_hex"]))
+    ).hexdigest() != pay["salt_hex"]:
+        return "purpose", "the nonce over the spend's kind, purpose digest and the payment's root is not the payment's salt"
+    return None
 
 
 def check_map_key_order(name: str, m) -> int:
@@ -1250,9 +1256,10 @@ def check_delegated_spend_statements() -> int:
     if not any(a["name"] == "purpose-kind-5" for a in v["decode_accepts"]):
         print(f"{name}: needs a spend of a kind no section 7 kind names, which a decoder accepts (Q78)")
         bad += 1
-    if not {"binding", "root"} <= {st["refused"] for st in v["refused_spends"]}:
-        print(f"{name}: needs a spend refused because key 8 is no payment of its receipt, and one refused "
-              "because its root is not the root of the leaf's authority chain")
+    if not {"binding", "manager", "chain", "purpose", "root"} <= {st["refused"] for st in v["refused_spends"]}:
+        print(f"{name}: needs a spend refused for each code: key 8 no payment of its receipt (binding), "
+              "another delegation manager, another chain, a purpose the payment's salt does not match, and a root "
+              "that is not the root of the leaf's authority chain")
         bad += 1
     if {st["type"] for st in v["statements"]} != set(CONTENT_TYPES):
         print(f"{name}: needs a statement of every type")
@@ -1626,6 +1633,14 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "a long tag 18 statement's tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-tag18-long")["expect"]["publications"][0],
                     signer_hex=None)),
+    ("erc7710-statements.json", "no spend refused for another chain",
+     lambda v: v["refused_spends"].remove(_named(v["refused_spends"], "spend/credits-on-another-chain"))),
+    ("erc7710-statements.json", "no spend refused for another delegation manager",
+     lambda v: v["refused_spends"].remove(_named(v["refused_spends"], "spend/credits-under-another-manager"))),
+    ("erc7710-statements.json", "no spend refused for a misstated purpose",
+     lambda v: v.update(refused_spends=[st for st in v["refused_spends"] if st["refused"] != "purpose"])),
+    ("erc7710-statements.json", "a misstated purpose refused as a binding failure",
+     lambda v: _set(_named(v["refused_spends"], "spend/credits-another-purchase"), refused="binding")),
     ("erc7710-statements.json", "a hidden publication left out",
      lambda v: _named(v["audit_cases"], "flag/tag-in-hop-signature")["expect"]["publications"].pop()),
     ("erc7710-statements.json", "a refused revocation's route",

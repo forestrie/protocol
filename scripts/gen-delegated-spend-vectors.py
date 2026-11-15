@@ -300,10 +300,10 @@ def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, 
 
 
 def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, paid_by=None,
-                    unprotected=None, tag18: bool = False, extra_payload=None):
+                    unprotected=None, tag18: bool = False, extra_payload=None, chain_id=CHAIN_ID, manager=MANAGER):
     """A revocation or spend statement; `unprotected` only for the refused audit cases, and `tag18`
     registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover."""
-    payload = {1: 1, 3: CHAIN_ID, 4: MANAGER, 8: bytes.fromhex(fields["delegation_hash_hex"])}
+    payload = {1: 1, 3: chain_id, 4: manager, 8: bytes.fromhex(fields["delegation_hash_hex"])}
     if "transaction_hash_hex" in fields:
         payload[9] = bytes.fromhex(fields["transaction_hash_hex"])
     if statement_type == "revocation":
@@ -319,7 +319,7 @@ def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, 
     if tag18:
         data = b"\xd2" + data
     entry = {"name": name, "type": statement_type, "note": note, "signer": signer.label,
-             "fields": dict({"chain_id": CHAIN_ID, "delegation_manager_hex": MANAGER.hex()}, **fields)}
+             "fields": dict({"chain_id": chain_id, "delegation_manager_hex": manager.hex()}, **fields)}
     if paid_by:
         entry["paid_by"] = paid_by
     entry["cose_sign1_hex"] = data.hex()
@@ -430,6 +430,38 @@ def statements_fixture():
         paid_by={"root_hex": W_H.hex(), "receipt_case": "agent-pays-itself"},
     )
     st_pays_self["refused"] = "binding"
+    credits_fields = {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(),
+                      "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+                      "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(),
+                                  "description": "100 credits for the test instance"}}
+    paid_one = {"root_hex": W_H.hex(), "receipt_case": "one-payment"}
+    st_other_purchase, _ = plain_statement(
+        "spend/credits-another-purchase", "spend", b_stmt,
+        dict(credits_fields, purpose={"kind": 3, "description": "100 credits for the test instance",
+                                      "digest_hex": cv.purpose_digest("credits", dict(
+                                          CREDITS_PURPOSE, idempotency_key="a2e4c6f8-1b3d-4f5a-9c7e-0d2f4b6a8c1e")).hex()}),
+        "a credits spend that names leaf/credits, a genuine payment of the receipt, but states the purpose digest "
+        "of credits/another-purchase: the nonce over it is not the payment's salt, so the spend misstates what "
+        "was bought and an auditor refuses it", paid_by=paid_one)
+    st_other_purchase["refused"] = "purpose"
+    st_grant_kind, _ = plain_statement(
+        "spend/credits-claimed-as-grant", "spend", b_stmt,
+        dict(credits_fields, purpose={"kind": 1, "digest_hex": cv.purpose_digest("grant", GRANT_PURPOSE).hex(),
+                                      "description": "a grant"}),
+        "a kind 1 spend with the grant's digest that names leaf/credits, a genuine payment of the receipt: the "
+        "nonce over a grant is not the payment's salt, so an auditor refuses it", paid_by=paid_one)
+    st_grant_kind["refused"] = "purpose"
+    st_other_chain, _ = plain_statement(
+        "spend/credits-on-another-chain", "spend", b_stmt, credits_fields,
+        "a credits spend that names the one-payment payment on chain 1: the payment is on the receipt's chain, "
+        "so an auditor refuses it", paid_by=paid_one, chain_id=1)
+    st_other_chain["refused"] = "chain"
+    st_other_manager, _ = plain_statement(
+        "spend/credits-under-another-manager", "spend", b_stmt, credits_fields,
+        "a credits spend that names the one-payment payment under another delegation manager: the payment is "
+        "the listed manager's, so an auditor refuses it", paid_by=paid_one,
+        manager=UNLISTED_MANAGER)
+    st_other_manager["refused"] = "manager"
     st_wrong_root, _ = plain_statement(
         "spend/credits-salted-over-own-delegator", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_WRONG_ROOT.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
@@ -614,7 +646,8 @@ def statements_fixture():
         "accounts": [a.json() for a in ACCOUNTS.values()],
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER, LEAF_WRONG_ROOT]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
-        "refused_spends": [st_unbound, st_pays_self, st_wrong_root],
+        "refused_spends": [st_unbound, st_pays_self, st_other_purchase, st_grant_kind, st_other_chain,
+                          st_other_manager, st_wrong_root],
         "decode_negatives": decode_negatives,
         "decode_accepts": [
             {"name": "purpose-kind-5", "type": "spend",

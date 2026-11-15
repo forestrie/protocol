@@ -258,11 +258,14 @@ def sign_statement(protected: bytes, payload: bytes, key: Key) -> bytes:
 
 
 def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, depth: int, purpose: dict,
-                         idtimestamp: bytes, anchor: bytes = None, note: str = "", tag18: bool = False):
+                         idtimestamp: bytes, anchor: bytes = None, note: str = "", tag18: bool = False,
+                         hop_signature: bytes = None):
     """A delegation statement; `anchor` overrides key 2's hash for the malformed audit cases, and
-    `tag18` registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover."""
+    `tag18` registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover.
+    `hop_signature` replaces the signature bytes in key 5, which the delegation hash does not cover."""
     anchor = d.struct_hash if anchor is None else anchor
-    payload = {1: 1, 2: cv.DELEGATION_TAG + anchor, 3: CHAIN_ID, 4: MANAGER, 5: cv.hop_array(d.hop()),
+    hop = dict(d.hop(), signature=d.signature if hop_signature is None else hop_signature)
+    payload = {1: 1, 2: cv.DELEGATION_TAG + anchor, 3: CHAIN_ID, 4: MANAGER, 5: cv.hop_array(hop),
                6: delegate_log, 7: depth, 10: cv.purpose_map(purpose)}
     protected = cv.statement_protected("delegation", signer.address, signer.address.hex(), anchor.hex())
     data = sign_statement(protected, cv.cbor_encode(payload), signer)
@@ -360,6 +363,12 @@ def statements_fixture():
         "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
         b"\x00" * 8, anchor=D_AB.digest,
     )
+    hidden_hash = cv.DELEGATION_TAG + D_HA.struct_hash
+    _, hidden, hidden_off = delegation_statement(
+        "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
+        b"\x00" * 8, hop_signature=hidden_hash + b"\x1b",
+    )
+    hidden_off2 = hidden.find(hidden_hash)
     stranger = KEYS["stranger statement key"]
     other_payload = b"a statement of another type that quotes " + cv.DELEGATION_TAG + D_AB.struct_hash
     other = sign_statement(
@@ -433,6 +442,15 @@ def statements_fixture():
          "note": "TAG ‖ H at key 2 of a delegation statement, H the struct hash of the hop at key 5",
          "cose_sign1_hex": ab_bytes.hex(),
          "expect": {"publications": [pub(ab_off, D_AB.struct_hash, "well-formed", a_stmt)], "route": "accepted"}},
+        {"name": "flag/tag-in-hop-signature", "rule": "1b",
+         "note": "a well-formed delegation statement of D_AB whose key 5 signature bytes also hold TAG ‖ H(D_HA): "
+                 "the signature is outside the delegation hash, so the hop and its key 2 are unchanged, yet the "
+                 "statement publishes D_HA as well. An auditor that reads key 2 alone reports one publication; "
+                 "it must report both, and flag the second",
+         "cose_sign1_hex": hidden.hex(),
+         "expect": {"publications": [pub(hidden_off, D_AB.struct_hash, "well-formed", a_stmt),
+                                     pub(hidden_off2, D_HA.struct_hash, "flag:outside-key-2", a_stmt)],
+                    "route": "accepted"}},
         {"name": "flag/hash-mismatch", "rule": "1b",
          "note": "key 2 publishes D_HA while key 5 shows the terms of D_AB: it publishes D_HA, and auditors flag it",
          "cose_sign1_hex": mismatch.hex(),

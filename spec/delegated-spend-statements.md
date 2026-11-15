@@ -357,11 +357,14 @@ from putting the tag in some other statement. So:
   showing different terms.
 
 An auditor never trusts key 2 alone; it recomputes the hash from the
-published hop.
+published hop, and it scans every byte of a delegation statement, not only
+key 2: a well-formed statement can hide a second publication, for example in
+the bytes of key 5's signature, which the delegation hash does not cover.
 
 | Vector | Publication | Verdict |
 |---|---|---|
 | `well-formed/D_AB` | `H(D_AB)` | well formed |
+| `flag/tag-in-hop-signature` | `H(D_AB)` at key 2, and `H(D_HA)` inside key 5's signature bytes | well formed, and `outside-key-2` |
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |

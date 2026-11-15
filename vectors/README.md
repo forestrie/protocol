@@ -256,6 +256,7 @@ or refuses it because a revocation or spend statement holds the tag.
 | Case | Publication | Verdict |
 |---|---|---|
 | `well-formed/D_AB` | `H(D_AB)` | `well-formed` |
+| `flag/tag-in-hop-signature` | `H(D_AB)` at key 2, and `H(D_HA)` inside key 5's signature bytes | `well-formed`, then `flag:outside-key-2` |
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `flag:hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the digest `D_AB`'s delegator signed | `flag:hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |

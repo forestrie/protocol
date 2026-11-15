@@ -246,6 +246,19 @@ LEAF_SELLER = Delegation(
 )
 
 
+# A leaf salted over its own delegator, agent B's spending key, as if B were the payer: the spend that names
+# it passes the nonce check when the root is taken from the leaf's delegator, and fails it when the root is
+# taken from the leaf's authority chain, which ends at the human's account.
+LEAF_WRONG_ROOT = Delegation(
+    "leaf/wrong-root", cv.ANY_DELEGATE, KEYS["agent B spending key"].address, D_AB.struct_hash, [PIN, CALL_LIMIT],
+    hashlib.sha256(cv.payment_nonce_preimage("credits", cv.purpose_digest("credits", CREDITS_PURPOSE),
+                                             KEYS["agent B spending key"].address)).digest(),
+    KEYS["agent B spending key"], "eoa",
+    "a payment leaf beneath D_AB whose salt is the credits nonce over its own delegator, not over the root "
+    "of its authority chain",
+)
+
+
 INTENT_DOCUMENT = (
     '{"natural_language_description":"Pay registration fees and buy research for the '
     'household accounts project","intent_expiry":"2027-01-01T00:00:00Z","requires_refundability":true}'
@@ -402,6 +415,16 @@ def statements_fixture():
         paid_by={"root_hex": W_H.hex(), "receipt_case": "salted-hop-above-salted-leaf"},
     )
     st_unbound["refused"] = "binding"
+    st_wrong_root, _ = plain_statement(
+        "spend/credits-salted-over-own-delegator", "spend", b_stmt,
+        {"delegation_hash_hex": LEAF_WRONG_ROOT.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
+        "a credits spend whose leaf is salted with the nonce over the leaf's own delegator, and whose root_hex "
+        "says that delegator is the root: the nonce matches, but the root of the leaf's authority chain is the "
+        "human's account, so an auditor refuses it",
+        paid_by={"delegation": LEAF_WRONG_ROOT.name, "root_hex": KEYS["agent B spending key"].address.hex()},
+    )
+    st_wrong_root["refused"] = "root"
     st_seller, _ = plain_statement(
         "spend/seller", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_SELLER.struct_hash.hex(), "transaction_hash_hex": SELLER_TX.hex(),
@@ -518,9 +541,9 @@ def statements_fixture():
         },
         "keys": [k.json() for k in KEYS.values()],
         "accounts": [a.json() for a in ACCOUNTS.values()],
-        "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER]],
+        "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER, LEAF_WRONG_ROOT]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
-        "refused_spends": [st_unbound],
+        "refused_spends": [st_unbound, st_wrong_root],
         "audit_cases": audit_cases,
         "map_key_order": map_key_order(),
     }

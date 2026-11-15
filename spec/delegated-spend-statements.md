@@ -384,6 +384,7 @@ the bytes of key 5's signature, which the delegation hash does not cover.
 | `spend/credits` | agent B buys credits through a payment leaf | the credits purpose digest, whose nonce is the leaf's salt |
 | `spend/seller` | agent B pays a seller | kind 4, with the seller's reference as digest |
 | `spend/credits-under-salted-hop` (`refused_spends`) | a credits spend naming a leaf that sits beneath a salted hop | refused: key 8 is not a payment of the receipt |
+| `spend/credits-salted-over-own-delegator` (`refused_spends`) | a credits spend whose leaf is salted with the nonce over the leaf's own delegator | refused: the chain's root is the human's account, not that delegator |
 
 ## 9. Encoding
 

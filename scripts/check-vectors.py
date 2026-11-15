@@ -1150,8 +1150,9 @@ def check_delegated_spend_statements() -> int:
     keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v["keys"]}
     for st in v["statements"] + v["refused_spends"]:
         bad += check_statement(name, st, hops, keys)
-    if not {"binding"} <= {st["refused"] for st in v["refused_spends"]}:
-        print(f"{name}: needs a spend refused because key 8 is no payment of its receipt")
+    if not {"binding", "root"} <= {st["refused"] for st in v["refused_spends"]}:
+        print(f"{name}: needs a spend refused because key 8 is no payment of its receipt, and one refused "
+              "because its root is not the root of the leaf's authority chain")
         bad += 1
     if {st["type"] for st in v["statements"]} != set(CONTENT_TYPES):
         print(f"{name}: needs a statement of every type")

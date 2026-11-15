@@ -13,6 +13,7 @@ file.
 
 - erc7710-statements.json: spec/delegated-spend-statements.md
 - payment-nonce.json: spec/payment-nonce-and-binding.md section 2
+- erc7710-leaf-salt-v1.json: spec/payment-nonce-and-binding.md section 3
 """
 import hashlib
 import hmac
@@ -460,7 +461,270 @@ def payment_nonce_fixture():
     }
 
 
+# erc7710-leaf-salt/v1 receipts. Each log is built by name, and each case's
+# expectations name the logs and delegations they mean; positions come from
+# where each named log lands in its receipt.
+LEAF_KEYS = {r: Key(r) for r in ("agent B second spending key", "agent B gas account",
+                                 "stranger spending key", "stranger gas account")}
+UNLISTED_MANAGER = ACCOUNTS["unlisted delegation manager"].address
+GAS_B, GAS_STRANGER = LEAF_KEYS["agent B gas account"].address, LEAF_KEYS["stranger gas account"].address
+B_SPEND, B_SPEND_2 = KEYS["agent B spending key"], LEAF_KEYS["agent B second spending key"]
+STRANGER = LEAF_KEYS["stranger spending key"]
+
+
+def leaf(name, salt_name, authority=None, caveats=(PIN, CALL_LIMIT), signer=B_SPEND, note=""):
+    return Delegation(name, cv.ANY_DELEGATE, signer.address, D_AB.struct_hash if authority is None else authority,
+                      list(caveats), nonce(salt_name), signer, "eoa", note)
+
+
+def timestamp_until(t: int, label: str):
+    return (TIMESTAMP, u128(0) + u128(t), f"TimestampEnforcer: usable until {label}")
+
+
+H_B = Delegation(
+    "hop/B-salted", B_SPEND_2.address, B_SPEND.address, D_AB.struct_hash, [PIN, CALL_LIMIT],
+    nonce("grant"), B_SPEND, "eoa",
+    "an intermediate hop agent B salts with the grant nonce and pins the transfer, above a salted leaf",
+)
+LEAVES = {d.name: d for d in (
+    leaf("leaf/grant", "grant", note="pins the transfer, one call, the grant nonce as salt"),
+    LEAF_CREDITS,
+    leaf("leaf/no-call-limit", "grant", caveats=(PIN,), note="pins the transfer and carries no call limit"),
+    leaf("leaf/under-salted-hop", "credits", authority=H_B.struct_hash, signer=B_SPEND_2,
+         note="a leaf beneath hop/B-salted, the credits nonce as salt"),
+    leaf("leaf/repay-1", "onboarding", caveats=(PIN, CALL_LIMIT, timestamp_until(1_795_000_000, "2026-11-18T09:46:40Z")),
+         note="a leaf for the onboarding nonce whose payment was refunded"),
+    leaf("leaf/repay-2", "onboarding", caveats=(PIN, CALL_LIMIT, timestamp_until(1_795_003_600, "2026-11-18T10:46:40Z")),
+         note="the re-pay leaf: the same nonce, another TimestampEnforcer bound, so another delegation hash"),
+    H_B,
+)}
+STRANGER_CHILD = Delegation(
+    "child/stranger", GAS_STRANGER, STRANGER.address, LEAF_CREDITS.struct_hash, [PIN, CALL_LIMIT],
+    nonce("grant"), STRANGER, "eoa",
+    "a stranger's child beneath the open leaf/credits, salted with a nonce of its own choosing",
+)
+LEAVES[STRANGER_CHILD.name] = STRANGER_CHILD
+
+
+def topic_address(a: bytes) -> str:
+    return cv.addr_word(a).hex()
+
+
+def event_args(d, args=None):
+    h = d.hop()
+    h["caveats"] = [(e, t, (args or {}).get(i, b"")) for i, (e, t) in enumerate(h["caveats"])]
+    return h
+
+
+def rd_log(d, root, redeemer, manager=MANAGER, args=None):
+    return {"address_hex": manager.hex(),
+            "topics_hex": [cv.REDEEMED_DELEGATION_TOPIC.hex(), topic_address(root), topic_address(redeemer)],
+            "data_hex": cv.abi_encode_delegation(event_args(d, args)).hex()}
+
+
+def transfer_log(sender, to, amount):
+    return {"address_hex": USDC.hex(), "topics_hex": [cv.TRANSFER_TOPIC.hex(), topic_address(sender), topic_address(to)],
+            "data_hex": cv.u256(amount).hex()}
+
+
+def authorization_used_log(authorizer, auth_nonce):
+    return {"address_hex": USDC.hex(),
+            "topics_hex": [cv.AUTHORIZATION_USED_TOPIC.hex(), topic_address(authorizer), auth_nonce.hex()],
+            "data_hex": ""}
+
+
+def increased_count_log(d, redeemer):
+    topic = cv.keccak256(b"IncreasedCount(address,address,bytes32,uint256,uint256)")
+    return {"address_hex": LIMITED_CALLS.hex(),
+            "topics_hex": [topic.hex(), topic_address(MANAGER), topic_address(redeemer), d.struct_hash.hex()],
+            "data_hex": (cv.u256(1) + cv.u256(1)).hex()}
+
+
+def chain_logs(prefix, chain, redeemer, manager=MANAGER):
+    """The RedeemedDelegation logs of one redeemed chain, leaf first, as the manager emits them."""
+    return [(f"{prefix}:{d.name}", rd_log(d, W_H, redeemer, manager)) for d in chain]
+
+
+def case(name, note, named_logs, expect, requests):
+    positions = {n: i for i, (n, _) in enumerate(named_logs)}
+
+    def hashes(names):
+        return [LEAVES.get(n, {"D_AB": D_AB, "D_HA": D_HA}.get(n)).struct_hash.hex() for n in names]
+
+    def d(n):
+        return LEAVES.get(n) or {"D_AB": D_AB, "D_HA": D_HA}[n]
+
+    out = {
+        "eip3009_transfers": [positions[n] for n in expect.get("eip3009", [])],
+        "chains": [{"root_hex": W_H.hex(), "delegations": hashes(c), "binding": d(b).struct_hash.hex() if b else None}
+                   for c, b in expect.get("chains", [])],
+        "pairs": [{"binding": d(b).struct_hash.hex(), "transfer_position": positions[t]}
+                  for b, t in expect.get("pairs", [])],
+        "unpaired_bindings": hashes(expect.get("unpaired", [])),
+        "payments": [{"delegation_manager_hex": MANAGER.hex(), "delegation_hash_hex": d(b).struct_hash.hex(),
+                      "salt_hex": d(b).salt.hex(), "root_hex": W_H.hex(), "amount": amount,
+                      "transfer_position": positions[t]} for b, t, amount in expect.get("payments", [])],
+        "unbound_transfers": [positions[n] for n in expect.get("unbound", [])],
+    }
+    return {"name": name, "note": note, "receipt": {"status": 1, "logs": [log for _, log in named_logs],
+                                                    "log_names": [n for n, _ in named_logs]},
+            "expect": out,
+            "requests": [{"purpose": p, "binds": d(b).struct_hash.hex() if b else None} for p, b in requests]}
+
+
+def redemption(prefix, chain, moves, redeemer=GAS_B, manager=MANAGER):
+    """One redeemed chain: the call-limit count, the transfers the root's code makes, then the events."""
+    logs = [(f"{prefix}:count", increased_count_log(chain[0], redeemer))] if CALL_LIMIT in chain[0].caveats else []
+    logs += [(f"{prefix}:transfer{i}", transfer_log(W_H, PAYEE, a)) for i, a in enumerate(moves)]
+    return logs, chain_logs(prefix, chain, redeemer, manager)
+
+
+def leaf_salt_cases():
+    L = LEAVES
+    above = [D_AB, D_HA]
+    c = []
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [PRICE])
+    c.append(case("one-payment", "one chain, one Transfer of the pinned amount from the root: one payment",
+                  pre + [("other:transfer", transfer_log(SELLER, ACCOUNTS["second root account"].address, 5))] + ev,
+                  {"chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "r:transfer0")],
+                   "payments": [("leaf/credits", "r:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits"), ("grant", None)]))
+    p1, e1 = redemption("a", [L["leaf/grant"]] + above, [PRICE])
+    p2, e2 = redemption("b", [L["leaf/credits"]] + above, [PRICE])
+    c.append(case("two-payments-one-root",
+                  "two chains from one root in one transaction, each moving its pinned amount: two payments, "
+                  "each with its own identity and Transfer",
+                  p1 + p2 + e1 + e2,
+                  {"chains": [(["leaf/grant", "D_AB", "D_HA"], "leaf/grant"),
+                              (["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/grant", "a:transfer0"), ("leaf/credits", "b:transfer0")],
+                   "payments": [("leaf/grant", "a:transfer0", PRICE), ("leaf/credits", "b:transfer0", PRICE)],
+                   "unbound": []},
+                  [("grant", "leaf/grant"), ("credits", "leaf/credits"), ("onboarding", None)]))
+    pre, ev = redemption("r", [L["leaf/under-salted-hop"], H_B] + above, [PRICE], redeemer=GAS_B)
+    c.append(case("salted-hop-above-salted-leaf",
+                  "agent B salts its own hop and the leaf beneath it: only the hop, nearest the root, can bind",
+                  pre + ev,
+                  {"chains": [(["leaf/under-salted-hop", "hop/B-salted", "D_AB", "D_HA"], "hop/B-salted")],
+                   "pairs": [("hop/B-salted", "r:transfer0")],
+                   "payments": [("hop/B-salted", "r:transfer0", PRICE)], "unbound": []},
+                  [("grant", "hop/B-salted"), ("credits", None)]))
+    pre, ev = redemption("r", [STRANGER_CHILD, L["leaf/credits"]] + above, [PRICE], redeemer=GAS_STRANGER)
+    c.append(case("stranger-extends-leaf",
+                  "a stranger signs a child under the open leaf and redeems the chain: the leaf still binds",
+                  pre + ev,
+                  {"chains": [(["child/stranger", "leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "r:transfer0")],
+                   "payments": [("leaf/credits", "r:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits"), ("grant", None)]))
+    pre, ev = redemption("r", [L["leaf/no-call-limit"]] + above, [PRICE])
+    c.append(case("no-call-limit",
+                  "a leaf salted with the nonce but without LimitedCallsEnforcer(1): it pairs and binds nothing, "
+                  "so its Transfer is money nothing can bind",
+                  pre + ev,
+                  {"chains": [(["leaf/no-call-limit", "D_AB", "D_HA"], "leaf/no-call-limit")],
+                   "pairs": [("leaf/no-call-limit", "r:transfer0")], "payments": [], "unbound": ["r:transfer0"]},
+                  [("grant", None)]))
+    p1, e1 = redemption("a", [L["leaf/no-call-limit"]] + above, [PRICE])
+    p2, e2 = redemption("b", [L["leaf/credits"]] + above, [])
+    c.append(case("no-call-limit-takes-part",
+                  "a leaf without the call limit comes first in log order and takes the one Transfer, so the "
+                  "leaf with the call limit pairs with nothing: the Transfer is counted once",
+                  p1 + p2 + e1 + e2,
+                  {"chains": [(["leaf/no-call-limit", "D_AB", "D_HA"], "leaf/no-call-limit"),
+                              (["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/no-call-limit", "a:transfer0")], "unpaired": ["leaf/credits"],
+                   "payments": [], "unbound": ["a:transfer0"]},
+                  [("credits", None), ("grant", None)]))
+    p1, e1 = redemption("a", [L["leaf/grant"]] + above, [PRICE])
+    p2, e2 = redemption("b", [L["leaf/credits"]] + above, [])
+    c.append(case("two-bindings-one-transfer",
+                  "two binding leaves from one root whose code moves the money once: exactly one binds, the first "
+                  "in log order, which only pairing across the whole receipt shows",
+                  p1 + p2 + e1 + e2,
+                  {"chains": [(["leaf/grant", "D_AB", "D_HA"], "leaf/grant"),
+                              (["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/grant", "a:transfer0")], "unpaired": ["leaf/credits"],
+                   "payments": [("leaf/grant", "a:transfer0", PRICE)], "unbound": []},
+                  [("grant", "leaf/grant"), ("credits", None)]))
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [])
+    auth = [("x402:authorization", authorization_used_log(W_H, cv.keccak256(b"an x402 authorization nonce"))),
+            ("x402:transfer", transfer_log(W_H, PAYEE, PRICE))]
+    c.append(case("eip3009-transfer-beside-binding",
+                  "an EIP-3009 Transfer from the root beside a binding leaf whose root moved nothing: the Transfer "
+                  "belongs to x402 and pairs with nothing",
+                  auth + pre + ev,
+                  {"eip3009": ["x402:transfer"], "chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "unpaired": ["leaf/credits"], "payments": [], "unbound": []},
+                  [("credits", None)]))
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [PRICE], manager=UNLISTED_MANAGER)
+    c.append(case("unlisted-manager",
+                  "the events come from a delegation manager the verifier does not list: no chain, and the "
+                  "Transfer is unbound",
+                  pre + ev, {"payments": [], "unbound": ["r:transfer0"]}, [("credits", None)]))
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [2 * PRICE])
+    c.append(case("transfer-differs-from-pin",
+                  "the root's code moves another amount than the leaf pins: the leaf pairs with nothing and the "
+                  "Transfer is unbound",
+                  pre + ev,
+                  {"chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")], "unpaired": ["leaf/credits"],
+                   "payments": [], "unbound": ["r:transfer0"]},
+                  [("credits", None)]))
+    for n, other in (("repay/first-leaf", "leaf/repay-1"), ("repay/varied-leaf", "leaf/repay-2")):
+        pre, ev = redemption("r", [L[other]] + above, [PRICE])
+        c.append(case(n, "the first payment for the onboarding nonce" if other.endswith("1") else
+                      "the re-pay: a leaf varied by its TimestampEnforcer bound binds the same nonce as a new payment",
+                      pre + ev,
+                      {"chains": [([other, "D_AB", "D_HA"], other)], "pairs": [(other, "r:transfer0")],
+                       "payments": [(other, "r:transfer0", PRICE)], "unbound": []},
+                      [("onboarding", other)]))
+    return c
+
+
+def leaf_salt_fixture():
+    r1 = LEAVES["leaf/repay-1"]
+    return {
+        "version": 1,
+        "description": "erc7710-leaf-salt/v1 (spec/payment-nonce-and-binding.md section 3): which delegation in a "
+                       "successful receipt binds a payment, which Transfer it pairs with, and which request it pays.",
+        "generator": "scripts/gen-delegated-spend-vectors.py. Deterministic: rerunning gives these bytes.",
+        "conventions": {
+            "hex": "unprefixed lowercase",
+            "log": "address_hex, topics_hex and data_hex as eth_getTransactionReceipt returns them; log_names are "
+                   "labels for readers, not part of the receipt",
+            "position": "a log's index among the transaction's own logs, from 0",
+            "delegations": "the hops and leaves, with their struct hashes, are in erc7710-statements.json and below",
+            "requests": "purpose names a payment-nonce.json vector; binds is the delegation hash of the payment the "
+                        "request binds, or null",
+        },
+        "keys": [k.json() for k in LEAF_KEYS.values()],
+        "config": {
+            "chain_id": CHAIN_ID, "usdc_hex": USDC.hex(), "payee_hex": PAYEE.hex(),
+            "delegation_managers": [{
+                "framework": cv.LEAF_SALT_FRAMEWORK, "delegation_manager_hex": MANAGER.hex(),
+                "exact_execution_enforcer_hex": EXACT_EXECUTION.hex(),
+                "limited_calls_enforcer_hex": LIMITED_CALLS.hex(),
+            }],
+        },
+        "delegations": [d.json() for d in LEAVES.values()],
+        "cases": leaf_salt_cases(),
+        "repay": {
+            "note": "a leaf whose payment was refunded cannot be redeemed again, and other args leave its hash, so "
+                    "its identity, unchanged; a payer forms another leaf for the same nonce by another "
+                    "TimestampEnforcer bound",
+            "first_case": "repay/first-leaf", "second_case": "repay/varied-leaf",
+            "same_leaf_other_args": {
+                "delegation": r1.name,
+                "event_data_hex": [cv.abi_encode_delegation(event_args(r1)).hex(),
+                                   cv.abi_encode_delegation(event_args(r1, {2: b"args are not signed"})).hex()],
+            },
+        },
+    }
+
+
 FIXTURE_BUILDERS = {
+    "erc7710-leaf-salt-v1.json": leaf_salt_fixture,
     "erc7710-statements.json": statements_fixture,
     "payment-nonce.json": payment_nonce_fixture,
 }

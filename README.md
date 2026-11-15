@@ -88,6 +88,7 @@ implementation.
 | `vectors/fixtures/leaf_vectors.json`, `grant_vectors.json` | grant fields with the exact CBOR and the digests they must produce | the grant wire map and the leaf commitment, in every language |
 | `vectors/fixtures/grant_vectors_negative.json` | grant maps a decoder must refuse | that the retired keys stay retired |
 | `vectors/fixtures/checkpoint-receipt-kat39.json` | a 39-node tree, every consistency pair, rejected proof shapes, protected-header classes, signed receipts of consistency | the consistency fold and the checkpoint signature rules of [checkpoints and receipts](spec/checkpoints-and-receipts.md) §1.3 |
+| `vectors/fixtures/erc7710-leaf-salt-v1.json` | receipts of delegated payments and what each binds | which delegation binds a payment under `erc7710-leaf-salt/v1`, the `Transfer` it pairs with, and the request it pays |
 | `vectors/fixtures/payment-nonce.json` | purposes, payers and the nonces they give | the one nonce every payer and registration service derive for a grant, an onboarding or a credit purchase |
 | `vectors/fixtures/erc7710-statements.json` | ERC-7710 delegations, delegated-spend statements and audit cases | the delegation hash a statement carries, the statement bytes, the leaf the on-chain publication check rebuilds, and what an auditor accepts |
 | `vectors/golden/` | a forest genesis document with a sealed grant's receipt; a retained checkpoint chain with a receipt whose peak the log has since buried | that a receipt verifies from a trust root using nothing but these files |

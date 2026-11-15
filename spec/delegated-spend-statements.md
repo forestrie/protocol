@@ -56,7 +56,9 @@ Caveat     { address enforcer; bytes terms; bytes args; }
 
 A **hop** is a reusable delegation that confers standing authority: caps,
 an expiry, and optionally a list of payees. A **payment leaf** is a
-single-use delegation that pins one transfer; it is never published.
+single-use delegation that pins one transfer; it is never published. Which
+delegation binds a payment, and to which request, is the binding rule's
+([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §3).
 
 ## 2. The delegation hash
 

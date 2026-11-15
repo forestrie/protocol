@@ -1,8 +1,9 @@
 # Conformance vectors
 
-Eight sets of public bytes. An implementation that produces or verifies
+Nine sets of public bytes. An implementation that produces or verifies
 Forestrie grants, leaves, checkpoints, receipts, delegate-key vouchers,
-KS256 signatures, delegated-spend statements or payment nonces is
+KS256 signatures, delegated-spend statements, payment nonces or delegated
+payments is
 expected to pass the sets for what it handles; the bytes here, not any
 implementation, are the reference.
 
@@ -15,6 +16,7 @@ implementation, are the reference.
 | Delegate-key voucher | `fixtures/delegate-key-voucher.json` | the registrar voucher's claims map, including claim 4 (`notAfter`), and its expiry rule |
 | KS256 low-s | `fixtures/ks256-low-s.json` | the `s` bound applied by every verifier that recovers a KS256 signer |
 | Payment nonce | `fixtures/payment-nonce.json` | the nonce that ties a payment to the grant, onboarding or credit purchase it pays for, and the preimages no request derives |
+| Delegated-payment binding | `fixtures/erc7710-leaf-salt-v1.json` | which delegation in a receipt binds a payment, the `Transfer` it pairs with, and the request it pays |
 | Delegated-spend statements | `fixtures/erc7710-statements.json` | the ERC-7710 delegation hash a statement carries, the delegation statement's bytes, the leaf the on-chain publication check rebuilds, and the auditor's verdict on every tagged hash |
 
 `SHA256SUMS` pins every data file under `vectors/`; `sha256sum -c
@@ -274,6 +276,30 @@ of the golden grant in `grant_vectors.json`, and the check requires that.
 | each kind | digest, preimage and nonce recompute from the fields |
 | the same grant under two payers, and the same count under two keys | four distinct nonces |
 | each `not_canonical` entry | its preimage is not canonical, and `salt_hex` is its SHA-256: no request can bind a payment with that salt |
+
+## Delegated-payment binding
+
+The rule is `erc7710-leaf-salt/v1`, in
+[payment-nonce-and-binding.md](../spec/payment-nonce-and-binding.md) §3.
+`erc7710-leaf-salt-v1.json` gives the verifier's configuration (USDC, the
+payee, and the listed delegation manager with its enforcers), the leaves
+and hops the receipts redeem, and one receipt per case: its logs as
+`eth_getTransactionReceipt` returns them, with `log_names` for readers.
+Each case expects:
+
+| Field | Meaning |
+|---|---|
+| `eip3009_transfers` | positions of `Transfer` logs made under an EIP-3009 authorization |
+| `chains` | each rebuilt chain, leaf first, its root and its binding delegation |
+| `pairs` | each binding delegation and the position of the `Transfer` it takes |
+| `unpaired_bindings` | binding delegations that found no `Transfer` |
+| `payments` | identity (manager, delegation hash), salt, root, amount and `Transfer` |
+| `unbound_transfers` | positions of `Transfer` logs to the payee that no payment holds |
+
+`requests` names a purpose from `payment-nonce.json` and the payment it
+binds, or `null`. `repay` checks that a varied leaf binds the same nonce
+under another identity, and that other `args` leave a leaf's hash
+unchanged. The cases are listed in the spec's §3.4.
 
 ## Running the checks
 

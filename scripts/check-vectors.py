@@ -39,6 +39,10 @@ Standard library only, so the check does not depend on any Forestrie implementat
   the payload form of its grant vector and every nonce distinct, and require
   each not_canonical preimage to be non-canonical and to hash to its salt
   (spec/payment-nonce-and-binding.md section 2).
+- erc7710-leaf-salt-v1.json: decode each receipt's logs, rebuild its chains,
+  find each chain's binding delegation, pair across the receipt, and require
+  the expected payments, unbound transfers and request bindings, and the
+  re-pay identities (spec/payment-nonce-and-binding.md section 3).
 """
 import hashlib
 import json
@@ -755,7 +759,9 @@ def parse_hop(hop):
 
 
 def hop_struct_hash(h) -> bytes:
-    return delegation_struct_hash(h["delegate"], h["delegator"], h["authority"], h["caveats"], h["salt"])
+    """The delegation hash; a caveat's args, where a redeemed delegation carries them, are not covered."""
+    caveats = [(c[0], c[1]) for c in h["caveats"]]
+    return delegation_struct_hash(h["delegate"], h["delegator"], h["authority"], caveats, h["salt"])
 
 
 def parse_purpose(p, statement_type: str):
@@ -1162,9 +1168,225 @@ def check_payment_nonce() -> int:
     return bad
 
 
+# erc7710-leaf-salt/v1 (spec/payment-nonce-and-binding.md section 3): the binding
+# of a delegated payment, read from a successful receipt's logs.
+REDEEMED_DELEGATION_TOPIC = keccak256(
+    b"RedeemedDelegation(address,address,(address,address,bytes32,(address,bytes,bytes)[],uint256,bytes))"
+)
+TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
+AUTHORIZATION_USED_TOPIC = keccak256(b"AuthorizationUsed(address,bytes32)")
+TRANSFER_SELECTOR = keccak256(b"transfer(address,uint256)")[:4]
+
+
+def abi_bytes(b: bytes) -> bytes:
+    return u256(len(b)) + b + b"\x00" * (-len(b) % 32)
+
+
+def abi_encode_delegation(h) -> bytes:
+    """abi.encode(Delegation), the data of a RedeemedDelegation log; caveats carry args."""
+    parts = []
+    for enforcer, terms, args in h["caveats"]:
+        t = abi_bytes(terms)
+        parts.append(addr_word(enforcer) + u256(96) + u256(96 + len(t)) + t + abi_bytes(args))
+    offsets, at = [], 32 * len(parts)
+    for part in parts:
+        offsets.append(at)
+        at += len(part)
+    caveats = u256(len(parts)) + b"".join(u256(o) for o in offsets) + b"".join(parts)
+    head = (addr_word(h["delegate"]) + addr_word(h["delegator"]) + h["authority"] + u256(192) + h["salt"]
+            + u256(192 + len(caveats)))
+    return u256(32) + head + caveats + abi_bytes(h["signature"])
+
+
+def abi_decode_delegation(data: bytes) -> dict:
+    """Decode a RedeemedDelegation log's data; refuse any encoding but the canonical one."""
+    def word(off):
+        if off < 0 or off + 32 > len(data):
+            raise ValueError("ABI read out of bounds")
+        return data[off:off + 32]
+
+    def uint(off):
+        return int.from_bytes(word(off), "big")
+
+    def address(off):
+        w = word(off)
+        if w[:12] != b"\x00" * 12:
+            raise ValueError("address word with high bytes set")
+        return w[12:]
+
+    def dyn_bytes(off):
+        n = uint(off)
+        if off + 32 + n > len(data):
+            raise ValueError("ABI bytes out of bounds")
+        return data[off + 32:off + 32 + n]
+
+    t = uint(0)
+    caveats_at = t + uint(t + 96)
+    caveats = []
+    for i in range(uint(caveats_at)):
+        c = caveats_at + 32 + uint(caveats_at + 32 + 32 * i)
+        caveats.append((address(c), dyn_bytes(c + uint(c + 32)), dyn_bytes(c + uint(c + 64))))
+    h = {"delegate": address(t), "delegator": address(t + 32), "authority": word(t + 64), "caveats": caveats,
+         "salt": word(t + 128), "signature": dyn_bytes(t + uint(t + 160))}
+    if abi_encode_delegation(h) != data:
+        raise ValueError("not the canonical ABI encoding of a Delegation")
+    return h
+
+
+def pinned_transfer(terms: bytes, usdc: bytes, payee: bytes):
+    """The amount an ExactExecutionEnforcer pin moves to the payee, or None: the terms are
+    exactly USDC || value 0 || transfer(payee, amount)."""
+    if len(terms) != 20 + 32 + 4 + 64 or terms[:20] != usdc or terms[20:52] != u256(0):
+        return None
+    if terms[52:56] != TRANSFER_SELECTOR or terms[56:88] != addr_word(payee):
+        return None
+    return int.from_bytes(terms[88:120], "big")
+
+
+def leaf_salt_v1(config: dict, logs: list) -> dict:
+    """Bind a successful receipt's logs, as erc7710-leaf-salt/v1 defines."""
+    usdc, payee = bytes.fromhex(config["usdc_hex"]), bytes.fromhex(config["payee_hex"])
+    managers = {bytes.fromhex(m["delegation_manager_hex"]): m for m in config["delegation_managers"]}
+    transfers, eip3009, redeemed = [], [], []
+    for pos, log in enumerate(logs):
+        address, topics = bytes.fromhex(log["address_hex"]), [bytes.fromhex(t) for t in log["topics_hex"]]
+        data = bytes.fromhex(log["data_hex"])
+        if address == usdc and len(topics) == 3 and topics[0] == TRANSFER_TOPIC and len(data) == 32:
+            if topics[1][:12] != b"\x00" * 12 or topics[2][:12] != b"\x00" * 12:
+                continue
+            sender, to = topics[1][12:], topics[2][12:]
+            if to != payee:
+                continue
+            prev = logs[pos - 1] if pos else None
+            if (prev and bytes.fromhex(prev["address_hex"]) == usdc and len(prev["topics_hex"]) == 3
+                    and bytes.fromhex(prev["topics_hex"][0]) == AUTHORIZATION_USED_TOPIC
+                    and bytes.fromhex(prev["topics_hex"][1]) == addr_word(sender)):
+                eip3009.append(pos)
+            else:
+                transfers.append({"position": pos, "from": sender, "amount": int.from_bytes(data, "big")})
+        elif address in managers and len(topics) == 3 and topics[0] == REDEEMED_DELEGATION_TOPIC:
+            if topics[1][:12] != b"\x00" * 12:
+                continue
+            try:
+                h = abi_decode_delegation(data)
+            except ValueError:
+                continue
+            redeemed.append({"position": pos, "manager": address, "root": topics[1][12:], "hop": h,
+                             "hash": hop_struct_hash(h)})
+    # Chains: per manager, a run of events, each delegation's authority the hash of the
+    # next, ending at ROOT_AUTHORITY, every event naming the run's root delegator.
+    chains, open_runs = [], {}
+    for e in redeemed:
+        run = open_runs.get(e["manager"])
+        if run and run[-1]["hop"]["authority"] == e["hash"]:
+            run.append(e)
+        else:
+            run = open_runs[e["manager"]] = [e]
+        if e["hop"]["authority"] == ROOT_AUTHORITY:
+            if all(x["root"] == e["hop"]["delegator"] for x in run):
+                chains.append(run)
+            open_runs[e["manager"]] = None
+    bindings, out_chains = [], []
+    for run in chains:
+        m = managers[run[0]["manager"]]
+        exact = bytes.fromhex(m["exact_execution_enforcer_hex"])
+        limited = bytes.fromhex(m["limited_calls_enforcer_hex"])
+        binding = None
+        for e in reversed(run):  # root first
+            amounts = [pinned_transfer(t, usdc, payee) for enf, t, _ in e["hop"]["caveats"] if enf == exact]
+            amounts = [a for a in amounts if a is not None]
+            if amounts:
+                binding = {"position": e["position"], "manager": e["manager"], "hash": e["hash"],
+                           "salt": e["hop"]["salt"], "root": run[-1]["hop"]["delegator"], "amount": amounts[0],
+                           "call_limit": any(enf == limited and t == u256(1) for enf, t, _ in e["hop"]["caveats"])}
+                bindings.append(binding)
+                break
+        out_chains.append({"root_hex": run[-1]["hop"]["delegator"].hex(),
+                           "delegations": [e["hash"].hex() for e in run],
+                           "binding": binding["hash"].hex() if binding else None})
+    paired, pairs, unpaired = set(), [], []
+    for b in sorted(bindings, key=lambda b: b["position"]):
+        t = next((t for t in transfers if t["position"] not in paired and t["from"] == b["root"]
+                  and t["amount"] == b["amount"]), None)
+        if t is None:
+            unpaired.append(b["hash"].hex())
+            continue
+        paired.add(t["position"])
+        pairs.append((b, t))
+    payments = [{"delegation_manager_hex": b["manager"].hex(), "delegation_hash_hex": b["hash"].hex(),
+                 "salt_hex": b["salt"].hex(), "root_hex": b["root"].hex(), "amount": b["amount"],
+                 "transfer_position": t["position"]} for b, t in pairs if b["call_limit"]]
+    held = {p["transfer_position"] for p in payments}
+    return {
+        "eip3009_transfers": eip3009,
+        "chains": out_chains,
+        "pairs": [{"binding": b["hash"].hex(), "transfer_position": t["position"]} for b, t in pairs],
+        "unpaired_bindings": unpaired,
+        "payments": payments,
+        "unbound_transfers": [t["position"] for t in transfers if t["position"] not in held],
+    }
+
+
+def request_binds(payments: list, kind: str, digest: bytes):
+    """The payment a request binds: the one whose salt is the request's nonce over its root."""
+    return next((p for p in payments if hashlib.sha256(
+        payment_nonce_preimage(kind, digest, bytes.fromhex(p["root_hex"]))).hexdigest() == p["salt_hex"]), None)
+
+
+def check_leaf_salt() -> int:
+    name = "erc7710-leaf-salt-v1.json"
+    v = load(name)
+    bad = check_test_keys(name, v)
+    nonces = {e["name"]: e for e in load("payment-nonce.json")["vectors"]}
+    m = v["config"]["delegation_managers"]
+    if [(x["framework"], x["delegation_manager_hex"]) for x in m] != [(LEAF_SALT_FRAMEWORK, LEAF_SALT_MANAGER)]:
+        print(f"{name}: the v1 rule lists one framework version and its delegation manager")
+        bad += 1
+    results = {}
+    for case in v["cases"]:
+        where = f"{name}: case {case['name']!r}"
+        got = leaf_salt_v1(v["config"], case["receipt"]["logs"])
+        results[case["name"]] = got
+        for field, want in case["expect"].items():
+            if got[field] != want:
+                print(f"{where}: {field} is {got[field]}, expected {want}")
+                bad += 1
+        for r in case["requests"]:
+            n = nonces[r["purpose"]]
+            p = request_binds(got["payments"], n["kind"], bytes.fromhex(n["purpose_digest_hex"]))
+            if (p["delegation_hash_hex"] if p else None) != r["binds"]:
+                print(f"{where}: a {r['purpose']!r} request binds {p and p['delegation_hash_hex']}, expected {r['binds']}")
+                bad += 1
+    rp = v["repay"]
+    first, second = (results[rp[k]]["payments"] for k in ("first_case", "second_case"))
+    if len(first) != 1 or len(second) != 1 or first[0]["salt_hex"] != second[0]["salt_hex"] or (
+            first[0]["delegation_hash_hex"] == second[0]["delegation_hash_hex"]):
+        print(f"{name}: repay: the varied leaf must bind the same nonce under another identity")
+        bad += 1
+    a, b = (bytes.fromhex(x) for x in rp["same_leaf_other_args"]["event_data_hex"])
+    try:
+        ha, hb = hop_struct_hash(abi_decode_delegation(a)), hop_struct_hash(abi_decode_delegation(b))
+    except ValueError as e:
+        print(f"{name}: repay: event data does not decode: {e}")
+        return bad + 1
+    if a == b or ha != hb or ha.hex() != first[0]["delegation_hash_hex"]:
+        print(f"{name}: repay: other args must leave the first leaf's hash, and so its identity, unchanged")
+        bad += 1
+    if not {"one-payment", "two-payments-one-root", "salted-hop-above-salted-leaf", "stranger-extends-leaf",
+            "no-call-limit", "no-call-limit-takes-part", "two-bindings-one-transfer",
+            "eip3009-transfer-beside-binding"} <= set(results):
+        print(f"{name}: a case the rule requires is missing")
+        bad += 1
+    return bad
+
+
+LEAF_SALT_FRAMEWORK = "MetaMask Delegation Framework v1.3.0"
+LEAF_SALT_MANAGER = "db9b1e94b5b69df7e401ddbede43491141047db3"
+
+
 def main() -> int:
     bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector() + check_ks256_low_s_vector()
-    bad += check_delegated_spend_statements() + check_payment_nonce()
+    bad += check_delegated_spend_statements() + check_payment_nonce() + check_leaf_salt()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):
         bad += check_negative_vectors()
     else:

@@ -7,7 +7,8 @@ grants, onboarding or credits, and of the payer tooling that pays it.
 [log-authority-and-grants.md](./log-authority-and-grants.md) (the grant a
 payment buys), [rules/platform.md](../rules/platform.md) P7,
 [glossary.md](../glossary.md), and the vectors in
-[`vectors/fixtures/payment-nonce.json`](../vectors/fixtures/payment-nonce.json).
+[`vectors/fixtures/payment-nonce.json`](../vectors/fixtures/payment-nonce.json)
+and [`vectors/fixtures/erc7710-leaf-salt-v1.json`](../vectors/fixtures/erc7710-leaf-salt-v1.json).
 
 ## Summary
 
@@ -17,7 +18,9 @@ payment is public on chain, so anyone watching can present its transaction
 hash. The **payment nonce** ties a payment to the one purpose it pays for:
 every payer and every registration service compute it the same way, from
 the purpose and the payer, and a payment counts only for the request that
-derives the same nonce.
+derives the same nonce. The **binding**, `erc7710-leaf-salt/v1`, says
+which delegation in a transaction carries a payment's nonce, and which
+`Transfer` it paid with.
 
 None of this touches authority. A grant is verified without reference to any
 payment, and no verifier or contract reads payment state
@@ -94,15 +97,138 @@ bought.
 | `credits/another-purchase` | the same count and instance, another key | another nonce |
 | `not_canonical` | an earlier tool's grant nonce; the canonical tag with kind `0x04` | preimages no request derives |
 
+## 3. The binding: `erc7710-leaf-salt/v1`
+
+A delegated payment is the redemption of a delegation chain whose root is
+the payer's funds account. The **binding** says which delegation in a
+transaction binds a payment, which `Transfer` it pairs with, and so which
+request it pays. It reads only the receipt's logs, never the transaction's
+calldata, so a bundler's `handleOps`, an EIP-7702 account or a batch all
+work. It applies to a successful receipt only.
+
+### 3.1 What the rule reads
+
+The rule names one framework: the MetaMask Delegation Framework at version
+1.3.0 ([delegated-spend-statements.md](./delegated-spend-statements.md)
+§1). A verifier lists the delegation managers it accepts, each with the
+`ExactExecutionEnforcer` and `LimitedCallsEnforcer` deployments of its
+framework version, together with the USDC contract and the payee. It reads:
+
+- `RedeemedDelegation(address indexed rootDelegator, address indexed
+  redeemer, Delegation delegation)`, only from a listed delegation manager.
+  The manager emits one for every delegation it redeems, each chain leaf
+  first, after every execution of the call. The event's delegation includes
+  the caveats' `args`, which its hash does not cover;
+- `Transfer(from, to, value)`, only from USDC and only to the payee;
+- `AuthorizationUsed(authorizer, nonce)`, only from USDC.
+
+A log's **position** is its index among the transaction's own logs, from 0,
+never the block-wide `logIndex`, which moves when a reorganisation
+re-includes the transaction elsewhere. A verifier may bound how many of
+these logs it decodes. A receipt beyond its bound yields no binding, never
+a partial one.
+
+### 3.2 The rule
+
+1. **EIP-3009 transfers stand aside.** A `Transfer` whose log immediately
+   follows USDC's `AuthorizationUsed` for the same `from` was made under an
+   EIP-3009 authorization. It never pairs. It belongs to the path that
+   presents that authorization, and the root's own code may run any pinned
+   call beside it, so a pin proves nothing about it.
+2. **Rebuild each chain.** Take the `RedeemedDelegation` logs of each
+   manager in order. A chain is a run of them in which each delegation's
+   `authority` is the delegation hash of the next, ending at a delegation
+   whose `authority` is `ROOT_AUTHORITY`. Every event in it names that
+   delegation's delegator as `rootDelegator`, and that delegator is the
+   chain's **root**. A run that breaks off is no chain and binds nothing.
+3. **One delegation per chain can bind: the one nearest the root that pins
+   a transfer to the payee.** A delegation pins a transfer when it carries
+   a caveat of the listed `ExactExecutionEnforcer` whose terms are exactly
+   `USDC ‖ uint256(0) ‖ transfer(payee, amount)`: 20 bytes, then 32, then
+   the 68 bytes of the call. The amount is the **pinned amount**. Walk the
+   chain from the root down. The first delegation that pins a transfer is
+   the chain's **binding delegation**, and no delegation beneath it can
+   bind. So an agent that salts its own hop as well as its leaf gets one
+   binding, not two. And a stranger who signs a child under an open leaf
+   cannot take the leaf's payment.
+4. **Pair across the whole receipt.** Take the binding delegations in the
+   order of their `RedeemedDelegation` logs. Each takes the first unpaired
+   `Transfer`, other than an EIP-3009 one, of its pinned amount from its
+   root to the payee. If there is none, it pairs with nothing. Pairing is
+   checked across the receipt, never per request: two binding delegations
+   whose root's code moves the money once pair one `Transfer` between them.
+   The pairing is deterministic, so a payment presented again pairs with
+   the same `Transfer`.
+5. **A paired binding delegation is a payment when it carries
+   `LimitedCallsEnforcer(1)`**, a caveat of the listed enforcer whose terms
+   are `uint256(1)`. A binding delegation without that call limit still
+   takes part in pairing, so its `Transfer` is counted once, as money that
+   nothing can bind. The call limit is what lets the manager redeem a
+   delegation once, and so makes one delegation one payment.
+6. **A payment pays the request whose nonce is its salt.** A request
+   computes its payment nonce (§2) over each payment's root. It is paid by
+   the payment whose salt equals that nonce.
+
+A payment's **identity** is its delegation manager and its binding
+delegation's hash. Two payments in one transaction stay two, and a payment
+keeps its identity when a reorganisation re-includes its transaction. A
+`Transfer` to the payee is **unbound** when no payment holds it: an
+EIP-3009 transfer is not, while a `Transfer` that a binding delegation
+without the call limit holds is. Whether a payment's amount is a price the
+purpose accepts, and what becomes of an unbound `Transfer`, is the
+registration service's to decide. The rule gives it the facts.
+
+### 3.3 Paying a nonce again
+
+A delegation's hash covers every field but the caveats' `args` and the
+signature
+([delegated-spend-statements.md](./delegated-spend-statements.md) §2). So a
+leaf redeemed once cannot be redeemed again under its call limit, and other
+`args` or a new signature leave its hash, and so its identity, unchanged.
+A payer who must pay the same nonce again forms another leaf by giving it
+another `TimestampEnforcer` bound. The bound is a caveat's terms, so it
+changes the delegation hash, and the binding ignores every caveat but the
+pin and the call limit. The new leaf binds the same nonce as a new payment,
+under its own identity. Another hop between the parent and the leaf does
+the same, at the cost of a signature.
+
+### 3.4 Vectors
+
+[`vectors/fixtures/erc7710-leaf-salt-v1.json`](../vectors/fixtures/erc7710-leaf-salt-v1.json)
+gives each case as a receipt's logs and the expected EIP-3009 transfers,
+chains, pairs, unpaired binding delegations, payments and unbound
+transfers, and which requests it pays.
+
+| Case | Shows |
+|---|---|
+| `one-payment` | one chain, one `Transfer`: one payment; a `Transfer` to someone else is ignored |
+| `two-payments-one-root` | two chains from one root in one transaction: two payments, two identities |
+| `salted-hop-above-salted-leaf` | the hop nearest the root binds; the salted leaf beneath it does not |
+| `stranger-extends-leaf` | a stranger's child under the open leaf: the leaf still binds |
+| `no-call-limit` | a binding delegation without the call limit pairs and binds nothing; its `Transfer` is unbound |
+| `no-call-limit-takes-part` | it takes the one `Transfer` before a leaf with the call limit, which pairs with nothing |
+| `two-bindings-one-transfer` | two binding leaves, one `Transfer`: the first in log order binds |
+| `eip3009-transfer-beside-binding` | an EIP-3009 `Transfer` pairs with nothing |
+| `unlisted-manager` | events from a manager the verifier does not list: no chain, the `Transfer` unbound |
+| `transfer-differs-from-pin` | the root's code moves another amount: nothing pairs |
+| `repay/first-leaf`, `repay/varied-leaf` | §3.3: another `TimestampEnforcer` bound, the same nonce, a new identity; other `args` leave the first leaf's hash |
+
 ## References
 
 - [log-authority-and-grants.md](./log-authority-and-grants.md) §2 — the
   inner grant whose payload form the grant digest covers.
 - [rules/platform.md](../rules/platform.md) — P7 (payment never gates
   authority).
+- [delegated-spend-statements.md](./delegated-spend-statements.md) — the
+  framework, the delegation hash and the hops a payment runs through.
+- [MetaMask Delegation Framework v1.3.0](https://github.com/MetaMask/delegation-framework/tree/v1.3.0)
+  — `src/DelegationManager.sol` (`redeemDelegations`, the
+  `RedeemedDelegation` event), `src/enforcers/ExactExecutionEnforcer.sol`
+  and `src/enforcers/LimitedCallsEnforcer.sol`.
 - [CAIP-10](https://chainagnostic.org/CAIPs/caip-10) (account ids),
   [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009) (transfer with
   authorization), and the IETF HTTPAPI
   [`Idempotency-Key` header field](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
 - [`vectors/fixtures/payment-nonce.json`](../vectors/fixtures/payment-nonce.json)
+  and [`vectors/fixtures/erc7710-leaf-salt-v1.json`](../vectors/fixtures/erc7710-leaf-salt-v1.json)
   — the values above, as bytes.

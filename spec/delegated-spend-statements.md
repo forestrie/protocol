@@ -401,16 +401,21 @@ depend on which of the two applies to longer labels (see
 [Open questions](#open-questions)). The vectors include one map whose labels
 differ in encoded length, `map_key_order`, with its bytes in both orders.
 It is **provisional**: neither encoding is frozen until the order is
-settled.
+settled, and Forestrie will use that one order for every format it
+controls.
 
 ## Open questions
 
 - **Map key order for labels of different encoded length.** P16 states
   bytewise order everywhere but the checkpoint envelope; a shared
   implementation sorts length-first
-  ([implementation-status.md](./implementation-status.md)). No map defined
-  here is affected, because every label is one byte. A later version that
-  adds a longer label must wait for the order to be settled.
+  ([implementation-status.md](./implementation-status.md)). Forestrie will
+  use one order for every format it controls, and allows a mix only where an
+  external standard or a security requirement forces one, and then first
+  considers changing its own encoding. Which order that is has not been
+  decided yet; the operator's private tracker holds the question. No map defined here is affected, because every label is one
+  byte. A later version that adds a longer label must wait for the order to
+  be settled.
 - **The publication caveat's terms** (which univocity instance and log a hop
   names, and how the check finds the instance's verifier) belong to the
   contract that implements the check. This document fixes only the bytes the

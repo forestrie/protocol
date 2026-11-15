@@ -268,7 +268,8 @@ or refuses it because a revocation or spend statement holds the tag.
 **`map_key_order` is provisional.** It is a map whose labels differ in
 encoded length (`1`, `100`, `-1`), with its bytes in bytewise order and in
 length-first order. Which order is canon for such labels is not settled
-(see [implementation-status.md](../spec/implementation-status.md)), so the
+(Forestrie will use one order for every format it controls; see
+[implementation-status.md](../spec/implementation-status.md)), so the
 entry carries `status: provisional` and `canonical: unsettled`, and the
 check fails if either changes before the order is decided. No statement in
 the file has such labels, so no other vector depends on the order.

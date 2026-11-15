@@ -1419,7 +1419,7 @@ def leaf_salt_v1(config: dict, logs: list) -> dict:
             continue
         paired.add(t["position"])
         pairs.append((b, t))
-    payments = [{"delegation_manager_hex": b["manager"].hex(), "delegation_hash_hex": b["hash"].hex(),
+    payments = [{"chain": f"eip155:{config['chain_id']}", "delegation_manager_hex": b["manager"].hex(), "delegation_hash_hex": b["hash"].hex(),
                  "salt_hex": b["salt"].hex(), "root_hex": b["root"].hex(), "amount": b["amount"],
                  "transfer_position": t["position"]} for b, t in pairs if b["call_limit"]]
     held = {p["transfer_position"] for p in payments}
@@ -1582,6 +1582,8 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-leaf-salt-v1.json", "a pin on approve binding",
      lambda v: _set(_named(v["cases"], "pin-approve")["expect"]["chains"][0],
                     binding=_named(v["delegations"], "leaf/pin-approve")["struct_hash_hex"])),
+    ("erc7710-leaf-salt-v1.json", "a payment's chain",
+     lambda v: _set(_named(v["cases"], "one-payment")["expect"]["payments"][0], chain="eip155:1")),
     ("erc7710-leaf-salt-v1.json", "a RedeemedDelegation byte",
      lambda v: _set(_named(v["cases"], "one-payment")["receipt"]["logs"][-1],
                     data_hex=_flip(_named(v["cases"], "one-payment")["receipt"]["logs"][-1]["data_hex"], 100))),

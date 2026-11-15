@@ -752,7 +752,7 @@ def case(name, note, named_logs, expect, requests):
         "pairs": [{"binding": d(b).struct_hash.hex(), "transfer_position": positions[t]}
                   for b, t in expect.get("pairs", [])],
         "unpaired_bindings": hashes(expect.get("unpaired", [])),
-        "payments": [{"delegation_manager_hex": MANAGER.hex(), "delegation_hash_hex": d(b).struct_hash.hex(),
+        "payments": [{"chain": f"eip155:{CHAIN_ID}", "delegation_manager_hex": MANAGER.hex(), "delegation_hash_hex": d(b).struct_hash.hex(),
                       "salt_hex": d(b).salt.hex(), "root_hex": W_H.hex(), "amount": amount,
                       "transfer_position": positions[t]} for b, t, amount in expect.get("payments", [])],
         "unbound_transfers": [positions[n] for n in expect.get("unbound", [])],

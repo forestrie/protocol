@@ -575,6 +575,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -743,6 +744,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "22b77ed65bbca0d491e812fbe1ad380833e0d3a0669456cbf6b3d22dbfa53d44",
             "salt_hex": "cf16ff3b443aa69fa128ac64b1bba4c5e292be997501d75197ba517a8d8ac745",
@@ -751,6 +753,7 @@
             "transfer_position": 1
           },
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -870,6 +873,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "cefbffbe1f22c4e64c29883fd9e64efce0e96329e87ea40f7afb96f13df1c0e8",
             "salt_hex": "cf16ff3b443aa69fa128ac64b1bba4c5e292be997501d75197ba517a8d8ac745",
@@ -985,6 +989,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -1361,6 +1366,7 @@
         ],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "22b77ed65bbca0d491e812fbe1ad380833e0d3a0669456cbf6b3d22dbfa53d44",
             "salt_hex": "cf16ff3b443aa69fa128ac64b1bba4c5e292be997501d75197ba517a8d8ac745",
@@ -1495,6 +1501,7 @@
         ],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -1901,6 +1908,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -2203,6 +2211,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -2313,6 +2322,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
             "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
@@ -2757,6 +2767,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "a909d7e8528a5919903f333c5a9bbe45c094a057f74cccaf8fd502929fee8843",
             "salt_hex": "9fba26f335a38a5565f4b7b87cebc26260f8ef1c4968666e2fd55a5de5d18f85",
@@ -2857,6 +2868,7 @@
         "unpaired_bindings": [],
         "payments": [
           {
+            "chain": "eip155:84532",
             "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
             "delegation_hash_hex": "76ee490152949431a0ce5cc7a6d69a3ec345bd6f9bfb0b444ce60f51f1551aac",
             "salt_hex": "9fba26f335a38a5565f4b7b87cebc26260f8ef1c4968666e2fd55a5de5d18f85",

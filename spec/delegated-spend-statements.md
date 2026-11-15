@@ -1,0 +1,282 @@
+# Delegated-spend statements
+
+**Audience:** implementers of agent tooling that publishes ERC-7710
+delegations, of the on-chain publication check, and of auditors that walk a
+payment back to the authority that allowed it.
+**Related:** [checkpoints-and-receipts.md](./checkpoints-and-receipts.md)
+§4 (the entry leaf),
+[leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+(who may sign an entry), [label-registry.md](./label-registry.md),
+[glossary.md](../glossary.md), and the vectors in
+[`vectors/fixtures/erc7710-statements.json`](../vectors/fixtures/erc7710-statements.json).
+
+## Summary
+
+An agent spends its owner's money through a chain of
+[ERC-7710](https://eips.ethereum.org/EIPS/eip-7710) delegations, held and
+enforced on chain by a delegation manager. Forestrie supplies none of the
+money. It supplies transparency: each reusable hop of the chain is published
+as a statement in a Forestrie log, and a caveat on the hop makes it
+unusable on chain until that statement is anchored.
+
+This document specifies the **delegation statement**, which publishes one
+hop. Every statement it defines carries hashes, accounts and terms, never a
+payload of its own ([P1](../rules/platform.md#p1--pipe-not-store)).
+
+"Delegation" in this document always means an ERC-7710 delegation. The
+sealing delegation of a log's root key is a different artifact
+([delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)).
+
+## 1. The delegation framework
+
+The formats below fix one framework: the MetaMask Delegation Framework at
+version 1.3.0, whose delegation manager implements ERC-7710. A delegation is
+the framework's struct:
+
+```text
+Delegation { address delegate; address delegator; bytes32 authority;
+             Caveat[] caveats; uint256 salt; bytes signature; }
+Caveat     { address enforcer; bytes terms; bytes args; }
+```
+
+- `authority` is the delegation hash of the parent hop, or
+  `ROOT_AUTHORITY` (32 bytes of `0xff`) for the hop the funds account signs.
+- `delegate` may be `ANY_DELEGATE` (`0x0000…0a11`), which lets anyone
+  redeem or extend the delegation.
+- A caveat's `terms` are signed. Its `args` are supplied by whoever redeems,
+  are not signed, and change with each redemption.
+
+A **hop** is a reusable delegation that confers standing authority: caps,
+an expiry, and optionally a list of payees. A **payment leaf** is a
+single-use delegation that pins one transfer; it is never published.
+
+## 2. The delegation hash
+
+The **delegation hash** of a delegation is its EIP-712 struct hash, the
+value the framework's `EncoderLib._getDelegationHash` returns:
+
+```text
+DELEGATION_TYPEHASH = keccak256("Delegation(address delegate,address delegator,"
+                        "bytes32 authority,Caveat[] caveats,uint256 salt)"
+                        "Caveat(address enforcer,bytes terms)")
+CAVEAT_TYPEHASH     = keccak256("Caveat(address enforcer,bytes terms)")
+
+caveatHash(c)   = keccak256(abi.encode(CAVEAT_TYPEHASH, c.enforcer, keccak256(c.terms)))
+delegationHash  = keccak256(abi.encode(DELEGATION_TYPEHASH, delegate, delegator,
+                    authority, keccak256(caveatHash(c0) ‖ caveatHash(c1) ‖ …), salt))
+```
+
+It covers the delegate, the delegator, the authority, each caveat's enforcer
+and terms in order, and the salt. It does not cover the caveats' `args` or
+the signature.
+
+The delegator signs a different value, the typed-data digest
+`keccak256(0x19 ‖ 0x01 ‖ domainSeparator ‖ delegationHash)`, where the
+domain is `EIP712Domain(name "DelegationManager", version "1", chainId,
+verifyingContract = the delegation manager)`. **A statement carries the
+struct hash, never the digest.** The delegation manager hands each caveat
+enforcer the struct hash, so a statement that carries the digest publishes
+a value nothing on chain ever checks, and leaves its hop unpublished. That is
+the easiest mistake for tooling to make, and the vectors test it (§5.2).
+
+## 3. The common envelope
+
+Each statement is a COSE_Sign1 with an attached payload, registered in a log
+like any other statement and admitted under the log's usual signer rules
+([leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+§5). It is signed by the log's **statement-signing key**, which is never the
+key that signs delegations: the agent tooling refuses to use one key for
+both.
+
+```cddl
+spend-statement-protected = {
+  1 => int,              ; alg: -7 (ES256) or -65799 (KS256)
+  3 => tstr,             ; content type, one per statement type (below)
+  4 => bstr,             ; kid of the statement-signing key
+  15 => {                ; CWT claims (RFC 9597)
+    1 => tstr,           ; iss: the signer, as the registration service names it
+    2 => tstr,           ; sub: lowercase hex of the delegation hash the statement is about
+  },
+}
+```
+
+| Statement | Content type | Logged by |
+|---|---|---|
+| Delegation | `application/univocity.erc7710-delegation+cbor` | The hop's delegator, in the log its publication caveat names |
+
+The payload of every statement type is a map in one key space: a key means
+the same thing in every type that uses it.
+
+| Key | Name | Type | In |
+|---|---|---|---|
+| `1` | `v` | uint, `1` | every type |
+| `2` | publication anchor | bstr, 64 bytes: `DELEGATION_TAG ‖ delegation hash` | delegation only |
+| `3` | chain id | uint, the EIP-155 chain id of the funds chain | every type |
+| `4` | delegation manager | bstr, 20 bytes | every type |
+| `5` | hop | the delegation as signed (§4) | delegation |
+| `6` | delegate log | bstr, 32 bytes: the delegate's log id in the padded wire form | delegation |
+| `7` | depth | uint (§4) | delegation |
+| `10` | purpose | map (§4) | delegation |
+
+## 4. The delegation statement
+
+```cddl
+delegation-payload = {
+  1 => 1,                     ; v
+  2 => bstr .size 64,         ; DELEGATION_TAG ‖ delegation hash
+  3 => uint,                  ; chain id of the funds chain
+  4 => bstr .size 20,         ; delegation manager
+  5 => hop,
+  6 => bstr .size 32,         ; the delegate's log id
+  7 => uint,                  ; depth
+  10 => purpose,
+}
+
+hop = [
+  delegate:  bstr .size 20,
+  delegator: bstr .size 20,
+  authority: bstr .size 32,   ; the parent's delegation hash, or ROOT_AUTHORITY
+  caveats:   [* [enforcer: bstr .size 20, terms: bstr]],
+  salt:      bstr .size 32,   ; the uint256 salt, big-endian
+  signature: bstr,
+]
+
+purpose = {
+  ? 3 => tstr,                ; description, in words
+  ? 4 => bstr .size 32,       ; intent digest
+}
+```
+
+```text
+DELEGATION_TAG = SHA-256( UTF-8 "univocity/erc7710-delegation/v1" )
+               = b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649
+```
+
+- **Key 2 is the anchor the chain checks.** It is the 32-byte tag followed
+  by the hop's delegation hash, contiguous, so the publication check can
+  rebuild the statement bytes around the hash it is given without parsing
+  CBOR (§5).
+- **Key 5 is the hop as signed**, without the caveats' `args`, which are not
+  signed and change with each redemption. Publishing the signature lets
+  anyone check the delegator offline. It gives nobody else the power to
+  redeem: a hop names its delegate, and the delegation manager lets only
+  that delegate redeem it or sign beneath it. The issuing tools never sign
+  a hop for `ANY_DELEGATE`; only a payment leaf is open.
+- **Caps, period, expiry and payees are the caveats' terms**, and the
+  statement does not restate them. A restated cap could disagree with the
+  one the chain enforces; the terms are the ones that bind.
+- **Key 6 names the delegate's log**, where the delegate publishes its own
+  hops and records its spending, so an auditor can walk forward from a hop.
+- **Key 7, depth,** is the most delegations a chain may hold beneath this
+  hop, the payment leaf included. No caveat enforces depth on chain. The
+  issuing tools refuse to sign a hop that declares more depth than its
+  parent allows beneath it, and an auditor flags a redeemed chain that holds
+  more delegations beneath a hop than the hop declares.
+- **Key 10, the purpose,** says what the hop is for. A delegation's purpose
+  carries a description (key 3), and may carry an intent digest (key 4): the
+  SHA-256 of an off-log document stating the owner's intent, for example an
+  AP2 IntentMandate. The document stays with its owner; the statement holds
+  only its digest. A delegation's purpose carries no payment kind (keys 1 and
+  2 are a spend's).
+
+## 5. Publication
+
+**An anchored entry in log `L` whose statement bytes contain
+`DELEGATION_TAG ‖ H` publishes `H` in `L`.** The entry's leaf is the usual
+one ([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §4):
+
+```text
+leaf = SHA-256( idtimestamp (8 bytes, big-endian) ‖ SHA-256( statement bytes ) )
+```
+
+The on-chain publication check receives `H` from the delegation manager and,
+from whoever redeems, the statement bytes before the anchor (`prefix`), the
+bytes after it (`suffix`), the idtimestamp and an inclusion path. It rebuilds
+
+```text
+statement bytes = prefix ‖ DELEGATION_TAG ‖ H ‖ suffix
+```
+
+and the leaf, and checks the leaf's inclusion against the log's anchored
+state. The redeemer's inputs are unsigned and untrusted: they can only
+reproduce a leaf that is already in the log. Each statement vector gives
+`prefix`, `suffix`, the idtimestamp and the leaf.
+
+The check proves **presence, not form**. It is as strong as the log's write
+path: anyone with a grant to the log can register a statement that holds
+the tag, so a delegator names a log whose grants it controls.
+
+### 5.1 The tag stays out of the other types
+
+No other statement type this specification defines encodes
+`DELEGATION_TAG`, so none of them can publish a hop by accident.
+
+### 5.2 What an auditor accepts
+
+Nothing stops someone with a grant to a log, or its checkpoint authority,
+from putting the tag in some other statement. So:
+
+- every `DELEGATION_TAG ‖ H` in an anchored statement's bytes is a
+  publication of `H`, which is what the chain accepts;
+- an auditor finds publications by scanning statement bytes for the tag,
+  and accepts one as **well formed** only when the statement is a
+  delegation statement, the tag and `H` are its payload's key 2, and `H` is
+  the delegation hash recomputed from key 5;
+- it flags anything else, attributed to the statement's signer where the
+  bytes are signed: the tag outside key 2 of a delegation statement
+  (`outside-key-2`), or a key 2 hash that is not the hash of the hop at key 5
+  (`hash-mismatch`), which would let a log owner publish one hash while
+  showing different terms.
+
+An auditor never trusts key 2 alone; it recomputes the hash from the
+published hop.
+
+| Vector | Publication | Verdict |
+|---|---|---|
+| `well-formed/D_AB` | `H(D_AB)` | well formed |
+| `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `hash-mismatch` |
+| `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
+| `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |
+
+## 6. Encoding
+
+Every map in these statements, the protected header and the CWT claims
+included, uses Core Deterministic Encoding
+([P16](../rules/platform.md#p16--conformant-cosecbor-everywhere-with-one-named-exception)),
+on encode and on decode. A decoder refuses a head longer than it needs, an
+indefinite length, a repeated or out-of-order key, and a payload key that
+the statement's type and version do not define.
+
+Every label these types use encodes in one byte, so bytewise key order and
+length-first key order give the same bytes, and these encodings do not
+depend on which of the two applies to longer labels (see
+[Open questions](#open-questions)).
+
+## Open questions
+
+- **Map key order for labels of different encoded length.** P16 states
+  bytewise order everywhere but the checkpoint envelope; a shared
+  implementation sorts length-first
+  ([implementation-status.md](./implementation-status.md)). No map defined
+  here is affected, because every label is one byte. A later version that
+  adds a longer label must wait for the order to be settled.
+- **The publication caveat's terms** (which univocity instance and log a hop
+  names, and how the check finds the instance's verifier) belong to the
+  contract that implements the check. This document fixes only the bytes the
+  check rebuilds.
+
+## References
+
+- [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §4 — the
+  entry leaf the publication check rebuilds.
+- [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
+  — who may sign a statement in a log.
+- [rules/platform.md](../rules/platform.md) — P1 (hashes, not payloads),
+  P16 (encoding) and P17 (authority used only once anchored).
+- [ERC-7710](https://eips.ethereum.org/EIPS/eip-7710) and
+  [EIP-712](https://eips.ethereum.org/EIPS/eip-712).
+- [MetaMask Delegation Framework v1.3.0](https://github.com/MetaMask/delegation-framework/tree/v1.3.0)
+  — `src/libraries/EncoderLib.sol` (the struct hash),
+  `src/DelegationManager.sol` (`ROOT_AUTHORITY`, `ANY_DELEGATE`, the domain).
+- [`vectors/fixtures/erc7710-statements.json`](../vectors/fixtures/erc7710-statements.json)
+  — every value above, as bytes.

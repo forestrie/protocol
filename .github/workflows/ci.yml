@@ -38,6 +38,8 @@ jobs:
         run: sha256sum -c vectors/SHA256SUMS
       - name: Fixtures recompute from their fields (stdlib Python)
         run: python3 scripts/check-vectors.py
+      - name: The delegated-spend fixtures are what their generator writes
+        run: python3 scripts/gen-delegated-spend-vectors.py --check
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22

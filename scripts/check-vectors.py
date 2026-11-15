@@ -24,6 +24,13 @@ Standard library only, so the check does not depend on any Forestrie implementat
   require accept exactly when s <= (n-1)/2. Each reject case must be the
   twin (r, n-s, v^1) of an accept case, and one pair must straddle the
   bound itself (spec/checkpoints-and-receipts.md).
+- erc7710-statements.json: recompute each delegation's struct hash, EIP-712
+  domain and signed digest, and recover its signer; re-encode each
+  statement's payload and protected header from its fields, decode it
+  strictly and recover its KS256 signer; for a delegation statement check
+  that key 2 is DELEGATION_TAG || the struct hash of key 5 and rebuild the
+  leaf from prefix, tag, hash and suffix; and run the auditor's scan on each
+  audit case (spec/delegated-spend-statements.md).
 """
 import hashlib
 import json
@@ -554,8 +561,469 @@ def check_ks256_low_s_vector() -> int:
     return bad
 
 
+# ERC-7710 delegated spend (spec/delegated-spend-statements.md and
+# spec/delegated-payment-binding.md). The delegation hash is the
+# delegation framework's EIP-712 struct hash; the signed digest wraps it
+# in the delegation manager's domain.
+DELEGATION_TYPEHASH = keccak256(
+    b"Delegation(address delegate,address delegator,bytes32 authority,"
+    b"Caveat[] caveats,uint256 salt)Caveat(address enforcer,bytes terms)"
+)
+CAVEAT_TYPEHASH = keccak256(b"Caveat(address enforcer,bytes terms)")
+EIP712_DOMAIN_TYPEHASH = keccak256(
+    b"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+)
+ROOT_AUTHORITY = b"\xff" * 32
+ANY_DELEGATE = bytes.fromhex("0000000000000000000000000000000000000a11")
+DELEGATION_TAG_LABEL = "univocity/erc7710-delegation/v1"
+DELEGATION_TAG = hashlib.sha256(DELEGATION_TAG_LABEL.encode()).digest()
+CONTENT_TYPES = {
+    "delegation": "application/univocity.erc7710-delegation+cbor",
+    "revocation": "application/univocity.erc7710-revocation+cbor",
+    "spend": "application/univocity.erc7710-spend+cbor",
+}
+
+
+def u256(n: int) -> bytes:
+    return n.to_bytes(32, "big")
+
+
+def addr_word(a: bytes) -> bytes:
+    if len(a) != 20:
+        raise ValueError(f"an address is 20 bytes, got {len(a)}")
+    return b"\x00" * 12 + a
+
+
+def delegation_struct_hash(delegate, delegator, authority, caveats, salt) -> bytes:
+    """EncoderLib._getDelegationHash: the struct hash, never the signed digest."""
+    packets = b"".join(keccak256(CAVEAT_TYPEHASH + addr_word(e) + keccak256(t)) for e, t in caveats)
+    return keccak256(
+        DELEGATION_TYPEHASH + addr_word(delegate) + addr_word(delegator) + authority + keccak256(packets) + salt
+    )
+
+
+def eip712_domain_separator(chain_id: int, manager: bytes) -> bytes:
+    return keccak256(
+        EIP712_DOMAIN_TYPEHASH + keccak256(b"DelegationManager") + keccak256(b"1") + u256(chain_id) + addr_word(manager)
+    )
+
+
+class Span(bytes):
+    """A decoded byte string that remembers where its content starts in the decoded buffer."""
+
+
+def cbor_head_bytes(major: int, n: int) -> bytes:
+    if n < 24:
+        return bytes([major << 5 | n])
+    for aux, width in ((24, 1), (25, 2), (26, 4), (27, 8)):
+        if n < 1 << (8 * width):
+            return bytes([major << 5 | aux]) + n.to_bytes(width, "big")
+    raise ValueError("integer too large for CBOR")
+
+
+def cbor_sort_key(order: str):
+    if order == "bytewise":
+        return lambda enc: enc
+    if order == "length-first":
+        return lambda enc: (len(enc), enc)
+    raise ValueError(f"unknown map key order {order!r}")
+
+
+def cbor_encode(v, order: str = "bytewise") -> bytes:
+    """Deterministic CBOR for ints, byte and text strings, arrays and maps."""
+    if isinstance(v, bool):
+        raise TypeError("booleans are not used")
+    if isinstance(v, int):
+        return cbor_head_bytes(0, v) if v >= 0 else cbor_head_bytes(1, -1 - v)
+    if isinstance(v, (bytes, bytearray)):
+        return cbor_head_bytes(2, len(v)) + bytes(v)
+    if isinstance(v, str):
+        b = v.encode("utf-8")
+        return cbor_head_bytes(3, len(b)) + b
+    if isinstance(v, list):
+        return cbor_head_bytes(4, len(v)) + b"".join(cbor_encode(x, order) for x in v)
+    if isinstance(v, dict):
+        key = cbor_sort_key(order)
+        items = sorted(((cbor_encode(k, order), cbor_encode(x, order)) for k, x in v.items()), key=lambda kv: key(kv[0]))
+        return cbor_head_bytes(5, len(items)) + b"".join(k + x for k, x in items)
+    raise TypeError(f"cannot encode {type(v).__name__}")
+
+
+def cbor_decode(data: bytes, order: str = "bytewise"):
+    """Decode one item, refusing what deterministic encoding forbids: a head longer
+    than it needs, indefinite lengths, tags, floats and simple values, and map keys
+    that repeat or are out of `order`. Byte strings come back as Span."""
+    value, off = _cbor_item(data, 0, cbor_sort_key(order), order)
+    if off != len(data):
+        raise ValueError("trailing bytes")
+    return value
+
+
+def _cbor_item(data: bytes, off: int, key, order: str):
+    if off >= len(data):
+        raise ValueError("truncated")
+    major, aux = data[off] >> 5, data[off] & 0x1F
+    off += 1
+    if aux < 24:
+        n = aux
+    elif aux in (24, 25, 26, 27):
+        width = 1 << (aux - 24)
+        if off + width > len(data):
+            raise ValueError("truncated head")
+        n = int.from_bytes(data[off:off + width], "big")
+        off += width
+        if n < (24 if width == 1 else 1 << (4 * width)):
+            raise ValueError("head not in shortest form")
+    else:
+        raise ValueError("indefinite length or reserved head")
+    if major == 0:
+        return n, off
+    if major == 1:
+        return -1 - n, off
+    if major in (2, 3):
+        if off + n > len(data):
+            raise ValueError("truncated string")
+        raw = data[off:off + n]
+        if major == 3:
+            return raw.decode("utf-8"), off + n
+        s = Span(raw)
+        s.offset = off
+        return s, off + n
+    if major == 4:
+        items = []
+        for _ in range(n):
+            item, off = _cbor_item(data, off, key, order)
+            items.append(item)
+        return items, off
+    if major == 5:
+        out, prev = {}, None
+        for _ in range(n):
+            start = off
+            k, off = _cbor_item(data, off, key, order)
+            if isinstance(k, (list, dict)):
+                raise ValueError("map keys must be integers or strings")
+            rank = key(data[start:off])
+            if prev is not None and rank <= prev:
+                raise ValueError(f"map keys repeat or are out of {order} order")
+            prev = rank
+            out[bytes(k) if isinstance(k, Span) else k], off = _cbor_item(data, off, key, order)
+        return out, off
+    raise ValueError(f"major type {major} is not used")
+
+
+def is_bstr(v, size=None) -> bool:
+    return isinstance(v, bytes) and (size is None or len(v) == size)
+
+
+def is_uint(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool) and v >= 0
+
+
+def parse_hop(hop):
+    """The published hop: [delegate, delegator, authority, [[enforcer, terms], ...], salt, signature]."""
+    if not (isinstance(hop, list) and len(hop) == 6):
+        raise ValueError("the hop is a 6-element array")
+    delegate, delegator, authority, caveats, salt, signature = hop
+    if not (is_bstr(delegate, 20) and is_bstr(delegator, 20) and is_bstr(authority, 32) and is_bstr(salt, 32)):
+        raise ValueError("hop field of the wrong type or size")
+    if not (isinstance(caveats, list) and all(isinstance(c, list) and len(c) == 2 and is_bstr(c[0], 20) and is_bstr(c[1]) for c in caveats)):
+        raise ValueError("caveats are [enforcer bstr .size 20, terms bstr] pairs")
+    if not is_bstr(signature):
+        raise ValueError("the signature is a byte string")
+    return {
+        "delegate": bytes(delegate), "delegator": bytes(delegator), "authority": bytes(authority),
+        "caveats": [(bytes(e), bytes(t)) for e, t in caveats], "salt": bytes(salt), "signature": bytes(signature),
+    }
+
+
+def hop_struct_hash(h) -> bytes:
+    return delegation_struct_hash(h["delegate"], h["delegator"], h["authority"], h["caveats"], h["salt"])
+
+
+def parse_purpose(p, statement_type: str):
+    """Purpose map: 1 kind and 2 digest together (a spend's), 3 description (a delegation's), 4 intent digest."""
+    if not isinstance(p, dict) or not p or not set(p) <= {1, 2, 3, 4}:
+        raise ValueError("purpose keys are 1 to 4")
+    if (1 in p) != (2 in p):
+        raise ValueError("purpose kind (1) and digest (2) appear together")
+    if 1 in p and not (p[1] in (1, 2, 3, 4) and is_bstr(p[2], 32)):
+        raise ValueError("purpose kind is 1 to 4 and its digest 32 bytes")
+    if 3 in p and not (isinstance(p[3], str) and p[3]):
+        raise ValueError("purpose description is a non-empty text string")
+    if 4 in p and not is_bstr(p[4], 32):
+        raise ValueError("intent digest is 32 bytes")
+    if statement_type == "delegation" and (3 not in p or 1 in p):
+        raise ValueError("a delegation's purpose has a description and no payment kind")
+    if statement_type == "spend" and 1 not in p:
+        raise ValueError("a spend's purpose has a kind and a digest")
+
+
+def parse_statement_payload(statement_type: str, payload: dict) -> dict:
+    """Check a payload against its type's CDDL and return it; raise ValueError if it does not conform."""
+    required = {
+        "delegation": {1, 2, 3, 4, 5, 6, 7, 10},
+        "revocation": {1, 3, 4, 8, 11},
+        "spend": {1, 3, 4, 8, 9, 10},
+    }[statement_type]
+    optional = {"delegation": set(), "revocation": {9}, "spend": set()}[statement_type]
+    if not isinstance(payload, dict) or not required <= set(payload) <= required | optional:
+        raise ValueError(f"{statement_type} payload keys {sorted(payload) if isinstance(payload, dict) else payload}")
+    if payload[1] != 1 or not is_uint(payload[3]) or not is_bstr(payload[4], 20):
+        raise ValueError("version, chain id or delegation manager malformed")
+    if statement_type == "delegation":
+        if not is_bstr(payload[2], 64) or not is_bstr(payload[6], 32) or not is_uint(payload[7]):
+            raise ValueError("delegation key 2, 6 or 7 malformed")
+        parse_hop(payload[5])
+    else:
+        if not is_bstr(payload[8], 32):
+            raise ValueError("key 8 is a bare 32-byte delegation hash")
+        for k in (9,):
+            if k in payload and not is_bstr(payload[k], 32):
+                raise ValueError("key 9 is a 32-byte transaction hash")
+        if statement_type == "revocation" and not (isinstance(payload[11], str) and payload[11]):
+            raise ValueError("key 11 is a non-empty reason")
+    if 10 in payload:
+        parse_purpose(payload[10], statement_type)
+    return payload
+
+
+def parse_cose_sign1(data: bytes):
+    """Split an untagged COSE_Sign1 and decode its protected header."""
+    item = cbor_decode(data)
+    if not (isinstance(item, list) and len(item) == 4):
+        raise ValueError("not an untagged 4-element COSE_Sign1")
+    protected_bytes, unprotected, payload, signature = item
+    if not (is_bstr(protected_bytes) and isinstance(unprotected, dict) and is_bstr(payload) and is_bstr(signature)):
+        raise ValueError("COSE_Sign1 element of the wrong type")
+    return {
+        "protected_bytes": protected_bytes, "protected": cbor_decode(protected_bytes),
+        "unprotected": unprotected, "payload": payload, "signature": signature,
+    }
+
+
+def ks256_statement_signer(sign1):
+    """The address a KS256 statement signature recovers to, or None (low-s required)."""
+    if sign1["protected"].get(1) != KS256_ALG or len(sign1["signature"]) != 65:
+        return None
+    sig = sign1["signature"]
+    r, s, recid = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
+    if s > K1_HALF_N:
+        return None
+    sig_structure = cbor_encode(["Signature1", bytes(sign1["protected_bytes"]), b"", bytes(sign1["payload"])])
+    return k1_recover_address(keccak256(sig_structure), r, s, recid)
+
+
+def statement_type_of(sign1):
+    cty = sign1["protected"].get(3)
+    return next((t for t, c in CONTENT_TYPES.items() if c == cty), None)
+
+
+def audit_publications(statement: bytes):
+    """Every TAG ‖ H in the bytes publishes H. Only TAG ‖ H at key 2 of a delegation
+    statement whose hop hashes to H is well formed; anything else is flagged."""
+    found, i = [], statement.find(DELEGATION_TAG)
+    while i != -1:
+        if i + 64 <= len(statement):
+            found.append((i, statement[i + 32:i + 64]))
+        i = statement.find(DELEGATION_TAG, i + 1)
+    anchor_offset, struct_hash, signer = None, None, None
+    try:
+        sign1 = parse_cose_sign1(statement)
+        signer = ks256_statement_signer(sign1)
+        if statement_type_of(sign1) == "delegation":
+            payload = parse_statement_payload("delegation", cbor_decode(sign1["payload"]))
+            anchor_offset = sign1["payload"].offset + payload[2].offset
+            struct_hash = hop_struct_hash(parse_hop(payload[5]))
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+        pass
+    out = []
+    for off, h in found:
+        if off != anchor_offset:
+            verdict = "flag:outside-key-2"
+        elif h != struct_hash:
+            verdict = "flag:hash-mismatch"
+        else:
+            verdict = "well-formed"
+        out.append({"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": signer.hex() if signer else None})
+    return out
+
+
+def check_test_keys(name: str, v) -> int:
+    bad = 0
+    for k in v.get("keys", []):
+        d = int(k["private_key_d_hex"], 16)
+        if d != int.from_bytes(keccak256(k["label"].encode()), "big") % K1_N:
+            print(f"{name}: key {k['label']!r}: scalar is not keccak256(label) mod n")
+            bad += 1
+        if k1_address(k1_mul(d, K1_G)).hex() != k["address_hex"]:
+            print(f"{name}: key {k['label']!r}: address is not the address of its scalar")
+            bad += 1
+    for a in v.get("accounts", []):
+        if keccak256(a["label"].encode())[12:].hex() != a["address_hex"]:
+            print(f"{name}: account {a['label']!r}: address is not the low 20 bytes of keccak256(label)")
+            bad += 1
+    return bad
+
+
+def hop_from_fields(d) -> dict:
+    return {
+        "delegate": bytes.fromhex(d["delegate_hex"]), "delegator": bytes.fromhex(d["delegator_hex"]),
+        "authority": bytes.fromhex(d["authority_hex"]),
+        "caveats": [(bytes.fromhex(c["enforcer_hex"]), bytes.fromhex(c["terms_hex"])) for c in d["caveats"]],
+        "salt": bytes.fromhex(d["salt_hex"]), "signature": bytes.fromhex(d["signature_hex"]),
+    }
+
+
+def check_delegations(name: str, v) -> int:
+    """Struct hash, domain, signed digest and signer of each delegation."""
+    bad = 0
+    keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v.get("keys", [])}
+    for d in v["delegations"]:
+        where = f"{name}: delegation {d['name']!r}"
+        h = hop_from_fields(d)
+        struct_hash = hop_struct_hash(h)
+        domain = eip712_domain_separator(d["chain_id"], bytes.fromhex(d["delegation_manager_hex"]))
+        digest = keccak256(b"\x19\x01" + domain + struct_hash)
+        for field, got in (("struct_hash_hex", struct_hash), ("domain_separator_hex", domain), ("typed_data_digest_hex", digest)):
+            if d[field] != got.hex():
+                print(f"{where}: {field} is {d[field]}, recomputed {got.hex()}")
+                bad += 1
+        sig = h["signature"]
+        if len(sig) != 65 or sig[64] not in (27, 28):
+            print(f"{where}: signature must be 65 bytes r || s || v with v 27 or 28")
+            bad += 1
+            continue
+        r, s = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big")
+        signer = k1_recover_address(digest, r, s, sig[64] - 27)
+        if s > K1_HALF_N or signer is None or signer != keys.get(d["signer"]):
+            print(f"{where}: signature does not recover, low-s, to {d['signer']!r}")
+            bad += 1
+        if d["delegator_kind"] == "eoa" and signer != h["delegator"]:
+            print(f"{where}: an EOA delegator's signature must recover to the delegator")
+            bad += 1
+    return bad
+
+
+def statement_protected(statement_type: str, kid: bytes, iss: str, sub: str) -> bytes:
+    return cbor_encode({1: KS256_ALG, 3: CONTENT_TYPES[statement_type], 4: kid, 15: {1: iss, 2: sub}})
+
+
+def hop_array(h) -> list:
+    return [h["delegate"], h["delegator"], h["authority"], [[e, t] for e, t in h["caveats"]], h["salt"], h["signature"]]
+
+
+def purpose_map(p) -> dict:
+    out = {}
+    if "kind" in p:
+        out[1], out[2] = p["kind"], bytes.fromhex(p["digest_hex"])
+    if "description" in p:
+        out[3] = p["description"]
+    if "intent_digest_hex" in p:
+        out[4] = bytes.fromhex(p["intent_digest_hex"])
+    return out
+
+
+def statement_payload_from_fields(st, hops) -> dict:
+    f = st["fields"]
+    payload = {1: 1, 3: f["chain_id"], 4: bytes.fromhex(f["delegation_manager_hex"])}
+    if st["type"] == "delegation":
+        h = hops[f["delegation"]]
+        payload.update({2: DELEGATION_TAG + hop_struct_hash(h), 5: hop_array(h),
+                        6: bytes.fromhex(f["delegate_log_id_hex"]), 7: f["depth"], 10: purpose_map(f["purpose"])})
+    else:
+        payload[8] = bytes.fromhex(f["delegation_hash_hex"])
+        if "transaction_hash_hex" in f:
+            payload[9] = bytes.fromhex(f["transaction_hash_hex"])
+        if st["type"] == "revocation":
+            payload[11] = f["reason"]
+        else:
+            payload[10] = purpose_map(f["purpose"])
+    return payload
+
+
+def check_statement(name: str, st, hops, keys) -> int:
+    where = f"{name}: statement {st['name']!r}"
+    bad = 0
+    data = bytes.fromhex(st["cose_sign1_hex"])
+    try:
+        sign1 = parse_cose_sign1(data)
+        payload = parse_statement_payload(st["type"], cbor_decode(sign1["payload"]))
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError) as e:
+        print(f"{where}: does not decode as a {st['type']} statement: {e}")
+        return 1
+    built = statement_payload_from_fields(st, hops)
+    if cbor_encode(built) != bytes(sign1["payload"]):
+        print(f"{where}: the fields re-encode to {cbor_encode(built).hex()}, the payload is {bytes(sign1['payload']).hex()}")
+        bad += 1
+    kid = keys[st["signer"]]
+    sub = (bytes(payload[2][32:]) if st["type"] == "delegation" else bytes(payload[8])).hex()
+    if statement_protected(st["type"], kid, kid.hex(), sub) != bytes(sign1["protected_bytes"]):
+        print(f"{where}: protected header is not {{1: KS256, 3: its content type, 4: kid, 15: {{1: iss, 2: sub}}}}")
+        bad += 1
+    if sign1["unprotected"]:
+        print(f"{where}: the unprotected header must be empty")
+        bad += 1
+    if ks256_statement_signer(sign1) != kid:
+        print(f"{where}: the KS256 signature does not recover, low-s, to its kid")
+        bad += 1
+    if st["type"] == "delegation":
+        h = hop_struct_hash(parse_hop(payload[5]))
+        if bytes(payload[2]) != DELEGATION_TAG + h:
+            print(f"{where}: key 2 is not TAG ‖ the struct hash of key 5")
+            bad += 1
+        pub = st["publication"]
+        prefix, suffix = bytes.fromhex(pub["prefix_hex"]), bytes.fromhex(pub["suffix_hex"])
+        if prefix + DELEGATION_TAG + h + suffix != data or pub["delegation_hash_hex"] != h.hex():
+            print(f"{where}: prefix ‖ TAG ‖ delegation hash ‖ suffix is not the statement")
+            bad += 1
+        leaf = hashlib.sha256(bytes.fromhex(pub["idtimestamp_hex"]) + hashlib.sha256(data).digest()).digest()
+        if pub["leaf_hex"] != leaf.hex():
+            print(f"{where}: leaf is {pub['leaf_hex']}, recomputed {leaf.hex()}")
+            bad += 1
+        if [p["verdict"] for p in audit_publications(data)] != ["well-formed"]:
+            print(f"{where}: a delegation statement must hold exactly one, well formed, publication")
+            bad += 1
+    elif DELEGATION_TAG in data:
+        print(f"{where}: a {st['type']} statement must never encode the delegation tag")
+        bad += 1
+    return bad
+
+
+def check_delegated_spend_statements() -> int:
+    name = "erc7710-statements.json"
+    v = load(name)
+    bad = check_test_keys(name, v)
+    conv = v["conventions"]
+    for field, want in (
+        ("delegation_tag_label", DELEGATION_TAG_LABEL), ("delegation_tag_hex", DELEGATION_TAG.hex()),
+        ("delegation_typehash_hex", DELEGATION_TYPEHASH.hex()), ("caveat_typehash_hex", CAVEAT_TYPEHASH.hex()),
+        ("root_authority_hex", ROOT_AUTHORITY.hex()), ("any_delegate_hex", ANY_DELEGATE.hex()),
+        ("content_types", CONTENT_TYPES),
+    ):
+        if conv.get(field) != want:
+            print(f"{name}: conventions.{field} is {conv.get(field)!r}, expected {want!r}")
+            bad += 1
+    bad += check_delegations(name, v)
+    hops = {d["name"]: hop_from_fields(d) for d in v["delegations"]}
+    keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v["keys"]}
+    for st in v["statements"]:
+        bad += check_statement(name, st, hops, keys)
+    for case in v["audit_cases"]:
+        got = audit_publications(bytes.fromhex(case["cose_sign1_hex"]))
+        if got != case["expect"]["publications"]:
+            print(f"{name}: audit case {case['name']!r}: publications {got}, expected {case['expect']['publications']}")
+            bad += 1
+    if not {c["expect"]["publications"][0]["verdict"] for c in v["audit_cases"] if c["expect"]["publications"]} >= {
+        "well-formed", "flag:outside-key-2", "flag:hash-mismatch"
+    }:
+        print(f"{name}: audit cases must cover a well-formed publication and both flags")
+        bad += 1
+    return bad
+
+
 def main() -> int:
     bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector() + check_ks256_low_s_vector()
+    bad += check_delegated_spend_statements()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):
         bad += check_negative_vectors()
     else:

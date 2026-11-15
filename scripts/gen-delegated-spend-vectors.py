@@ -12,6 +12,7 @@ check-vectors.py recomputes each one from the bytes independently of this
 file.
 
 - erc7710-statements.json: spec/delegated-spend-statements.md
+- payment-nonce.json: spec/payment-nonce-and-binding.md section 2
 """
 import hashlib
 import hmac
@@ -289,8 +290,81 @@ def statements_fixture():
     }
 
 
+GOLDEN_GRANT = "golden grant (all fields, fixed-length left-padded)"
+ONBOARDING_REQUEST_ID = "0b6e8f62-4d1a-4c8e-9f3b-7a2d5c1e9b40"
+INSTANCE_ID = f"eip155:{CHAIN_ID}:0x{INSTANCE.hex()}"
+SECOND_ROOT = ACCOUNTS["second root account"].address
+
+
+def grant_payload() -> bytes:
+    return cv.encode_grant_payload(next(g for g in cv.load("grant_vectors.json") if g["description"] == GOLDEN_GRANT))
+
+
+def nonce_entry(name, kind, purpose, payer, note):
+    digest = cv.purpose_digest(kind, purpose)
+    preimage = cv.payment_nonce_preimage(kind, digest, payer)
+    e = {"name": name, "kind": kind, "note": note, "purpose": purpose, "payer_hex": payer.hex()}
+    if kind == "credits":
+        e["purchase_id_hex"] = hashlib.sha256(purpose["idempotency_key"].encode()).hexdigest()
+    e.update({"purpose_digest_hex": digest.hex(), "preimage_hex": preimage.hex(),
+              "nonce_hex": hashlib.sha256(preimage).hexdigest()})
+    return e
+
+
+def nonce(name: str) -> bytes:
+    return bytes.fromhex(next(e for e in NONCES if e["name"] == name)["nonce_hex"])
+
+
+GRANT_PURPOSE = {"from_grant_vector": GOLDEN_GRANT, "grant_hex": grant_payload().hex()}
+CREDITS_PURPOSE = {"univocity_instance_id": INSTANCE_ID, "credits": 100,
+                   "idempotency_key": "5f1c7a3e-2b9d-4e60-8a4f-c3d2b1e0f987"}
+NONCES = [
+    nonce_entry("grant", "grant", GRANT_PURPOSE, W_H,
+                "the inner grant in payload form, keys 1 to 6, as a Forestrie-Grant carries it at -65538"),
+    nonce_entry("grant/another-payer", "grant", GRANT_PURPOSE, SECOND_ROOT,
+                "the same grant paid from another root: another nonce, so each payer claims its own"),
+    nonce_entry("onboarding", "onboarding", {"request_id": ONBOARDING_REQUEST_ID}, W_H,
+                "the onboarding request id, as the registration service issued it"),
+    nonce_entry("credits", "credits", CREDITS_PURPOSE, W_H,
+                "100 credits for the test instance, purchase id SHA-256 of the Idempotency-Key"),
+    nonce_entry("credits/another-purchase", "credits",
+                dict(CREDITS_PURPOSE, idempotency_key="a2e4c6f8-1b3d-4f5a-9c7e-0d2f4b6a8c1e"), W_H,
+                "the same count for the same instance under another Idempotency-Key: a distinct purchase"),
+]
+
+
+def payment_nonce_fixture():
+    grant_digest = cv.purpose_digest("grant", GRANT_PURPOSE)
+    earlier = b"forestrie/mcp-register x402 grant payment nonce v1" + b"\x00" + grant_digest + W_H
+    kind4 = cv.PAYMENT_NONCE_TAG + b"\x04" + grant_digest + W_H
+    return {
+        "version": 1,
+        "description": "The payment nonce (spec/payment-nonce-and-binding.md section 2): SHA-256 over a tag, the "
+                       "purpose's kind, its digest and the payer, for each kind, with preimages that no request "
+                       "can ever derive.",
+        "generator": "scripts/gen-delegated-spend-vectors.py. Deterministic: rerunning gives these bytes.",
+        "conventions": {
+            "hex": "unprefixed lowercase",
+            "tag_utf8": cv.PAYMENT_NONCE_TAG.decode(),
+            "kinds": cv.PAYMENT_KINDS,
+            "preimage": "tag (26 bytes) || kind (1 byte) || purpose digest (32 bytes) || payer (20 bytes): 79 bytes",
+            "payer": "the account the USDC leaves: the root delegator of a delegated payment, from of an EIP-3009 one",
+        },
+        "vectors": NONCES,
+        "not_canonical": [
+            {"name": "earlier-grant-nonce", "preimage_hex": earlier.hex(),
+             "salt_hex": hashlib.sha256(earlier).hexdigest(),
+             "reason": "the tag of an earlier, tool-specific grant nonce: no request derives a nonce from it"},
+            {"name": "kind-outside-1-to-3", "preimage_hex": kind4.hex(),
+             "salt_hex": hashlib.sha256(kind4).hexdigest(),
+             "reason": "the canonical tag with kind 4, which names no purpose"},
+        ],
+    }
+
+
 FIXTURE_BUILDERS = {
     "erc7710-statements.json": statements_fixture,
+    "payment-nonce.json": payment_nonce_fixture,
 }
 
 

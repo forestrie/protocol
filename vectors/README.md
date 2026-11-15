@@ -1,8 +1,8 @@
 # Conformance vectors
 
-Seven sets of public bytes. An implementation that produces or verifies
+Eight sets of public bytes. An implementation that produces or verifies
 Forestrie grants, leaves, checkpoints, receipts, delegate-key vouchers,
-KS256 signatures or delegated-spend statements is
+KS256 signatures, delegated-spend statements or payment nonces is
 expected to pass the sets for what it handles; the bytes here, not any
 implementation, are the reference.
 
@@ -14,6 +14,7 @@ implementation, are the reference.
 | Burial bundle | `golden/burial/sth-000{0,1,2,3}.cbor`, `golden/burial/burial-receipt.cbor`, `golden/burial/manifest.json` | a retained checkpoint chain and a receipt whose peak the log has since buried |
 | Delegate-key voucher | `fixtures/delegate-key-voucher.json` | the registrar voucher's claims map, including claim 4 (`notAfter`), and its expiry rule |
 | KS256 low-s | `fixtures/ks256-low-s.json` | the `s` bound applied by every verifier that recovers a KS256 signer |
+| Payment nonce | `fixtures/payment-nonce.json` | the nonce that ties a payment to the grant, onboarding or credit purchase it pays for, and the preimages no request derives |
 | Delegated-spend statements | `fixtures/erc7710-statements.json` | the ERC-7710 delegation hash a statement carries, the delegation statement's bytes, the leaf the on-chain publication check rebuilds, and the auditor's verdict on every tagged hash |
 
 `SHA256SUMS` pins every data file under `vectors/`; `sha256sum -c
@@ -248,6 +249,23 @@ it, the verdict and the signer the statement's signature recovers to.
 
 `scripts/check-vectors.py` recomputes every hash, digest, signer and leaf,
 decodes every statement strictly, and runs the audit on each case's bytes.
+
+## Payment nonce
+
+The nonce is specified in
+[payment-nonce-and-binding.md](../spec/payment-nonce-and-binding.md) §2.
+Each entry of `vectors` in `payment-nonce.json` gives a purpose's kind and
+fields, the payer, and the three values every implementation must
+reproduce: `purpose_digest_hex`, `preimage_hex` (79 bytes) and
+`nonce_hex`. A credits entry also gives `purchase_id_hex`, the SHA-256 of
+its `Idempotency-Key`. The grant purpose is the payload form, keys `1` to `6`,
+of the golden grant in `grant_vectors.json`, and the check requires that.
+
+| Case | Expected result |
+|---|---|
+| each kind | digest, preimage and nonce recompute from the fields |
+| the same grant under two payers, and the same count under two keys | four distinct nonces |
+| each `not_canonical` entry | its preimage is not canonical, and `salt_hex` is its SHA-256: no request can bind a payment with that salt |
 
 ## Running the checks
 

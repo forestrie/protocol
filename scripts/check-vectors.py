@@ -31,10 +31,16 @@ Standard library only, so the check does not depend on any Forestrie implementat
   that key 2 is DELEGATION_TAG || the struct hash of key 5 and rebuild the
   leaf from prefix, tag, hash and suffix; and run the auditor's scan on each
   audit case (spec/delegated-spend-statements.md).
+- payment-nonce.json: recompute each purpose digest, canonical preimage and
+  nonce from the purpose's fields and payer, require the grant purpose to be
+  the payload form of its grant vector and every nonce distinct, and require
+  each not_canonical preimage to be non-canonical and to hash to its salt
+  (spec/payment-nonce-and-binding.md section 2).
 """
 import hashlib
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -119,6 +125,15 @@ def encode_grant_response(v: dict) -> bytes:
     for k, enc in items:
         out += cbor_uint(k) + enc
     return bytes(out)
+
+
+def encode_grant_payload(v: dict) -> bytes:
+    """The payload form: the response form without key 0, as the grant carries at -65538."""
+    response = encode_grant_response(v)
+    key0 = cbor_uint(0) + cbor_bstr(pad_left(bytes.fromhex(v["idtimestamp_hex"]), 8))
+    if response[1:1 + len(key0)] != key0:
+        raise ValueError("the response form does not open with key 0")
+    return bytes([0xA6]) + response[1 + len(key0):]
 
 
 class Cbor:
@@ -1021,9 +1036,95 @@ def check_delegated_spend_statements() -> int:
     return bad
 
 
+# The payment nonce (spec/payment-nonce-and-binding.md section 2).
+PAYMENT_NONCE_TAG = b"univocity/payment-nonce/v1"
+PAYMENT_KINDS = {"grant": 1, "onboarding": 2, "credits": 3}
+CANONICAL_INSTANCE_ID = re.compile(r"^eip155:[1-9][0-9]{0,31}:0x[0-9a-f]{40}$")
+
+
+def purpose_digest(kind: str, purpose: dict) -> bytes:
+    if kind == "grant":
+        grant = bytes.fromhex(purpose["grant_hex"])
+        if sorted(cbor_decode(grant)) != [1, 2, 3, 4, 5, 6]:
+            raise ValueError("a grant purpose is the inner grant, keys 1 to 6")
+        return hashlib.sha256(grant).digest()
+    if kind == "onboarding":
+        if not purpose["request_id"]:
+            raise ValueError("an onboarding request id is not empty")
+        return hashlib.sha256(purpose["request_id"].encode("utf-8")).digest()
+    if kind == "credits":
+        instance, credits = purpose["univocity_instance_id"], purpose["credits"]
+        if not CANONICAL_INSTANCE_ID.match(instance) or not 0 < credits < 1 << 64 or not purpose["idempotency_key"]:
+            raise ValueError("credits need a canonical instance id, a count from 1 and a key")
+        purchase_id = hashlib.sha256(purpose["idempotency_key"].encode("utf-8")).digest()
+        return hashlib.sha256(instance.encode("utf-8") + b"\x00" + u64_be(credits) + purchase_id).digest()
+    raise ValueError(f"unknown purpose kind {kind!r}")
+
+
+def payment_nonce_preimage(kind: str, digest: bytes, payer: bytes) -> bytes:
+    if len(digest) != 32 or len(payer) != 20:
+        raise ValueError("the purpose digest is 32 bytes and the payer 20")
+    return PAYMENT_NONCE_TAG + bytes([PAYMENT_KINDS[kind]]) + digest + payer
+
+
+def is_canonical_nonce_preimage(b: bytes) -> bool:
+    """The only shape any request derives a nonce from: TAG || kind 1-3 || 32 || 20 bytes."""
+    t = len(PAYMENT_NONCE_TAG)
+    return len(b) == t + 1 + 32 + 20 and b[:t] == PAYMENT_NONCE_TAG and b[t] in PAYMENT_KINDS.values()
+
+
+def check_payment_nonce() -> int:
+    name = "payment-nonce.json"
+    v = load(name)
+    bad = 0
+    conv = v["conventions"]
+    if conv.get("tag_utf8") != PAYMENT_NONCE_TAG.decode() or conv.get("kinds") != PAYMENT_KINDS:
+        print(f"{name}: conventions name a different tag or kinds")
+        bad += 1
+    nonces = {}
+    for e in v["vectors"]:
+        where = f"{name}: {e['name']!r}"
+        try:
+            digest = purpose_digest(e["kind"], e["purpose"])
+            preimage = payment_nonce_preimage(e["kind"], digest, bytes.fromhex(e["payer_hex"]))
+        except (ValueError, KeyError) as err:
+            print(f"{where}: {err}")
+            bad += 1
+            continue
+        nonce = hashlib.sha256(preimage).digest()
+        for field, got in (("purpose_digest_hex", digest), ("preimage_hex", preimage), ("nonce_hex", nonce)):
+            if e[field] != got.hex():
+                print(f"{where}: {field} is {e[field]}, recomputed {got.hex()}")
+                bad += 1
+        if "purchase_id_hex" in e and e["purchase_id_hex"] != hashlib.sha256(e["purpose"]["idempotency_key"].encode()).hexdigest():
+            print(f"{where}: purchase_id_hex is not SHA-256 of the Idempotency-Key")
+            bad += 1
+        if not is_canonical_nonce_preimage(preimage):
+            print(f"{where}: the preimage is not canonical")
+            bad += 1
+        nonces[e["name"]] = nonce
+    if len(set(nonces.values())) != len(nonces):
+        print(f"{name}: two vectors share a nonce")
+        bad += 1
+    grant = next(e for e in v["vectors"] if e["name"] == "grant")
+    golden = next(g for g in load("grant_vectors.json") if g["description"] == grant["purpose"]["from_grant_vector"])
+    if encode_grant_payload(golden) != bytes.fromhex(grant["purpose"]["grant_hex"]):
+        print(f"{name}: the grant purpose is not the payload form (keys 1 to 6) of its grant vector")
+        bad += 1
+    if [e["kind"] for e in v["vectors"]].count("grant") < 2 or not {"onboarding", "credits"} <= {e["kind"] for e in v["vectors"]}:
+        print(f"{name}: needs every kind, and one purpose under two payers")
+        bad += 1
+    for e in v["not_canonical"]:
+        b = bytes.fromhex(e["preimage_hex"])
+        if is_canonical_nonce_preimage(b) or hashlib.sha256(b).hexdigest() != e["salt_hex"]:
+            print(f"{name}: not_canonical {e['name']!r}: is canonical, or salt_hex is not its SHA-256")
+            bad += 1
+    return bad
+
+
 def main() -> int:
     bad = check_leaf_vectors() + check_grant_vectors() + check_voucher_vector() + check_ks256_low_s_vector()
-    bad += check_delegated_spend_statements()
+    bad += check_delegated_spend_statements() + check_payment_nonce()
     if os.path.exists(os.path.join(FIXTURES, "grant_vectors_negative.json")):
         bad += check_negative_vectors()
     else:

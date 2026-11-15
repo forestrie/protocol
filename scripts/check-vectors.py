@@ -1040,6 +1040,15 @@ def check_statement(name: str, st, hops, keys) -> int:
         # An auditor ties a spend of a registration-service purpose back to its
         # leaf: the nonce over the purpose and the chain's root is the leaf's salt.
         leaf = hops[paid["delegation"]]
+        by_hash = {hop_struct_hash(h): h for h in hops.values()}
+        root_hop = leaf
+        for _ in range(len(hops)):  # follow authority links to the hop that names ROOT_AUTHORITY
+            if root_hop["authority"] == ROOT_AUTHORITY or root_hop["authority"] not in by_hash:
+                break
+            root_hop = by_hash[root_hop["authority"]]
+        if root_hop["authority"] != ROOT_AUTHORITY or root_hop["delegator"].hex() != paid["root_hex"]:
+            print(f"{where}: paid_by.root_hex is not the delegator at the root of the leaf's authority chain")
+            bad += 1
         p = payload[10]
         kind = {v_: k for k, v_ in PAYMENT_KINDS.items()}.get(p[1])
         if hop_struct_hash(leaf) != bytes(payload[8]) or kind is None or hashlib.sha256(

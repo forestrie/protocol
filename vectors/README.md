@@ -248,11 +248,17 @@ which is what the on-chain publication check rebuilds.
 **`decode_negatives`.** Each entry is a signed statement of the stated `type`
 that a conforming decoder refuses: a head longer than it needs
 (`head-not-shortest`), a payload key the type does not define
-(`payload-key-not-defined`), a purpose kind of 5 (`purpose-kind-5`), a
+(`payload-key-not-defined`), a purpose kind that is text, not an unsigned integer
+(`purpose-kind-text`), a
 delegation purpose without a description
 (`delegation-purpose-without-description`) and an unprotected label other
 than the session endorsement's (`unprotected-label-not-the-endorsement`).
 The check fails if any of them decodes.
+
+**`decode_accepts`.** Each entry is a signed statement that a conforming
+decoder accepts although no section 7 kind names it: a spend of kind 5
+(`purpose-kind-5`), because purpose kinds are an open registry (Q78). The
+check fails if any of them is refused.
 
 **`audit_cases`.** Each gives statement bytes and every publication an
 auditor finds in them: the offset of `DELEGATION_TAG`, the hash `H` after

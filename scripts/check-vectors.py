@@ -777,8 +777,8 @@ def parse_purpose(p, statement_type: str):
         raise ValueError("purpose keys are 1 to 4")
     if (1 in p) != (2 in p):
         raise ValueError("purpose kind (1) and digest (2) appear together")
-    if 1 in p and not (p[1] in (1, 2, 3, 4) and is_bstr(p[2], 32)):
-        raise ValueError("purpose kind is 1 to 4 and its digest 32 bytes")
+    if 1 in p and not (isinstance(p[1], int) and not isinstance(p[1], bool) and p[1] >= 0 and is_bstr(p[2], 32)):
+        raise ValueError("purpose kind is an unsigned integer (an open registry, Q78) and its digest 32 bytes")
     if 3 in p and not (isinstance(p[3], str) and p[3]):
         raise ValueError("purpose description is a non-empty text string")
     if 4 in p and not is_bstr(p[4], 32):
@@ -1159,6 +1159,16 @@ def check_delegated_spend_statements() -> int:
         except (ValueError, KeyError, IndexError, UnicodeDecodeError):
             continue
         print(f"{name}: decode negative {neg['name']!r}: a conforming decoder refuses it, and it decoded")
+        bad += 1
+    for acc in v["decode_accepts"]:
+        try:
+            sign1 = parse_cose_sign1(bytes.fromhex(acc["cose_sign1_hex"]))
+            parse_statement_payload(acc["type"], cbor_decode(sign1["payload"]))
+        except (ValueError, KeyError, IndexError, UnicodeDecodeError) as e:
+            print(f"{name}: decode accept {acc['name']!r}: a conforming decoder accepts it, and refused it: {e}")
+            bad += 1
+    if not any(a["name"] == "purpose-kind-5" for a in v["decode_accepts"]):
+        print(f"{name}: needs a spend of a kind no section 7 kind names, which a decoder accepts (Q78)")
         bad += 1
     if not {"binding", "root"} <= {st["refused"] for st in v["refused_spends"]}:
         print(f"{name}: needs a spend refused because key 8 is no payment of its receipt, and one refused "
@@ -1542,8 +1552,11 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "the spend's receipt swapped for one whose hop binds beneath the leaf",
      lambda v: _set(_named(v["statements"], "spend/credits")["paid_by"], receipt_case="salted-hop-above-salted-leaf")),
     ("erc7710-statements.json", "a refused decode swapped for a conforming statement",
-     lambda v: _set(_named(v["decode_negatives"], "purpose-kind-5"),
+     lambda v: _set(_named(v["decode_negatives"], "purpose-kind-text"),
                     cose_sign1_hex=_named(v["statements"], "spend/credits")["cose_sign1_hex"])),
+    ("erc7710-statements.json", "an open-registry kind swapped for a refused decode",
+     lambda v: _set(_named(v["decode_accepts"], "purpose-kind-5"),
+                    cose_sign1_hex=_named(v["decode_negatives"], "purpose-kind-text")["cose_sign1_hex"])),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",

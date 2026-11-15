@@ -178,7 +178,7 @@ hop = [
 ]
 
 purpose = {
-  ? 1 => 1 / 2 / 3 / 4,       ; payment kind, a spend's only (§7)
+  ? 1 => uint,                ; payment kind, a spend's only (§7)
   ? 2 => bstr .size 32,       ; purpose digest, with key 1
   ? 3 => tstr,                ; description, in words, not empty
   ? 4 => bstr .size 32,       ; intent digest
@@ -265,7 +265,11 @@ disagree with the transfer the chain made.
 | `3` | description | required | optional |
 | `4` | intent digest | optional | optional |
 
-A spend's kind says whom it paid and for what:
+A spend's kind says whom it paid and for what. The kinds are an open
+registry: a decoder accepts any unsigned kind, and a later kind is added
+without a new statement version. An auditor reports a kind other than 1 to 3
+as an unverified claim, as it does for kind 4, because it has no payment
+nonce to check the purpose digest against.
 
 | Kind | Paid for | Purpose digest |
 |---|---|---|
@@ -398,9 +402,11 @@ or out-of-order key, and a payload key that the statement's type and version
 do not define.
 
 The vectors include a statement for a long head, an undefined payload key,
-a purpose kind outside 1 to 4, a delegation purpose without a description
-(§4, §7) and an unprotected label other than the endorsement's (§3)
-(`decode_negatives`); none may decode.
+a purpose kind that is not an unsigned integer, a delegation purpose without
+a description (§4, §7) and an unprotected label other than the endorsement's
+(§3) (`decode_negatives`); none may decode. A decoder accepts any unsigned
+purpose kind, because the kinds are an open registry (§7); the vectors
+include a spend of kind 5 (`decode_accepts`), which must decode.
 
 Every label these types use encodes in one byte, so bytewise key order and
 length-first key order give the same bytes, and these encodings do not

@@ -462,6 +462,8 @@ def statements_fixture():
     spend_fields = {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
                     "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex()}}
     _, kind5 = plain_statement("", "spend", b_stmt, dict(spend_fields, purpose={"kind": 5, "digest_hex": CREDITS_DIGEST.hex()}), "")
+    _, kind_text = plain_statement(
+        "", "spend", b_stmt, dict(spend_fields, purpose={"kind": "credits", "digest_hex": CREDITS_DIGEST.hex()}), "")
     _, extra_key = plain_statement("", "spend", b_stmt, spend_fields, "", extra_payload={12: b"\x00"})
     _, extra_label = plain_statement("", "spend", b_stmt, spend_fields, "", unprotected={-70000: b"\x00"})
     _, no_description, _ = delegation_statement(
@@ -474,9 +476,9 @@ def statements_fixture():
         {"name": "payload-key-not-defined", "type": "spend",
          "note": "a spend payload with key 12, which no statement type defines",
          "cose_sign1_hex": extra_key.hex()},
-        {"name": "purpose-kind-5", "type": "spend",
-         "note": "a spend whose purpose kind is 5; the kinds are 1 to 4",
-         "cose_sign1_hex": kind5.hex()},
+        {"name": "purpose-kind-text", "type": "spend",
+         "note": "a spend whose purpose kind is the text string \"credits\"; a kind is an unsigned integer",
+         "cose_sign1_hex": kind_text.hex()},
         {"name": "delegation-purpose-without-description", "type": "delegation",
          "note": "a delegation statement whose purpose has an intent digest and no description",
          "cose_sign1_hex": no_description.hex()},
@@ -586,6 +588,12 @@ def statements_fixture():
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
         "refused_spends": [st_unbound, st_wrong_root],
         "decode_negatives": decode_negatives,
+        "decode_accepts": [
+            {"name": "purpose-kind-5", "type": "spend",
+             "note": "a spend whose purpose kind is 5, which no section 7 kind names: the kinds are an open "
+                     "registry (Q78), so a decoder accepts it and an auditor reports it as an unverified claim",
+             "cose_sign1_hex": kind5.hex()},
+        ],
         "audit_cases": audit_cases,
         "map_key_order": map_key_order(),
     }

@@ -439,6 +439,13 @@ def statements_fixture():
         "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash},
     )
     ts_off = tagged_spend.find(cv.DELEGATION_TAG)
+    _, tagged_revocation = plain_statement(
+        "", "revocation", a_stmt,
+        {"delegation_hash_hex": D_AB.struct_hash.hex(), "transaction_hash_hex": DISABLE_TX.hex(),
+         "reason": "Agent B's task is finished"},
+        "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash},
+    )
+    tr_off = tagged_revocation.find(cv.DELEGATION_TAG)
     _, tagged18_spend = plain_statement(
         "", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
@@ -497,6 +504,13 @@ def statements_fixture():
                  "it, with no signer, because the signature does not cover the unprotected header",
          "cose_sign1_hex": tagged_spend.hex(),
          "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", None)],
+                    "route": "refused:tag-present"}},
+        {"name": "refuse/revocation-with-tag", "rule": "1a",
+         "note": "a revocation statement whose unprotected header carries TAG ‖ H(D_AB), the very hop it revokes: "
+                 "the route refuses it, as it refuses a spend; were it anchored anyway, it would publish D_AB "
+                 "and auditors would flag it, with no signer",
+         "cose_sign1_hex": tagged_revocation.hex(),
+         "expect": {"publications": [pub(tr_off, D_AB.struct_hash, "flag:outside-key-2", None)],
                     "route": "refused:tag-present"}},
         {"name": "refuse/spend-with-tag-tag18", "rule": "1a",
          "note": "the same spend statement registered as a tag-18 COSE_Sign1: the route check strips the tag, "

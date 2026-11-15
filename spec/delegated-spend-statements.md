@@ -369,6 +369,7 @@ the bytes of key 5's signature, which the delegation hash does not cover.
 | `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
+| `refuse/revocation-with-tag` | `H(D_AB)`, in a revocation statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
 | `well-formed/D_AB-tag18` | `H(D_AB)` in a tag-18 delegation statement, one byte later than in `well-formed/D_AB` | well formed |
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
 | `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is longer than it needs; refused on the route (§8.1) | `outside-key-2`, no signer |

@@ -562,6 +562,23 @@
       }
     },
     {
+      "name": "refuse/revocation-with-tag",
+      "rule": "1a",
+      "note": "a revocation statement whose unprotected header carries TAG ‖ H(D_AB), the very hop it revokes: the route refuses it, as it refuses a spend; were it anchored anyway, it would publish D_AB and auditors would flag it, with no signer",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d7265766f636174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5882a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c0958200fca18cd163328d29e1ab5f53b156c54ef339119aecf35cc681d92442d3cd3c00b781a4167656e7420422773207461736b2069732066696e69736865645841fabb0b82470478ce4435b8941c2dcadb4b421dc0617a554486b490394d227f100e77a8f8c3c45a23fbdd84fd2d6d0b904b37af147ffbdeff08117a511d5eabb800",
+      "expect": {
+        "publications": [
+          {
+            "offset": 200,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
       "name": "refuse/spend-with-tag-tag18",
       "rule": "1a",
       "note": "the same spend statement registered as a tag-18 COSE_Sign1: the route check strips the tag, classifies it as a spend and refuses it all the same",

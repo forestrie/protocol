@@ -1521,6 +1521,8 @@ SELF_TEST_MUTATIONS = [
                     signer_hex=next(k["address_hex"] for k in v["keys"] if k["label"].endswith("agent B statement key")))),
     ("erc7710-statements.json", "a hidden publication left out",
      lambda v: _named(v["audit_cases"], "flag/tag-in-hop-signature")["expect"]["publications"].pop()),
+    ("erc7710-statements.json", "a refused revocation's route",
+     lambda v: _set(_named(v["audit_cases"], "refuse/revocation-with-tag")["expect"], route="accepted")),
     ("erc7710-statements.json", "a refused statement's route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"], route="accepted")),
     ("erc7710-statements.json", "a tag-18 spend statement's route",

@@ -408,7 +408,7 @@ def statements_fixture():
     re_off = reencoded_spend.find(cv.DELEGATION_TAG)
 
     def pub(off, h, verdict, key):
-        return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex()}
+        return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex() if key else None}
 
     audit_cases = [
         {"name": "well-formed/D_AB-tag18", "rule": "1b",
@@ -440,15 +440,16 @@ def statements_fixture():
         {"name": "refuse/spend-with-tag", "rule": "1a",
          "note": "a spend statement whose unprotected header carries TAG ‖ H(D_AB), under -70000, a label nothing "
                  "assigns: the registration service "
-                 "refuses it on its route; were it anchored anyway, it would publish D_AB and auditors would flag it",
+                 "refuses it on its route; were it anchored anyway, it would publish D_AB and auditors would flag "
+                 "it, with no signer, because the signature does not cover the unprotected header",
          "cose_sign1_hex": tagged_spend.hex(),
-         "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
+         "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", None)],
                     "route": "refused:tag-present"}},
         {"name": "refuse/spend-with-tag-tag18", "rule": "1a",
          "note": "the same spend statement registered as a tag-18 COSE_Sign1: the route check strips the tag, "
                  "classifies it as a spend and refuses it all the same",
          "cose_sign1_hex": tagged18_spend.hex(),
-         "expect": {"publications": [pub(ts18_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
+         "expect": {"publications": [pub(ts18_off, D_AB.struct_hash, "flag:outside-key-2", None)],
                     "route": "refused:tag-present"}},
         {"name": "refuse/spend-with-tag-reencoded", "rule": "1a",
          "note": "the same spend statement with its outer array's head re-encoded longer than it needs: the KS256 "

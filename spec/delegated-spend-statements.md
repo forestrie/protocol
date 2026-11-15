@@ -338,7 +338,11 @@ from putting the tag in some other statement. So:
   statement, the tag and `H` are its payload's key 2, and `H` is the
   delegation hash recomputed from key 5;
 - it flags anything else, attributed to the statement's signer where the
-  bytes are signed: the tag outside key 2 of a delegation statement
+  bytes are signed, that is, inside the protected header or the payload,
+  which the signature covers, and to nobody when the tag sits in the
+  unprotected header or elsewhere, which it does not (anyone holding a
+  signed statement can add a label there without breaking the signature):
+  the tag outside key 2 of a delegation statement
   (`outside-key-2`), or a key 2 hash that is not the hash of the hop at key 5
   (`hash-mismatch`), which would let a log owner publish one hash while
   showing different terms.
@@ -352,9 +356,9 @@ published hop.
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |
-| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
+| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
 | `well-formed/D_AB-tag18` | `H(D_AB)` in a tag-18 delegation statement, one byte later than in `well-formed/D_AB` | well formed |
-| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
+| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
 | `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is longer than it needs; refused on the route (§8.1) | `outside-key-2`, no signer |
 
 ### 8.3 The statement vectors

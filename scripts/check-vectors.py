@@ -868,10 +868,13 @@ def audit_publications(statement: bytes):
         if i + 64 <= len(statement):
             found.append((i, statement[i + 32:i + 64]))
         i = statement.find(DELEGATION_TAG, i + 1)
-    anchor_offset, struct_hash, signer = None, None, None
+    anchor_offset, struct_hash, signer, signed = None, None, None, []
     try:
         sign1 = parse_cose_sign1(statement)
         signer = ks256_statement_signer(sign1)
+        # The signature covers the protected header and the payload, not the unprotected header.
+        signed = [(sign1["shift"] + sign1[k].offset, sign1["shift"] + sign1[k].offset + len(sign1[k]))
+                  for k in ("protected_bytes", "payload")]
         if statement_type_of(sign1) == "delegation":
             payload = parse_statement_payload("delegation", cbor_decode(sign1["payload"]))
             anchor_offset = sign1["shift"] + sign1["payload"].offset + payload[2].offset
@@ -886,7 +889,9 @@ def audit_publications(statement: bytes):
             verdict = "flag:hash-mismatch"
         else:
             verdict = "well-formed"
-        out.append({"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": signer.hex() if signer else None})
+        attributed = signer if any(a <= off and off + 64 <= b for a, b in signed) else None
+        out.append({"offset": off, "hash_hex": h.hex(), "verdict": verdict,
+                    "signer_hex": attributed.hex() if attributed else None})
     return out
 
 
@@ -1478,6 +1483,9 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["statements"], "delegation/D_HA")["publication"], idtimestamp_hex="019a8f6e2c000002")),
     ("erc7710-statements.json", "an audit verdict",
      lambda v: _set(_named(v["audit_cases"], "flag/hash-mismatch")["expect"]["publications"][0], verdict="well-formed")),
+    ("erc7710-statements.json", "a signer blamed for the unprotected header",
+     lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"]["publications"][0],
+                    signer_hex=_named(v["keys"], "protocol vectors delegated spend: agent B statement key")["address_hex"])),
     ("erc7710-statements.json", "a refused statement's route",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"], route="accepted")),
     ("erc7710-statements.json", "a tag-18 spend statement's route",

@@ -246,7 +246,9 @@ which is what the on-chain publication check rebuilds.
 
 **`audit_cases`.** Each gives statement bytes and every publication an
 auditor finds in them: the offset of `DELEGATION_TAG`, the hash `H` after
-it, the verdict and the signer the statement's signature recovers to. Each
+it, the verdict and the signer the statement's signature recovers to, or
+`null` when the tag sits outside the protected header and the payload, which
+the signature does not cover. Each
 also gives `route`: whether a registration service accepts the statement
 or refuses it because a revocation or spend statement holds the tag.
 
@@ -256,9 +258,9 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `flag:hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the digest `D_AB`'s delegator signed | `flag:hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |
-| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
+| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `well-formed/D_AB-tag18` | `H(D_AB)`, in a tag-18 delegation statement | `well-formed`, one byte later than in `well-formed/D_AB` |
-| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
+| `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is not shortest, so no strict decoder reads it | `flag:outside-key-2` with no signer, and the route refuses it |
 
 **`map_key_order` is provisional.** It is a map whose labels differ in

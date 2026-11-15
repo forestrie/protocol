@@ -1150,6 +1150,16 @@ def check_delegated_spend_statements() -> int:
     keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v["keys"]}
     for st in v["statements"] + v["refused_spends"]:
         bad += check_statement(name, st, hops, keys)
+    for neg in v["decode_negatives"]:
+        try:
+            sign1 = parse_cose_sign1(bytes.fromhex(neg["cose_sign1_hex"]))
+            parse_statement_payload(neg["type"], cbor_decode(sign1["payload"]))
+            if set(sign1["unprotected"]) - {SESSION_ENDORSEMENT_LABEL}:
+                raise ValueError("an unprotected label other than the session endorsement's")
+        except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+            continue
+        print(f"{name}: decode negative {neg['name']!r}: a conforming decoder refuses it, and it decoded")
+        bad += 1
     if not {"binding", "root"} <= {st["refused"] for st in v["refused_spends"]}:
         print(f"{name}: needs a spend refused because key 8 is no payment of its receipt, and one refused "
               "because its root is not the root of the leaf's authority chain")
@@ -1531,6 +1541,9 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag-reencoded")["expect"], route="not-a-statement")),
     ("erc7710-statements.json", "the spend's receipt swapped for one whose hop binds beneath the leaf",
      lambda v: _set(_named(v["statements"], "spend/credits")["paid_by"], receipt_case="salted-hop-above-salted-leaf")),
+    ("erc7710-statements.json", "a refused decode swapped for a conforming statement",
+     lambda v: _set(_named(v["decode_negatives"], "purpose-kind-5"),
+                    cose_sign1_hex=_named(v["statements"], "spend/credits")["cose_sign1_hex"])),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",

@@ -397,6 +397,11 @@ indefinite length, a tag other than the one leading tag 18 of §3, a repeated
 or out-of-order key, and a payload key that the statement's type and version
 do not define.
 
+The vectors include a statement for a long head, an undefined payload key,
+a purpose kind outside 1 to 4, a delegation purpose without a description
+(§4, §7) and an unprotected label other than the endorsement's (§3)
+(`decode_negatives`); none may decode.
+
 Every label these types use encodes in one byte, so bytewise key order and
 length-first key order give the same bytes, and these encodings do not
 depend on which of the two applies to longer labels (see

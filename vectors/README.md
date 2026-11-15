@@ -245,6 +245,15 @@ which is what the on-chain publication check rebuilds.
 | `spend/credits` | the payment nonce over its purpose and `D_HA`'s delegator is the salt of the leaf at key 8, and key 8 is a payment of the `one-payment` receipt in `erc7710-leaf-salt-v1.json` |
 | each `refused_spends` entry | a spend whose signature and shape are sound, which an auditor refuses for the reason in `refused`; `spend/credits-under-salted-hop` names a leaf beneath a salted hop (receipt case `salted-hop-above-salted-leaf`), so key 8 is no payment (`binding`); `spend/credits-salted-over-own-delegator` names a leaf salted over its own delegator, with `root_hex` to match, so only the root of its authority chain refuses it (`root`) |
 
+**`decode_negatives`.** Each entry is a signed statement of the stated `type`
+that a conforming decoder refuses: a head longer than it needs
+(`head-not-shortest`), a payload key the type does not define
+(`payload-key-not-defined`), a purpose kind of 5 (`purpose-kind-5`), a
+delegation purpose without a description
+(`delegation-purpose-without-description`) and an unprotected label other
+than the session endorsement's (`unprotected-label-not-the-endorsement`).
+The check fails if any of them decodes.
+
 **`audit_cases`.** Each gives statement bytes and every publication an
 auditor finds in them: the offset of `DELEGATION_TAG`, the hash `H` after
 it, the verdict and the signer the statement's signature recovers to, or

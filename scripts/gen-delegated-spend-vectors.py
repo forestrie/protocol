@@ -300,7 +300,7 @@ def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, 
 
 
 def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, paid_by=None,
-                    unprotected=None, tag18: bool = False):
+                    unprotected=None, tag18: bool = False, extra_payload=None):
     """A revocation or spend statement; `unprotected` only for the refused audit cases, and `tag18`
     registers it as a tag-18 COSE_Sign1 (a leading 0xd2), which the signature does not cover."""
     payload = {1: 1, 3: CHAIN_ID, 4: MANAGER, 8: bytes.fromhex(fields["delegation_hash_hex"])}
@@ -310,6 +310,7 @@ def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, 
         payload[11] = fields["reason"]
     else:
         payload[10] = cv.purpose_map(fields["purpose"])
+    payload.update(extra_payload or {})  # only for the decode_negatives
     protected = cv.statement_protected(statement_type, signer.address, signer.address.hex(),
                                        fields["delegation_hash_hex"])
     payload_bytes = cv.cbor_encode(payload)
@@ -396,7 +397,7 @@ def statements_fixture():
          "reason": "Agent B's task is finished"},
         "agent A records, in L_A, that it disabled D_AB on chain; the revoked hash is bare",
     )
-    st_spend, _ = plain_statement(
+    st_spend, spend_bytes = plain_statement(
         "spend/credits", "spend", b_stmt,
         {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
          "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
@@ -457,6 +458,32 @@ def statements_fixture():
     # the protected header and the payload, so it still verifies, and no strict decoder reads the statement.
     reencoded_spend = b"\x98\x04" + tagged_spend[1:]
     re_off = reencoded_spend.find(cv.DELEGATION_TAG)
+
+    spend_fields = {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+                    "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex()}}
+    _, kind5 = plain_statement("", "spend", b_stmt, dict(spend_fields, purpose={"kind": 5, "digest_hex": CREDITS_DIGEST.hex()}), "")
+    _, extra_key = plain_statement("", "spend", b_stmt, spend_fields, "", extra_payload={12: b"\x00"})
+    _, extra_label = plain_statement("", "spend", b_stmt, spend_fields, "", unprotected={-70000: b"\x00"})
+    _, no_description, _ = delegation_statement(
+        "", D_AB, a_stmt, L_B, 2, {"intent_digest_hex": hashlib.sha256(INTENT_DOCUMENT.encode()).hexdigest()},
+        b"\x00" * 8)
+    decode_negatives = [
+        {"name": "head-not-shortest", "type": "spend",
+         "note": "spend/credits with its outer array's head written 0x98 0x04 for 0x84: a head longer than it needs",
+         "cose_sign1_hex": (b"\x98\x04" + spend_bytes[1:]).hex()},
+        {"name": "payload-key-not-defined", "type": "spend",
+         "note": "a spend payload with key 12, which no statement type defines",
+         "cose_sign1_hex": extra_key.hex()},
+        {"name": "purpose-kind-5", "type": "spend",
+         "note": "a spend whose purpose kind is 5; the kinds are 1 to 4",
+         "cose_sign1_hex": kind5.hex()},
+        {"name": "delegation-purpose-without-description", "type": "delegation",
+         "note": "a delegation statement whose purpose has an intent digest and no description",
+         "cose_sign1_hex": no_description.hex()},
+        {"name": "unprotected-label-not-the-endorsement", "type": "spend",
+         "note": "a spend statement whose unprotected header holds a label other than the session endorsement's",
+         "cose_sign1_hex": extra_label.hex()},
+    ]
 
     def pub(off, h, verdict, key):
         return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex() if key else None}
@@ -558,6 +585,7 @@ def statements_fixture():
         "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER, LEAF_WRONG_ROOT]],
         "statements": [st_ha, st_ab, st_ab_tagged, st_revoke, st_spend, st_seller],
         "refused_spends": [st_unbound, st_wrong_root],
+        "decode_negatives": decode_negatives,
         "audit_cases": audit_cases,
         "map_key_order": map_key_order(),
     }

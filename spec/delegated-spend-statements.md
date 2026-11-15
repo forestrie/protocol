@@ -360,6 +360,17 @@ from putting the tag in some other statement. So:
   (`hash-mismatch`), which would let a log owner publish one hash while
   showing different terms.
 
+The signer, and the bytes the signature covers, are found by a lenient read
+of the four COSE_Sign1 elements as they are, not by the strict decode of §9.
+The outer array's head, the byte-string heads and the form of tag 18 are not
+signed, and the signer chooses the encoding of its own protected header, so
+a statement that fails the strict decode still has its signed tags
+attributed: otherwise a signer could make a tag in its own payload
+unattributable by writing a head longer than it needs. For KS256 the auditor
+recovers the signer over the protected header and the payload as found. A
+KS256 recovery yields an address; an ES256 statement yields none, so the
+auditor resolves its `kid` to a key and attributes to that key.
+
 An auditor never trusts key 2 alone; it recomputes the hash from the
 published hop, and it scans every byte of a delegation statement, not only
 key 2: a well-formed statement can hide a second publication, for example in
@@ -377,6 +388,8 @@ the bytes of key 5's signature, which the delegation hash does not cover.
 | `well-formed/D_AB-tag18` | `H(D_AB)` in a tag-18 delegation statement, one byte later than in `well-formed/D_AB` | well formed |
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2`, no signer |
 | `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is longer than it needs; refused on the route (§8.1) | `outside-key-2`, no signer |
+| `flag/tag-in-another-statement-type-reencoded` | `H(D_AB)`, in the payload of the stranger's statement whose outer array head is longer than it needs | `outside-key-2`, the stranger |
+| `flag/tag-in-another-statement-type-tag18-long` | `H(D_AB)`, in the payload of the stranger's statement led by tag 18 written `0xd8 0x12` | `outside-key-2`, the stranger |
 
 ### 8.3 The statement vectors
 

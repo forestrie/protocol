@@ -843,6 +843,80 @@ def parse_cose_sign1(data: bytes):
     }
 
 
+def _lenient_head(data: bytes, off: int):
+    """(major, argument or None for indefinite, offset after the head), accepting a head longer than it needs."""
+    if off >= len(data):
+        raise ValueError("truncated")
+    major, aux = data[off] >> 5, data[off] & 0x1F
+    off += 1
+    if aux < 24:
+        return major, aux, off
+    if aux in (24, 25, 26, 27):
+        width = 1 << (aux - 24)
+        if off + width > len(data):
+            raise ValueError("truncated head")
+        return major, int.from_bytes(data[off:off + width], "big"), off + width
+    if aux == 31:
+        return major, None, off
+    raise ValueError("reserved head")
+
+
+def _lenient_item(data: bytes, off: int):
+    """Decode one item without the deterministic rules: heads longer than they need, indefinite
+    lengths, tags and any map key order. Definite byte strings come back as Span; the content of an
+    indefinite one is not located, so it raises."""
+    major, n, off = _lenient_head(data, off)
+    if major in (0, 1) and n is not None:
+        return (n if major == 0 else -1 - n), off
+    if major in (2, 3) and n is not None:
+        if off + n > len(data):
+            raise ValueError("truncated string")
+        if major == 3:
+            return data[off:off + n].decode("utf-8"), off + n
+        s = Span(data[off:off + n])
+        s.offset = off
+        return s, off + n
+    if major == 6 and n is not None:
+        return _lenient_item(data, off)
+    if major in (4, 5):
+        items = []
+        while True:
+            if n is None and data[off:off + 1] == b"\xff":
+                off += 1
+                break
+            if n is not None and len(items) == n * (2 if major == 5 else 1):
+                break
+            item, off = _lenient_item(data, off)
+            items.append(item)
+        if major == 4:
+            return items, off
+        return {(bytes(k) if isinstance(k, Span) else k): v for k, v in zip(items[::2], items[1::2])
+                if not isinstance(k, (list, dict))}, off
+    raise ValueError("an item the lenient decoder does not read")
+
+
+def lenient_cose_sign1(data: bytes):
+    """Locate the four elements of a COSE_Sign1 as found, however the signer or a relayer encoded
+    the heads: non-shortest array and byte-string heads, tag 18 as 0xd2 or as 0xd8 0x12. Offsets
+    are into `data`. Only byte-string elements the signature covers matter here; it raises if
+    the bytes are not a four-element array of the right types."""
+    major, n, off = _lenient_head(data, 0)
+    if major == 6:
+        if n != 18:
+            raise ValueError("a tag other than 18")
+        major, n, off = _lenient_head(data, off)
+    if major != 4 or n != 4:
+        raise ValueError("not a 4-element COSE_Sign1")
+    protected_bytes, off = _lenient_item(data, off)
+    unprotected, off = _lenient_item(data, off)
+    payload, off = _lenient_item(data, off)
+    signature, off = _lenient_item(data, off)
+    if not (is_bstr(protected_bytes) and isinstance(unprotected, dict) and is_bstr(payload) and is_bstr(signature)):
+        raise ValueError("COSE_Sign1 element of the wrong type")
+    return {"protected_bytes": protected_bytes, "protected": _lenient_item(protected_bytes, 0)[0],
+            "unprotected": unprotected, "payload": payload, "signature": signature}
+
+
 def ks256_statement_signer(sign1):
     """The address a KS256 statement signature recovers to, or None (low-s required)."""
     if sign1["protected"].get(1) != KS256_ALG or len(sign1["signature"]) != 65:
@@ -870,11 +944,17 @@ def audit_publications(statement: bytes):
         i = statement.find(DELEGATION_TAG, i + 1)
     anchor_offset, struct_hash, signer, signed = None, None, None, []
     try:
-        sign1 = parse_cose_sign1(statement)
-        signer = ks256_statement_signer(sign1)
+        # The signer and the signed ranges come from a lenient read: the outer array's head and
+        # the byte-string heads are not covered by the signature, so whoever holds the statement, or
+        # the signer, can choose them, and no tag in signed bytes may escape its signer that way.
+        lenient = lenient_cose_sign1(statement)
+        signer = ks256_statement_signer(lenient)
         # The signature covers the protected header and the payload, not the unprotected header.
-        signed = [(sign1["shift"] + sign1[k].offset, sign1["shift"] + sign1[k].offset + len(sign1[k]))
-                  for k in ("protected_bytes", "payload")]
+        signed = [(lenient[k].offset, lenient[k].offset + len(lenient[k])) for k in ("protected_bytes", "payload")]
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+        pass
+    try:
+        sign1 = parse_cose_sign1(statement)
         if statement_type_of(sign1) == "delegation":
             payload = parse_statement_payload("delegation", cbor_decode(sign1["payload"]))
             anchor_offset = sign1["shift"] + sign1["payload"].offset + payload[2].offset
@@ -1540,6 +1620,12 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "a signer blamed for the unprotected header",
      lambda v: _set(_named(v["audit_cases"], "refuse/spend-with-tag")["expect"]["publications"][0],
                     signer_hex=next(k["address_hex"] for k in v["keys"] if k["label"].endswith("agent B statement key")))),
+    ("erc7710-statements.json", "a re-encoded statement's tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-reencoded")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a long tag 18 statement's tag left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-tag18-long")["expect"]["publications"][0],
+                    signer_hex=None)),
     ("erc7710-statements.json", "a hidden publication left out",
      lambda v: _named(v["audit_cases"], "flag/tag-in-hop-signature")["expect"]["publications"].pop()),
     ("erc7710-statements.json", "a refused revocation's route",

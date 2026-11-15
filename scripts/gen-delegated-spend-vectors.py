@@ -390,6 +390,8 @@ def statements_fixture():
         cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address}), other_payload, stranger
     )
     other_off = other.find(cv.DELEGATION_TAG)
+    other_reencoded = b"\x98\x04" + other[1:]
+    other_tag18_long = b"\xd8\x12" + other
 
     b_stmt = KEYS["agent B statement key"]
     st_revoke, _ = plain_statement(
@@ -566,6 +568,20 @@ def statements_fixture():
          "cose_sign1_hex": reencoded_spend.hex(),
          "expect": {"publications": [{"offset": re_off, "hash_hex": D_AB.struct_hash.hex(),
                                       "verdict": "flag:outside-key-2", "signer_hex": None}],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-reencoded", "rule": "1b",
+         "note": "the stranger's statement with its outer array's head written 0x98 0x04 for 0x84: the head is not "
+                 "signed, the signature still verifies, and no strict decoder reads it, but the tag sits in the "
+                 "signed payload, so an auditor still attributes it to the stranger",
+         "cose_sign1_hex": other_reencoded.hex(),
+         "expect": {"publications": [pub(other_off + 1, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "refused:tag-present"}},
+        {"name": "flag/tag-in-another-statement-type-tag18-long", "rule": "1b",
+         "note": "the stranger's statement led by tag 18 written 0xd8 0x12, not 0xd2: a strict decoder refuses the "
+                 "form, the signature does not cover it, and the tag in the signed payload is still the "
+                 "stranger's",
+         "cose_sign1_hex": other_tag18_long.hex(),
+         "expect": {"publications": [pub(other_off + 2, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "refused:tag-present"}},
     ]
     return {

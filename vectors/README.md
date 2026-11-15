@@ -276,6 +276,8 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/signed-digest-not-struct-hash` | the digest `D_AB`'s delegator signed | `flag:hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |
 | `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
+| `flag/tag-in-another-statement-type-reencoded` | `H(D_AB)` in the signed payload of the stranger's statement, whose outer array head is not shortest | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
+| `flag/tag-in-another-statement-type-tag18-long` | `H(D_AB)` in the signed payload of the stranger's statement, led by tag 18 as `0xd8 0x12` | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
 | `refuse/revocation-with-tag` | `H(D_AB)`, in a revocation statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `well-formed/D_AB-tag18` | `H(D_AB)`, in a tag-18 delegation statement | `well-formed`, one byte later than in `well-formed/D_AB` |
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |

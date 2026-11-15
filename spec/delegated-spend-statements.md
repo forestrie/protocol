@@ -366,6 +366,11 @@ from putting the tag in some other statement. So:
   (`hash-mismatch`), which would let a log owner publish one hash while
   showing different terms.
 
+Attribution follows the tag's own 32 bytes: the tag is the signer's when
+those 32 bytes lie in one signed range, even if the 32 bytes of `H` after
+it run on into the unsigned header. Only the signer can have written the
+tag's bytes, so no relayer can frame it by what it adds after them.
+
 The signer, and the bytes the signature covers, are found by a lenient read
 of the four COSE_Sign1 elements as they are, not by the strict decode of §9.
 The outer array's head, the byte-string heads and the form of tag 18 are not

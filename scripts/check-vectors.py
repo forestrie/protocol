@@ -992,7 +992,7 @@ def audit_publications(statement: bytes):
             verdict = "flag:hash-mismatch"
         else:
             verdict = "well-formed"
-        attributed = signer if any(a <= off and off + 64 <= b for a, b in signed) else None
+        attributed = signer if any(a <= off and off + 32 <= b for a, b in signed) else None
         out.append({"offset": off, "hash_hex": h.hex(), "verdict": verdict,
                     "signer_hex": attributed.hex() if attributed else None})
     return out
@@ -1672,6 +1672,9 @@ SELF_TEST_MUTATIONS = [
                     signer_hex=None)),
     ("erc7710-statements.json", "a high-s signature: the tag left unattributed",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-high-s")["expect"]["publications"][0],
+                    signer_hex=None)),
+    ("erc7710-statements.json", "a tag ending in the protected header and running into the unprotected: left unattributed",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-protected-header-running-into-unprotected")["expect"]["publications"][0],
                     signer_hex=None)),
     ("erc7710-statements.json", "a protected header that is not a map: the tag left unflagged",
      lambda v: _named(v["audit_cases"], "flag/tag-in-statement-with-protected-not-a-map")["expect"]["publications"].pop()),

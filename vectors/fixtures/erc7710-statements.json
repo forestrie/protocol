@@ -893,6 +893,23 @@
       }
     },
     {
+      "name": "flag/tag-in-protected-header-running-into-unprotected",
+      "rule": "1b",
+      "note": "the stranger's statement whose protected header ends in TAG ‖ H[:31], the empty unprotected header's 0xa0 being H's last byte: the signer wrote every byte of the tag, so an auditor attributes it to the stranger, though the 32 bytes of H reach into the unsigned header",
+      "cose_sign1_hex": "84587ea4013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273d3a0001116f583fb09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee6449a0581b612073746174656d656e74206f6620616e6f7468657220747970655841d6377d9992bc2bba557646cd5bd42f19eff2de4b040f5b6b721ab0813834e5b054440348d4cf1389a16394b729b6fb71f61ca9380fdd511a9e5288b4e25c4d9500",
+      "expect": {
+        "publications": [
+          {
+            "offset": 66,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee6449a0",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
       "name": "flag/tag-in-statement-with-protected-not-a-map",
       "rule": "1b",
       "note": "a statement whose protected header is the integer 5, not a map: it has no content type and no algorithm, so the route refuses it as unclassifiable and an auditor flags the tag in its payload and attributes it to nobody, rather than failing on the entry",

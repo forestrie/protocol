@@ -420,6 +420,17 @@ def statements_fixture():
                      + cv.cbor_encode(other_payload[half:]) + b"\xff" + other[pay_at + len(other_payload):])
     s_, recid_ = int.from_bytes(other[sig_at + 34:sig_at + 66], "big"), other[-1]
     other_high_s = (other[:sig_at + 34] + (cv.K1_N - s_).to_bytes(32, "big") + bytes([recid_ ^ 1]))
+    # TAG ‖ H whose last byte is the 0xa0 of the empty unprotected header: the signer ends a protected-header
+    # value with TAG ‖ H[:31] and the unsigned byte after the protected header supplies H's last byte (about
+    # 256 salts of a real hop reach an H that ends in 0xa0; this H is only a stand-in that does).
+    split_hash = D_AB.struct_hash[:31] + b"\xa0"
+    split_protected = cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address,
+                                      -70000: cv.DELEGATION_TAG + split_hash[:31]})
+    assert split_protected.endswith(cv.DELEGATION_TAG + split_hash[:31])
+    other_split = sign_statement(split_protected, b"a statement of another type", stranger)
+    other_split_off = other_split.find(cv.DELEGATION_TAG)
+    assert other_split[other_split_off + 63] == 0xA0
+    assert other_split.find(cv.DELEGATION_TAG + split_hash) == other_split_off
 
     b_stmt = KEYS["agent B statement key"]
     st_revoke, _ = plain_statement(
@@ -679,6 +690,13 @@ def statements_fixture():
                  "route accepts it",
          "cose_sign1_hex": other_high_s.hex(),
          "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "accepted"}},
+        {"name": "flag/tag-in-protected-header-running-into-unprotected", "rule": "1b",
+         "note": "the stranger's statement whose protected header ends in TAG ‖ H[:31], the empty unprotected "
+                 "header's 0xa0 being H's last byte: the signer wrote every byte of the tag, so an auditor "
+                 "attributes it to the stranger, though the 32 bytes of H reach into the unsigned header",
+         "cose_sign1_hex": other_split.hex(),
+         "expect": {"publications": [pub(other_split_off, split_hash, "flag:outside-key-2", stranger)],
                     "route": "accepted"}},
         {"name": "flag/tag-in-statement-with-protected-not-a-map", "rule": "1b",
          "note": "a statement whose protected header is the integer 5, not a map: it has no content type and no "

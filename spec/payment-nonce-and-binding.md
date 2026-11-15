@@ -206,6 +206,9 @@ transfers, and which requests it pays.
 | `salted-hop-above-salted-leaf` | the hop nearest the root binds; the salted leaf beneath it does not |
 | `stranger-extends-leaf` | a stranger's child under the open leaf: the leaf still binds |
 | `no-call-limit` | a binding delegation without the call limit pairs and binds nothing; its `Transfer` is unbound |
+| `call-limit-two`, `call-limit-unlisted` | a call limit of two, or of one under an unlisted enforcer, is no call limit: the leaf pairs and binds nothing |
+| `pin-unlisted-enforcer` | pin-shaped terms under an unlisted enforcer pin nothing: no binding, the `Transfer` unbound |
+| `pin-to-another-payee` | a leaf pinning the amount to another account, first in log order, binds nothing; the valid leaf still binds |
 | `no-call-limit-takes-part` | it takes the one `Transfer` before a leaf with the call limit, which pairs with nothing |
 | `two-bindings-one-transfer` | two binding leaves, one `Transfer`: the first in log order binds |
 | `two-roots-pair-by-root` | a chain from another root binds first and pins the same amount, its root moving nothing: it pairs with nothing, and the first root's leaf is the payment |

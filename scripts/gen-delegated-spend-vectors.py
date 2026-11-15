@@ -484,6 +484,7 @@ def payment_nonce_fixture():
 LEAF_KEYS = {r: Key(r) for r in ("agent B second spending key", "agent B gas account",
                                  "stranger spending key", "stranger gas account")}
 UNLISTED_MANAGER = ACCOUNTS["unlisted delegation manager"].address
+UNLISTED_ENFORCER = Account("unlisted enforcer (no-op)")
 GAS_B, GAS_STRANGER = LEAF_KEYS["agent B gas account"].address, LEAF_KEYS["stranger gas account"].address
 B_SPEND, B_SPEND_2 = KEYS["agent B spending key"], LEAF_KEYS["agent B second spending key"]
 STRANGER = LEAF_KEYS["stranger spending key"]
@@ -507,6 +508,19 @@ LEAVES = {d.name: d for d in (
     leaf("leaf/grant", "grant", note="pins the transfer, one call, the grant nonce as salt"),
     LEAF_CREDITS,
     leaf("leaf/no-call-limit", "grant", caveats=(PIN,), note="pins the transfer and carries no call limit"),
+    leaf("leaf/call-limit-two", "grant", caveats=(PIN, (LIMITED_CALLS, cv.u256(2), "LimitedCallsEnforcer: 2")),
+         note="pins the transfer under a call limit of two, so one delegation could pay twice"),
+    leaf("leaf/pin-unlisted-enforcer", "grant",
+         caveats=((UNLISTED_ENFORCER.address, PIN[1], "pin-shaped terms under an enforcer the verifier does not list"),
+                  CALL_LIMIT),
+         note="the pin's terms under an unlisted enforcer, one call"),
+    leaf("leaf/pin-elsewhere", "grant",
+         caveats=((EXACT_EXECUTION, transfer_pin(SELLER, PRICE), "ExactExecutionEnforcer: USDC, value 0, transfer(seller, 10000)"),
+                  CALL_LIMIT),
+         note="pins the amount to an account that is not the payee, one call"),
+    leaf("leaf/call-limit-unlisted", "grant",
+         caveats=(PIN, (UNLISTED_ENFORCER.address, cv.u256(1), "call limit of one under an unlisted enforcer")),
+         note="pins the transfer; the call limit of one sits under an enforcer the verifier does not list"),
     leaf("leaf/under-salted-hop", "credits", authority=H_B.struct_hash, signer=B_SPEND_2,
          note="a leaf beneath hop/B-salted, the credits nonce as salt"),
     leaf("leaf/repay-1", "onboarding", caveats=(PIN, CALL_LIMIT, timestamp_until(1_795_000_000, "2026-11-18T09:46:40Z")),
@@ -685,6 +699,35 @@ def leaf_salt_cases():
                    "pairs": [("leaf/credits", "b:transfer0")], "unpaired": ["root/second"],
                    "payments": [("leaf/credits", "b:transfer0", PRICE)], "unbound": []},
                   [("credits", "leaf/credits"), ("grant", None)]))
+    for name, what in (("leaf/call-limit-two", "LimitedCallsEnforcer(2), which lets one delegation pay twice"),
+                       ("leaf/call-limit-unlisted", "a call limit of one under an enforcer the verifier does not list")):
+        pre, ev = redemption("r", [L[name]] + above, [PRICE])
+        c.append(case(name.replace("leaf/", "", 1),
+                      f"a leaf pinned to the payee with {what}: it pairs and binds nothing, so its Transfer is "
+                      "money nothing can bind",
+                      pre + ev,
+                      {"chains": [([name, "D_AB", "D_HA"], name)], "pairs": [(name, "r:transfer0")],
+                       "payments": [], "unbound": ["r:transfer0"]},
+                      [("grant", None)]))
+    pre, ev = redemption("r", [L["leaf/pin-unlisted-enforcer"]] + above, [PRICE])
+    c.append(case("pin-unlisted-enforcer",
+                  "pin-shaped terms under an enforcer the verifier does not list pin nothing: no binding, so "
+                  "nothing pairs and the Transfer is unbound",
+                  pre + ev,
+                  {"chains": [(["leaf/pin-unlisted-enforcer", "D_AB", "D_HA"], None)], "payments": [],
+                   "unbound": ["r:transfer0"]},
+                  [("grant", None)]))
+    p1, e1 = redemption("a", [L["leaf/pin-elsewhere"]] + above, [])
+    p2, e2 = redemption("b", [L["leaf/credits"]] + above, [PRICE])
+    c.append(case("pin-to-another-payee",
+                  "a leaf from the same root pins the amount to an account that is not the payee, and comes first "
+                  "in log order: it binds nothing, and the valid leaf still binds and takes the Transfer",
+                  p1 + p2 + e1 + e2,
+                  {"chains": [(["leaf/pin-elsewhere", "D_AB", "D_HA"], None),
+                              (["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "b:transfer0")],
+                   "payments": [("leaf/credits", "b:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits"), ("grant", None)]))
     pre, ev = redemption("r", [L["leaf/credits"]] + above, [])
     auth = [("x402:authorization", authorization_used_log(W_H, cv.keccak256(b"an x402 authorization nonce"))),
             ("x402:transfer", transfer_log(W_H, PAYEE, PRICE))]
@@ -736,6 +779,7 @@ def leaf_salt_fixture():
                         "request binds, or null",
         },
         "keys": [k.json() for k in LEAF_KEYS.values()],
+        "accounts": [UNLISTED_ENFORCER.json()],
         "config": {
             "chain_id": CHAIN_ID, "usdc_hex": USDC.hex(), "payee_hex": PAYEE.hex(),
             "delegation_managers": [{

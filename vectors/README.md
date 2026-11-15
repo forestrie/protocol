@@ -222,7 +222,10 @@ values a verifier must reproduce: `struct_hash_hex`, the delegation hash a
 statement carries; `domain_separator_hex`; and `typed_data_digest_hex`, the
 value the delegator signs. `D_AB` is signed by an EOA, so its signature
 recovers to its delegator. `D_HA` is signed for a smart account, which checks
-its owner's signature, so it recovers to the owner.
+its owner's signature, so it recovers to the owner. `leaf/credits` and
+`leaf/seller` are payment leaves beneath `D_AB`, never published: each pins
+one USDC transfer and allows one call, and `leaf/credits` carries the
+credits payment nonce as its salt.
 
 **`statements`.** Each statement gives its fields, its bytes
 (`cose_sign1_hex`, an untagged KS256 COSE_Sign1) and, for a delegation
@@ -235,10 +238,14 @@ which is what the on-chain publication check rebuilds.
 | the fields of every statement | re-encode to its payload byte for byte |
 | every statement signature | recovers, low-s, to the statement's `kid`, which is never a delegation signer |
 | a delegation statement | key 2 is `DELEGATION_TAG ‖` the struct hash of key 5, and `prefix ‖ TAG ‖ H ‖ suffix` is the statement |
+| a revocation or spend statement | key 8 is the bare hash, and the bytes never hold `DELEGATION_TAG` |
+| `spend/credits` | the payment nonce over its purpose and `D_HA`'s delegator is the salt of the leaf at key 8 |
 
 **`audit_cases`.** Each gives statement bytes and every publication an
 auditor finds in them: the offset of `DELEGATION_TAG`, the hash `H` after
-it, the verdict and the signer the statement's signature recovers to.
+it, the verdict and the signer the statement's signature recovers to. Each
+also gives `route`: whether a registration service accepts the statement
+or refuses it because a revocation or spend statement holds the tag.
 
 | Case | Publication | Verdict |
 |---|---|---|
@@ -246,6 +253,7 @@ it, the verdict and the signer the statement's signature recovers to.
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `flag:hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the digest `D_AB`'s delegator signed | `flag:hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, in a statement of another content type | `flag:outside-key-2` |
+| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header | `flag:outside-key-2`, and the route refuses it |
 
 `scripts/check-vectors.py` recomputes every hash, digest, signer and leaf,
 decodes every statement strictly, and runs the audit on each case's bytes.

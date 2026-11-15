@@ -29,8 +29,11 @@ Standard library only, so the check does not depend on any Forestrie implementat
   statement's payload and protected header from its fields, decode it
   strictly and recover its KS256 signer; for a delegation statement check
   that key 2 is DELEGATION_TAG || the struct hash of key 5 and rebuild the
-  leaf from prefix, tag, hash and suffix; and run the auditor's scan on each
-  audit case (spec/delegated-spend-statements.md).
+  leaf from prefix, tag, hash and suffix; for a revocation or spend
+  statement require the tag absent, and for a spend paid with a payment
+  nonce require the nonce over its purpose and root to be its leaf's salt;
+  and run the auditor's scan and the route check on each audit case
+  (spec/delegated-spend-statements.md).
 - payment-nonce.json: recompute each purpose digest, canonical preimage and
   nonce from the purpose's fields and payer, require the grant purpose to be
   the payload form of its grant vector and every nonce distinct, and require
@@ -863,6 +866,18 @@ def audit_publications(statement: bytes):
     return out
 
 
+def route_check(statement: bytes) -> str:
+    """What a registration service does with a statement of these types: it refuses a
+    revocation or spend statement whose bytes, headers included, hold the delegation tag."""
+    try:
+        statement_type = statement_type_of(parse_cose_sign1(statement))
+    except (ValueError, KeyError, IndexError, UnicodeDecodeError):
+        return "not-a-statement"
+    if statement_type in ("revocation", "spend") and DELEGATION_TAG in statement:
+        return "refused:tag-present"
+    return "accepted"
+
+
 def check_test_keys(name: str, v) -> int:
     bad = 0
     for k in v.get("keys", []):
@@ -1001,6 +1016,21 @@ def check_statement(name: str, st, hops, keys) -> int:
     elif DELEGATION_TAG in data:
         print(f"{where}: a {st['type']} statement must never encode the delegation tag")
         bad += 1
+    if route_check(data) != "accepted":
+        print(f"{where}: the route check refuses it")
+        bad += 1
+    paid = st.get("paid_by")
+    if paid:
+        # An auditor ties a spend of a registration-service purpose back to its
+        # leaf: the nonce over the purpose and the chain's root is the leaf's salt.
+        leaf = hops[paid["delegation"]]
+        p = payload[10]
+        kind = {v_: k for k, v_ in PAYMENT_KINDS.items()}.get(p[1])
+        if hop_struct_hash(leaf) != bytes(payload[8]) or kind is None or hashlib.sha256(
+            payment_nonce_preimage(kind, bytes(p[2]), bytes.fromhex(paid["root_hex"]))
+        ).digest() != leaf["salt"]:
+            print(f"{where}: the nonce over its purpose and root is not the salt of the leaf it names")
+            bad += 1
     return bad
 
 
@@ -1023,11 +1053,21 @@ def check_delegated_spend_statements() -> int:
     keys = {k["label"]: bytes.fromhex(k["address_hex"]) for k in v["keys"]}
     for st in v["statements"]:
         bad += check_statement(name, st, hops, keys)
+    if {st["type"] for st in v["statements"]} != set(CONTENT_TYPES):
+        print(f"{name}: needs a statement of every type")
+        bad += 1
     for case in v["audit_cases"]:
-        got = audit_publications(bytes.fromhex(case["cose_sign1_hex"]))
+        data = bytes.fromhex(case["cose_sign1_hex"])
+        got = audit_publications(data)
         if got != case["expect"]["publications"]:
             print(f"{name}: audit case {case['name']!r}: publications {got}, expected {case['expect']['publications']}")
             bad += 1
+        if route_check(data) != case["expect"]["route"]:
+            print(f"{name}: audit case {case['name']!r}: route {route_check(data)}, expected {case['expect']['route']}")
+            bad += 1
+    if not any(c["expect"]["route"] == "refused:tag-present" for c in v["audit_cases"]):
+        print(f"{name}: needs a revocation or spend statement that the route check refuses")
+        bad += 1
     if not {c["expect"]["publications"][0]["verdict"] for c in v["audit_cases"] if c["expect"]["publications"]} >= {
         "well-formed", "flag:outside-key-2", "flag:hash-mismatch"
     }:

@@ -104,7 +104,7 @@ KEYS = {r: Key(r) for r in (
     "stranger spending key", "stranger gas account", "stranger statement key",
 )}
 ACCOUNTS = {r: Account(r) for r in (
-    "human root account", "payee", "published enforcer (test deployment)",
+    "human root account", "payee", "seller", "published enforcer (test deployment)",
     "univocity instance (test deployment)", "unlisted delegation manager", "second root account",
 )}
 W_H = ACCOUNTS["human root account"].address
@@ -170,126 +170,6 @@ D_AB = Delegation(
 )
 DELEGATIONS = [D_HA, D_AB]
 
-INTENT_DOCUMENT = (
-    '{"natural_language_description":"Pay registration fees and buy research for the '
-    'household accounts project","intent_expiry":"2027-01-01T00:00:00Z","requires_refundability":true}'
-)
-
-
-def sign_statement(protected: bytes, payload: bytes, key: Key) -> bytes:
-    sig_structure = cv.cbor_encode(["Signature1", protected, b"", payload])
-    return cv.cbor_encode([protected, {}, payload, key.sign(cv.keccak256(sig_structure), 0)])
-
-
-def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, depth: int, purpose: dict,
-                         idtimestamp: bytes, anchor: bytes = None, note: str = ""):
-    """A delegation statement; `anchor` overrides key 2's hash for the malformed audit cases."""
-    anchor = d.struct_hash if anchor is None else anchor
-    payload = {1: 1, 2: cv.DELEGATION_TAG + anchor, 3: CHAIN_ID, 4: MANAGER, 5: cv.hop_array(d.hop()),
-               6: delegate_log, 7: depth, 10: cv.purpose_map(purpose)}
-    protected = cv.statement_protected("delegation", signer.address, signer.address.hex(), anchor.hex())
-    data = sign_statement(protected, cv.cbor_encode(payload), signer)
-    off = data.find(cv.DELEGATION_TAG + anchor)
-    entry = {
-        "name": name, "type": "delegation", "note": note, "signer": signer.label,
-        "fields": {"chain_id": CHAIN_ID, "delegation_manager_hex": MANAGER.hex(), "delegation": d.name,
-                   "delegate_log_id_hex": delegate_log.hex(), "depth": depth, "purpose": purpose},
-        "cose_sign1_hex": data.hex(),
-        "publication": {
-            "delegation_hash_hex": anchor.hex(), "prefix_hex": data[:off].hex(), "suffix_hex": data[off + 64:].hex(),
-            "idtimestamp_hex": idtimestamp.hex(),
-            "leaf_hex": hashlib.sha256(idtimestamp + hashlib.sha256(data).digest()).hexdigest(),
-        },
-    }
-    return entry, data, off
-
-
-def statements_fixture():
-    st_ha, _, _ = delegation_statement(
-        "delegation/D_HA", D_HA, KEYS["human statement key"], L_A, 3,
-        {"description": "Agent A pays registration fees and buys research, up to 5 USDC",
-         "intent_digest_hex": hashlib.sha256(INTENT_DOCUMENT.encode()).hexdigest()},
-        bytes.fromhex("019a8f6e2c000001"),
-        note="the root hop, published in the human's authority log L_H by the human's statement key",
-    )
-    st_ab, ab_bytes, ab_off = delegation_statement(
-        "delegation/D_AB", D_AB, KEYS["agent A statement key"], L_B, 2,
-        {"description": "Agent B pays the registration fees of log L_B"},
-        bytes.fromhex("019a8f7a11000003"),
-        note="a reusable hop, published in agent A's log L_A by A's statement key, never its spending key",
-    )
-    a_stmt = KEYS["agent A statement key"]
-    _, mismatch, mm_off = delegation_statement(
-        "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
-        b"\x00" * 8, anchor=D_HA.struct_hash,
-    )
-    _, digest_case, dg_off = delegation_statement(
-        "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
-        b"\x00" * 8, anchor=D_AB.digest,
-    )
-    stranger = KEYS["stranger statement key"]
-    other_payload = b"a statement of another type that quotes " + cv.DELEGATION_TAG + D_AB.struct_hash
-    other = sign_statement(
-        cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address}), other_payload, stranger
-    )
-    other_off = other.find(cv.DELEGATION_TAG)
-
-    def pub(off, h, verdict, key):
-        return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex()}
-
-    audit_cases = [
-        {"name": "well-formed/D_AB", "rule": "1b",
-         "note": "TAG ‖ H at key 2 of a delegation statement, H the struct hash of the hop at key 5",
-         "cose_sign1_hex": ab_bytes.hex(),
-         "expect": {"publications": [pub(ab_off, D_AB.struct_hash, "well-formed", a_stmt)]}},
-        {"name": "flag/hash-mismatch", "rule": "1b",
-         "note": "key 2 publishes D_HA while key 5 shows the terms of D_AB: it publishes D_HA, and auditors flag it",
-         "cose_sign1_hex": mismatch.hex(),
-         "expect": {"publications": [pub(mm_off, D_HA.struct_hash, "flag:hash-mismatch", a_stmt)]}},
-        {"name": "flag/signed-digest-not-struct-hash", "rule": "1b",
-         "note": "key 2 carries the EIP-712 digest D_AB's delegator signed instead of its struct hash: it publishes "
-                 "a value no delegation manager ever hands an enforcer, so D_AB stays unpublished",
-         "cose_sign1_hex": digest_case.hex(),
-         "expect": {"publications": [pub(dg_off, D_AB.digest, "flag:hash-mismatch", a_stmt)]}},
-        {"name": "flag/tag-in-another-statement-type", "rule": "1b",
-         "note": "a statement of another content type, signed by someone else with a grant to the log, quotes "
-                 "TAG ‖ H(D_AB): it still publishes D_AB, and auditors flag it and attribute it to its signer",
-         "cose_sign1_hex": other.hex(),
-         "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)]}},
-    ]
-    return {
-        "version": 1,
-        "description": "ERC-7710 delegation, revocation and spend statements (spec/delegated-spend-statements.md): "
-                       "the delegation hash a statement must carry, the statement bytes, the leaf the publication "
-                       "enforcer rebuilds from them, and how auditors classify every TAG ‖ H they find.",
-        "generator": "scripts/gen-delegated-spend-vectors.py (standard library, RFC 6979). Deterministic: "
-                     "rerunning gives these bytes.",
-        "conventions": {
-            "hex": "unprefixed lowercase",
-            "delegation_tag_label": cv.DELEGATION_TAG_LABEL,
-            "delegation_tag_hex": cv.DELEGATION_TAG.hex(),
-            "delegation_typehash_hex": cv.DELEGATION_TYPEHASH.hex(),
-            "caveat_typehash_hex": cv.CAVEAT_TYPEHASH.hex(),
-            "root_authority_hex": cv.ROOT_AUTHORITY.hex(),
-            "any_delegate_hex": cv.ANY_DELEGATE.hex(),
-            "content_types": cv.CONTENT_TYPES,
-            "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
-            "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
-            "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1, low s",
-            "cose_sign1": "untagged, empty unprotected header, attached payload",
-            "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a "
-                        "deployed key",
-            "account": "address_hex is the low 20 bytes of keccak256 of the label; nobody holds its key",
-            "intent_document": INTENT_DOCUMENT,
-        },
-        "keys": [k.json() for k in KEYS.values()],
-        "accounts": [a.json() for a in ACCOUNTS.values()],
-        "delegations": [d.json() for d in DELEGATIONS],
-        "statements": [st_ha, st_ab],
-        "audit_cases": audit_cases,
-    }
-
-
 GOLDEN_GRANT = "golden grant (all fields, fixed-length left-padded)"
 ONBOARDING_REQUEST_ID = "0b6e8f62-4d1a-4c8e-9f3b-7a2d5c1e9b40"
 INSTANCE_ID = f"eip155:{CHAIN_ID}:0x{INSTANCE.hex()}"
@@ -331,6 +211,224 @@ NONCES = [
                 dict(CREDITS_PURPOSE, idempotency_key="a2e4c6f8-1b3d-4f5a-9c7e-0d2f4b6a8c1e"), W_H,
                 "the same count for the same instance under another Idempotency-Key: a distinct purchase"),
 ]
+
+
+
+
+def transfer_pin(recipient: bytes, amount: int) -> bytes:
+    """ExactExecutionEnforcer terms: USDC, value 0, transfer(recipient, amount), packed."""
+    return USDC + cv.u256(0) + bytes.fromhex("a9059cbb") + cv.addr_word(recipient) + cv.u256(amount)
+
+
+PRICE = 10_000  # 0.01 USDC, in base units
+PIN = (EXACT_EXECUTION, transfer_pin(PAYEE, PRICE), "ExactExecutionEnforcer: USDC, value 0, transfer(payee, 10000)")
+CALL_LIMIT = (LIMITED_CALLS, cv.u256(1), "LimitedCallsEnforcer: 1")
+
+
+def payment_leaf(name, salt_name, authority, caveats=(PIN, CALL_LIMIT), note=""):
+    return Delegation(name, cv.ANY_DELEGATE, KEYS["agent B spending key"].address, authority, list(caveats),
+                      nonce(salt_name), KEYS["agent B spending key"], "eoa", note)
+
+
+LEAF_CREDITS = payment_leaf(
+    "leaf/credits", "credits", D_AB.struct_hash,
+    note="a payment leaf beneath D_AB: open delegate, the exact transfer, one call, the credits nonce as salt",
+)
+SELLER = ACCOUNTS["seller"].address
+LEAF_SELLER = Delegation(
+    "leaf/seller", cv.ANY_DELEGATE, KEYS["agent B spending key"].address, D_AB.struct_hash,
+    [(EXACT_EXECUTION, transfer_pin(SELLER, 250_000), "ExactExecutionEnforcer: USDC, value 0, transfer(seller, 250000)"),
+     CALL_LIMIT],
+    hashlib.sha256(b"seller order 7731").digest(), KEYS["agent B spending key"], "eoa",
+    "a payment leaf for a seller; a seller's payment carries no payment nonce",
+)
+
+
+INTENT_DOCUMENT = (
+    '{"natural_language_description":"Pay registration fees and buy research for the '
+    'household accounts project","intent_expiry":"2027-01-01T00:00:00Z","requires_refundability":true}'
+)
+
+
+def sign_statement(protected: bytes, payload: bytes, key: Key) -> bytes:
+    sig_structure = cv.cbor_encode(["Signature1", protected, b"", payload])
+    return cv.cbor_encode([protected, {}, payload, key.sign(cv.keccak256(sig_structure), 0)])
+
+
+def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, depth: int, purpose: dict,
+                         idtimestamp: bytes, anchor: bytes = None, note: str = ""):
+    """A delegation statement; `anchor` overrides key 2's hash for the malformed audit cases."""
+    anchor = d.struct_hash if anchor is None else anchor
+    payload = {1: 1, 2: cv.DELEGATION_TAG + anchor, 3: CHAIN_ID, 4: MANAGER, 5: cv.hop_array(d.hop()),
+               6: delegate_log, 7: depth, 10: cv.purpose_map(purpose)}
+    protected = cv.statement_protected("delegation", signer.address, signer.address.hex(), anchor.hex())
+    data = sign_statement(protected, cv.cbor_encode(payload), signer)
+    off = data.find(cv.DELEGATION_TAG + anchor)
+    entry = {
+        "name": name, "type": "delegation", "note": note, "signer": signer.label,
+        "fields": {"chain_id": CHAIN_ID, "delegation_manager_hex": MANAGER.hex(), "delegation": d.name,
+                   "delegate_log_id_hex": delegate_log.hex(), "depth": depth, "purpose": purpose},
+        "cose_sign1_hex": data.hex(),
+        "publication": {
+            "delegation_hash_hex": anchor.hex(), "prefix_hex": data[:off].hex(), "suffix_hex": data[off + 64:].hex(),
+            "idtimestamp_hex": idtimestamp.hex(),
+            "leaf_hex": hashlib.sha256(idtimestamp + hashlib.sha256(data).digest()).hexdigest(),
+        },
+    }
+    return entry, data, off
+
+
+def plain_statement(name, statement_type, signer: Key, fields: dict, note: str, paid_by=None,
+                    unprotected=None):
+    """A revocation or spend statement; `unprotected` only for the refused audit case."""
+    payload = {1: 1, 3: CHAIN_ID, 4: MANAGER, 8: bytes.fromhex(fields["delegation_hash_hex"])}
+    if "transaction_hash_hex" in fields:
+        payload[9] = bytes.fromhex(fields["transaction_hash_hex"])
+    if statement_type == "revocation":
+        payload[11] = fields["reason"]
+    else:
+        payload[10] = cv.purpose_map(fields["purpose"])
+    protected = cv.statement_protected(statement_type, signer.address, signer.address.hex(),
+                                       fields["delegation_hash_hex"])
+    payload_bytes = cv.cbor_encode(payload)
+    sig_structure = cv.cbor_encode(["Signature1", protected, b"", payload_bytes])
+    data = cv.cbor_encode([protected, unprotected or {}, payload_bytes, signer.sign(cv.keccak256(sig_structure), 0)])
+    entry = {"name": name, "type": statement_type, "note": note, "signer": signer.label,
+             "fields": dict({"chain_id": CHAIN_ID, "delegation_manager_hex": MANAGER.hex()}, **fields)}
+    if paid_by:
+        entry["paid_by"] = paid_by
+    entry["cose_sign1_hex"] = data.hex()
+    return entry, data
+
+
+ONE_PAYMENT_TX = cv.keccak256(b"protocol vectors delegated spend: the one-payment transaction")
+DISABLE_TX = cv.keccak256(b"protocol vectors delegated spend: the disableDelegation(D_AB) transaction")
+SELLER_TX = cv.keccak256(b"protocol vectors delegated spend: the seller payment transaction")
+CREDITS_DIGEST = cv.purpose_digest("credits", CREDITS_PURPOSE)
+
+
+def statements_fixture():
+    st_ha, _, _ = delegation_statement(
+        "delegation/D_HA", D_HA, KEYS["human statement key"], L_A, 3,
+        {"description": "Agent A pays registration fees and buys research, up to 5 USDC",
+         "intent_digest_hex": hashlib.sha256(INTENT_DOCUMENT.encode()).hexdigest()},
+        bytes.fromhex("019a8f6e2c000001"),
+        note="the root hop, published in the human's authority log L_H by the human's statement key",
+    )
+    st_ab, ab_bytes, ab_off = delegation_statement(
+        "delegation/D_AB", D_AB, KEYS["agent A statement key"], L_B, 2,
+        {"description": "Agent B pays the registration fees of log L_B"},
+        bytes.fromhex("019a8f7a11000003"),
+        note="a reusable hop, published in agent A's log L_A by A's statement key, never its spending key",
+    )
+    a_stmt = KEYS["agent A statement key"]
+    _, mismatch, mm_off = delegation_statement(
+        "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
+        b"\x00" * 8, anchor=D_HA.struct_hash,
+    )
+    _, digest_case, dg_off = delegation_statement(
+        "", D_AB, a_stmt, L_B, 2, {"description": "Agent B pays the registration fees of log L_B"},
+        b"\x00" * 8, anchor=D_AB.digest,
+    )
+    stranger = KEYS["stranger statement key"]
+    other_payload = b"a statement of another type that quotes " + cv.DELEGATION_TAG + D_AB.struct_hash
+    other = sign_statement(
+        cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: stranger.address}), other_payload, stranger
+    )
+    other_off = other.find(cv.DELEGATION_TAG)
+
+    b_stmt = KEYS["agent B statement key"]
+    st_revoke, _ = plain_statement(
+        "revocation/D_AB", "revocation", a_stmt,
+        {"delegation_hash_hex": D_AB.struct_hash.hex(), "transaction_hash_hex": DISABLE_TX.hex(),
+         "reason": "Agent B's task is finished"},
+        "agent A records, in L_A, that it disabled D_AB on chain; the revoked hash is bare",
+    )
+    st_spend, _ = plain_statement(
+        "spend/credits", "spend", b_stmt,
+        {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
+        "agent B records, in L_B, the payment leaf/credits made; amount, asset and payee are read from the "
+        "transaction, and the purpose digest is the credits nonce's",
+        paid_by={"delegation": LEAF_CREDITS.name, "root_hex": W_H.hex()},
+    )
+    st_seller, _ = plain_statement(
+        "spend/seller", "spend", b_stmt,
+        {"delegation_hash_hex": LEAF_SELLER.struct_hash.hex(), "transaction_hash_hex": SELLER_TX.hex(),
+         "purpose": {"kind": 4, "digest_hex": hashlib.sha256(b"seller order 7731").hexdigest(),
+                     "description": "A research report"}},
+        "agent B records a purchase from a seller; the purpose digest is the seller's reference for what was bought",
+    )
+    _, tagged_spend = plain_statement(
+        "", "spend", b_stmt,
+        {"delegation_hash_hex": LEAF_CREDITS.struct_hash.hex(), "transaction_hash_hex": ONE_PAYMENT_TX.hex(),
+         "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex()}},
+        "", unprotected={-70000: cv.DELEGATION_TAG + D_AB.struct_hash},
+    )
+    ts_off = tagged_spend.find(cv.DELEGATION_TAG)
+
+    def pub(off, h, verdict, key):
+        return {"offset": off, "hash_hex": h.hex(), "verdict": verdict, "signer_hex": key.address.hex()}
+
+    audit_cases = [
+        {"name": "well-formed/D_AB", "rule": "1b",
+         "note": "TAG ‖ H at key 2 of a delegation statement, H the struct hash of the hop at key 5",
+         "cose_sign1_hex": ab_bytes.hex(),
+         "expect": {"publications": [pub(ab_off, D_AB.struct_hash, "well-formed", a_stmt)], "route": "accepted"}},
+        {"name": "flag/hash-mismatch", "rule": "1b",
+         "note": "key 2 publishes D_HA while key 5 shows the terms of D_AB: it publishes D_HA, and auditors flag it",
+         "cose_sign1_hex": mismatch.hex(),
+         "expect": {"publications": [pub(mm_off, D_HA.struct_hash, "flag:hash-mismatch", a_stmt)],
+                    "route": "accepted"}},
+        {"name": "flag/signed-digest-not-struct-hash", "rule": "1b",
+         "note": "key 2 carries the EIP-712 digest D_AB's delegator signed instead of its struct hash: it publishes "
+                 "a value no delegation manager ever hands an enforcer, so D_AB stays unpublished",
+         "cose_sign1_hex": digest_case.hex(),
+         "expect": {"publications": [pub(dg_off, D_AB.digest, "flag:hash-mismatch", a_stmt)], "route": "accepted"}},
+        {"name": "flag/tag-in-another-statement-type", "rule": "1b",
+         "note": "a statement of another content type, signed by someone else with a grant to the log, quotes "
+                 "TAG ‖ H(D_AB): it still publishes D_AB, and auditors flag it and attribute it to its signer",
+         "cose_sign1_hex": other.hex(),
+         "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
+                    "route": "accepted"}},
+        {"name": "refuse/spend-with-tag", "rule": "1a",
+         "note": "a spend statement whose unprotected header carries TAG ‖ H(D_AB): the registration service "
+                 "refuses it on its route; were it anchored anyway, it would publish D_AB and auditors would flag it",
+         "cose_sign1_hex": tagged_spend.hex(),
+         "expect": {"publications": [pub(ts_off, D_AB.struct_hash, "flag:outside-key-2", b_stmt)],
+                    "route": "refused:tag-present"}},
+    ]
+    return {
+        "version": 1,
+        "description": "ERC-7710 delegation, revocation and spend statements (spec/delegated-spend-statements.md): "
+                       "the delegation hash a statement must carry, the statement bytes, the leaf the publication "
+                       "enforcer rebuilds from them, and how auditors classify every TAG ‖ H they find.",
+        "generator": "scripts/gen-delegated-spend-vectors.py (standard library, RFC 6979). Deterministic: "
+                     "rerunning gives these bytes.",
+        "conventions": {
+            "hex": "unprefixed lowercase",
+            "delegation_tag_label": cv.DELEGATION_TAG_LABEL,
+            "delegation_tag_hex": cv.DELEGATION_TAG.hex(),
+            "delegation_typehash_hex": cv.DELEGATION_TYPEHASH.hex(),
+            "caveat_typehash_hex": cv.CAVEAT_TYPEHASH.hex(),
+            "root_authority_hex": cv.ROOT_AUTHORITY.hex(),
+            "any_delegate_hex": cv.ANY_DELEGATE.hex(),
+            "content_types": cv.CONTENT_TYPES,
+            "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
+            "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
+            "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1, low s",
+            "cose_sign1": "untagged, attached payload, empty unprotected header except in refuse/spend-with-tag",
+            "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a "
+                        "deployed key",
+            "account": "address_hex is the low 20 bytes of keccak256 of the label; nobody holds its key",
+            "intent_document": INTENT_DOCUMENT,
+        },
+        "keys": [k.json() for k in KEYS.values()],
+        "accounts": [a.json() for a in ACCOUNTS.values()],
+        "delegations": [d.json() for d in DELEGATIONS + [LEAF_CREDITS, LEAF_SELLER]],
+        "statements": [st_ha, st_ab, st_revoke, st_spend, st_seller],
+        "audit_cases": audit_cases,
+    }
 
 
 def payment_nonce_fixture():

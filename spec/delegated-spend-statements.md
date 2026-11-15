@@ -19,9 +19,17 @@ money. It supplies transparency: each reusable hop of the chain is published
 as a statement in a Forestrie log, and a caveat on the hop makes it
 unusable on chain until that statement is anchored.
 
-This document specifies the **delegation statement**, which publishes one
-hop. Every statement it defines carries hashes, accounts and terms, never a
-payload of its own ([P1](../rules/platform.md#p1--pipe-not-store)).
+This document specifies three statements:
+
+- the **delegation statement**, which publishes one hop;
+- the **revocation statement**, which records that a delegator disabled a
+  hop on chain;
+- the **spend statement**, which records a payment that a payment leaf made.
+
+Every statement carries hashes, accounts and terms, never a payload of its
+own ([P1](../rules/platform.md#p1--pipe-not-store)). A spend statement
+references its settlement and does not contain it: amount, asset and payee
+are read from the transaction.
 
 "Delegation" in this document always means an ERC-7710 delegation. The
 sealing delegation of a log's root key is a different artifact
@@ -77,7 +85,7 @@ verifyingContract = the delegation manager)`. **A statement carries the
 struct hash, never the digest.** The delegation manager hands each caveat
 enforcer the struct hash, so a statement that carries the digest publishes
 a value nothing on chain ever checks, and leaves its hop unpublished. That is
-the easiest mistake for tooling to make, and the vectors test it (§5.2).
+the easiest mistake for tooling to make, and the vectors test it (§8.2).
 
 ## 3. The common envelope
 
@@ -103,6 +111,11 @@ spend-statement-protected = {
 | Statement | Content type | Logged by |
 |---|---|---|
 | Delegation | `application/univocity.erc7710-delegation+cbor` | The hop's delegator, in the log its publication caveat names |
+| Revocation | `application/univocity.erc7710-revocation+cbor` | The hop's delegator, in the log that published the hop |
+| Spend | `application/univocity.erc7710-spend+cbor` | The spender, the delegator of the payment leaf, in its own log |
+
+`sub` names the hop for a delegation or revocation statement and the
+payment leaf for a spend statement. The unprotected header is empty.
 
 The payload of every statement type is a map in one key space: a key means
 the same thing in every type that uses it.
@@ -116,7 +129,14 @@ the same thing in every type that uses it.
 | `5` | hop | the delegation as signed (§4) | delegation |
 | `6` | delegate log | bstr, 32 bytes: the delegate's log id in the padded wire form | delegation |
 | `7` | depth | uint (§4) | delegation |
-| `10` | purpose | map (§4) | delegation |
+| `8` | delegation hash | bstr, 32 bytes, bare | revocation, spend |
+| `9` | transaction hash | bstr, 32 bytes | spend; revocation, optional |
+| `10` | purpose | map (§7) | delegation, spend |
+| `11` | reason | tstr, not empty | revocation |
+
+Keys `2` and `8` both carry a delegation hash. Only key 2, in a delegation
+statement, carries it after `DELEGATION_TAG`; key 8 carries it bare, so a
+revocation or spend statement never publishes the hop it is about (§8.1).
 
 ## 4. The delegation statement
 
@@ -142,7 +162,9 @@ hop = [
 ]
 
 purpose = {
-  ? 3 => tstr,                ; description, in words
+  ? 1 => 1 / 2 / 3 / 4,       ; payment kind, a spend's only (§7)
+  ? 2 => bstr .size 32,       ; purpose digest, with key 1
+  ? 3 => tstr,                ; description, in words, not empty
   ? 4 => bstr .size 32,       ; intent digest
 }
 ```
@@ -155,7 +177,7 @@ DELEGATION_TAG = SHA-256( UTF-8 "univocity/erc7710-delegation/v1" )
 - **Key 2 is the anchor the chain checks.** It is the 32-byte tag followed
   by the hop's delegation hash, contiguous, so the publication check can
   rebuild the statement bytes around the hash it is given without parsing
-  CBOR (§5).
+  CBOR (§8).
 - **Key 5 is the hop as signed**, without the caveats' `args`, which are not
   signed and change with each redemption. Publishing the signature lets
   anyone check the delegator offline. It gives nobody else the power to
@@ -172,14 +194,82 @@ DELEGATION_TAG = SHA-256( UTF-8 "univocity/erc7710-delegation/v1" )
   issuing tools refuse to sign a hop that declares more depth than its
   parent allows beneath it, and an auditor flags a redeemed chain that holds
   more delegations beneath a hop than the hop declares.
-- **Key 10, the purpose,** says what the hop is for. A delegation's purpose
-  carries a description (key 3), and may carry an intent digest (key 4): the
-  SHA-256 of an off-log document stating the owner's intent, for example an
-  AP2 IntentMandate. The document stays with its owner; the statement holds
-  only its digest. A delegation's purpose carries no payment kind (keys 1 and
-  2 are a spend's).
+- **Key 10, the purpose,** says what the hop is for: a description, and
+  optionally an intent digest (§7). It carries no payment kind.
 
-## 5. Publication
+## 5. Revocation
+
+```cddl
+revocation-payload = {
+  1 => 1,                     ; v
+  3 => uint,                  ; chain id of the funds chain
+  4 => bstr .size 20,         ; delegation manager
+  8 => bstr .size 32,         ; the revoked hop's delegation hash
+  ? 9 => bstr .size 32,       ; the disableDelegation transaction's hash
+  11 => tstr,                 ; reason, not empty
+}
+```
+
+A revocation statement mirrors the framework's `disableDelegation`, which a
+delegator calls on the delegation manager to stop a hop being redeemed. The
+statement does not revoke anything: the chain does. It records that the
+delegator meant to, why, and, once the call has been mined, in which
+transaction (key 9), so an auditor reading the log sees the hop's end beside
+its start. The delegator signs it in the log that published the hop, with
+the same statement-signing key.
+
+## 6. Spend
+
+```cddl
+spend-payload = {
+  1 => 1,                     ; v
+  3 => uint,                  ; chain id of the funds chain
+  4 => bstr .size 20,         ; delegation manager
+  8 => bstr .size 32,         ; the payment leaf's delegation hash
+  9 => bstr .size 32,         ; the redeeming transaction's hash
+  10 => purpose,              ; with keys 1 and 2 (§7)
+}
+```
+
+The spender records each payment in its own log, the delegate log its
+parent hop names. Key 8 is the delegation hash of the payment leaf that
+made the payment, and key 9 the transaction that redeemed it. The leaf is
+never published, but the delegation manager logs every delegation it
+redeems, so an auditor finds the leaf in the transaction by its hash, then
+walks its authority links up to the published hops. Amount, asset and payee
+are read from the transaction, never restated: a restated amount could
+disagree with the transfer the chain made.
+
+## 7. The purpose
+
+| Key | Name | Delegation | Spend |
+|---|---|---|---|
+| `1` | payment kind | absent | required |
+| `2` | purpose digest | absent | required |
+| `3` | description | required | optional |
+| `4` | intent digest | optional | optional |
+
+A spend's kind says whom it paid and for what:
+
+| Kind | Paid for | Purpose digest |
+|---|---|---|
+| `1` | a grant, to a registration service | the grant's, as the payment nonce defines it |
+| `2` | an onboarding, to a registration service | the onboarding request's, likewise |
+| `3` | credits, to a registration service | the credit purchase's, likewise |
+| `4` | anything else, to a seller | the seller's reference for what was bought |
+
+For kinds 1 to 3 the purpose digest is the one the payment nonce is built
+from ([payment-nonce-and-binding.md](./payment-nonce-and-binding.md) §2), so
+an auditor checks a spend against its leaf: the nonce over the kind, the
+purpose digest and the chain's root delegator is the leaf's salt. A seller's
+payment (kind 4) carries no payment nonce, and its digest is whatever
+reference the seller gave.
+
+The intent digest (key 4) is the SHA-256 of an off-log document stating the
+owner's intent, for example an AP2 IntentMandate. The document stays with
+its owner; the statement holds only its digest.
+
+## 8. Publication
 
 **An anchored entry in log `L` whose statement bytes contain
 `DELEGATION_TAG ‖ H` publishes `H` in `L`.** The entry's leaf is the usual
@@ -206,12 +296,16 @@ The check proves **presence, not form**. It is as strong as the log's write
 path: anyone with a grant to the log can register a statement that holds
 the tag, so a delegator names a log whose grants it controls.
 
-### 5.1 The tag stays out of the other types
+### 8.1 The tag stays out of the other types
 
-No other statement type this specification defines encodes
-`DELEGATION_TAG`, so none of them can publish a hop by accident.
+A revocation or spend statement carries its delegation hash bare, at key 8,
+and never encodes `DELEGATION_TAG`, anywhere in its bytes. A registration
+service that accepts these two types refuses, on its route, a statement of
+either type whose bytes hold the tag, headers included. That keeps a
+revocation from publishing the very hop it revokes, and a spend from
+publishing anything, by accident or on purpose.
 
-### 5.2 What an auditor accepts
+### 8.2 What an auditor accepts
 
 Nothing stops someone with a grant to a log, or its checkpoint authority,
 from putting the tag in some other statement. So:
@@ -237,8 +331,19 @@ published hop.
 | `flag/hash-mismatch` | `H(D_HA)`, while key 5 shows `D_AB` | `hash-mismatch` |
 | `flag/signed-digest-not-struct-hash` | the typed-data digest of `D_AB`, so `D_AB` stays unpublished | `hash-mismatch` |
 | `flag/tag-in-another-statement-type` | `H(D_AB)`, from a statement of another type signed by someone else | `outside-key-2` |
+| `refuse/spend-with-tag` | `H(D_AB)`, in a spend statement's unprotected header; refused on the route (§8.1) | `outside-key-2` |
 
-## 6. Encoding
+### 8.3 The statement vectors
+
+| Vector | Statement | Shows |
+|---|---|---|
+| `delegation/D_HA` | the root hop, published by the human owner's statement key | a purpose with a description and an intent digest |
+| `delegation/D_AB` | a hop beneath it, published by agent A's statement key | a purpose with a description only |
+| `revocation/D_AB` | agent A disables `D_AB` | a bare hash, a reason and the disabling transaction |
+| `spend/credits` | agent B buys credits through a payment leaf | the credits purpose digest, whose nonce is the leaf's salt |
+| `spend/seller` | agent B pays a seller | kind 4, with the seller's reference as digest |
+
+## 9. Encoding
 
 Every map in these statements, the protected header and the CWT claims
 included, uses Core Deterministic Encoding

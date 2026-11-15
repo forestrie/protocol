@@ -406,8 +406,14 @@ the bytes of key 5's signature, which the delegation hash does not cover.
 | `revocation/D_AB` | agent A disables `D_AB` | a bare hash, a reason and the disabling transaction |
 | `spend/credits` | agent B buys credits through a payment leaf | the credits purpose digest, whose nonce is the leaf's salt |
 | `spend/seller` | agent B pays a seller | kind 4, with the seller's reference as digest |
-| `spend/credits-under-salted-hop` (`refused_spends`) | a credits spend naming a leaf that sits beneath a salted hop | refused: key 8 is not a payment of the receipt |
-| `spend/credits-salted-over-own-delegator` (`refused_spends`) | a credits spend whose leaf is salted with the nonce over the leaf's own delegator | refused: the chain's root is the human's account, not that delegator |
+| `spend/credits-under-salted-hop` (`refused_spends`) | a credits spend naming a leaf that sits beneath a salted hop | refused, `binding`: key 8 is not a payment of the receipt |
+| `spend/credits-salted-over-own-delegator` (`refused_spends`) | a credits spend whose leaf is salted with the nonce over the leaf's own delegator | refused, `root`: the chain's root is the human's account, not that delegator |
+| `spend/credits-pays-the-agent` (`refused_spends`) | a credits spend whose leaf pins the transfer to agent B's own account | refused, `binding`: the rule, run with the registration payee, binds no payment |
+| `spend/credits-wrong-receipt` (`refused_spends`) | a credits spend whose key 9 names a receipt that holds no payment of its leaf | refused, `binding` |
+| `spend/credits-another-purchase` (`refused_spends`) | a credits spend whose purpose digest is not the one the payment's salt commits to | refused, `purpose` |
+| `spend/credits-claimed-as-grant` (`refused_spends`) | the same payment claimed as kind 1, a grant | refused, `purpose` |
+| `spend/credits-on-another-chain` (`refused_spends`) | the payment named under another chain | refused, `chain` |
+| `spend/credits-under-another-manager` (`refused_spends`) | the payment named under another delegation manager | refused, `manager` |
 
 ## 9. Encoding
 

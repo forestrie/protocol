@@ -211,6 +211,9 @@ transfers, and which requests it pays.
 | `no-call-limit` | a binding delegation without the call limit pairs and binds nothing; its `Transfer` is unbound |
 | `call-limit-two`, `call-limit-unlisted` | a call limit of two, or of one under an unlisted enforcer, is no call limit: the leaf pairs and binds nothing |
 | `pin-unlisted-enforcer` | pin-shaped terms under an unlisted enforcer pin nothing: no binding, the `Transfer` unbound |
+| `pin-other-target`, `pin-approve` | a pin on a contract that is not USDC, or on `approve` rather than `transfer`: no binding, the real `Transfer` unbound |
+| `transfer-from-another-contract` | a `Transfer`-shaped log from a contract that is not USDC pairs with nothing |
+| `authorization-used-from-another-contract`, `authorization-used-for-another-account` | an `AuthorizationUsed` from another contract, or USDC's for another account, before the root's `Transfer` does not make it an EIP-3009 one: it still pairs |
 | `pin-to-another-payee` | a leaf pinning the amount to another account, first in log order, binds nothing; the valid leaf still binds |
 | `no-call-limit-takes-part` | it takes the one `Transfer` before a leaf with the call limit, which pairs with nothing |
 | `two-bindings-one-transfer` | two binding leaves, one `Transfer`: the first in log order binds |

@@ -216,9 +216,10 @@ NONCES = [
 
 
 
-def transfer_pin(recipient: bytes, amount: int) -> bytes:
-    """ExactExecutionEnforcer terms: USDC, value 0, transfer(recipient, amount), packed."""
-    return USDC + cv.u256(0) + bytes.fromhex("a9059cbb") + cv.addr_word(recipient) + cv.u256(amount)
+def transfer_pin(recipient: bytes, amount: int, target: bytes = USDC, selector: str = "a9059cbb") -> bytes:
+    """ExactExecutionEnforcer terms: target (USDC), value 0, transfer(recipient, amount), packed;
+    `selector` names another call (095ea7b3 is approve) for the vectors that must not bind."""
+    return target + cv.u256(0) + bytes.fromhex(selector) + cv.addr_word(recipient) + cv.u256(amount)
 
 
 PRICE = 10_000  # 0.01 USDC, in base units
@@ -543,6 +544,7 @@ LEAF_KEYS = {r: Key(r) for r in ("agent B second spending key", "agent B gas acc
                                  "stranger spending key", "stranger gas account")}
 UNLISTED_MANAGER = ACCOUNTS["unlisted delegation manager"].address
 UNLISTED_ENFORCER = Account("unlisted enforcer (no-op)")
+IMPOSTOR = Account("impostor token (test deployment)")  # a contract that is not USDC
 GAS_B, GAS_STRANGER = LEAF_KEYS["agent B gas account"].address, LEAF_KEYS["stranger gas account"].address
 B_SPEND, B_SPEND_2 = KEYS["agent B spending key"], LEAF_KEYS["agent B second spending key"]
 STRANGER = LEAF_KEYS["stranger spending key"]
@@ -576,6 +578,14 @@ LEAVES = {d.name: d for d in (
          caveats=((EXACT_EXECUTION, transfer_pin(SELLER, PRICE), "ExactExecutionEnforcer: USDC, value 0, transfer(seller, 10000)"),
                   CALL_LIMIT),
          note="pins the amount to an account that is not the payee, one call"),
+    leaf("leaf/pin-other-target", "grant",
+         caveats=((EXACT_EXECUTION, transfer_pin(PAYEE, PRICE, target=IMPOSTOR.address),
+                   "ExactExecutionEnforcer: another contract, value 0, transfer(payee, 10000)"), CALL_LIMIT),
+         note="pins the transfer on a contract that is not USDC, one call"),
+    leaf("leaf/pin-approve", "grant",
+         caveats=((EXACT_EXECUTION, transfer_pin(PAYEE, PRICE, selector="095ea7b3"),
+                   "ExactExecutionEnforcer: USDC, value 0, approve(payee, 10000)"), CALL_LIMIT),
+         note="pins USDC.approve(payee, 10000), the transfer's layout under another selector, one call"),
     leaf("leaf/call-limit-unlisted", "grant",
          caveats=(PIN, (UNLISTED_ENFORCER.address, cv.u256(1), "call limit of one under an unlisted enforcer")),
          note="pins the transfer; the call limit of one sits under an enforcer the verifier does not list"),
@@ -619,13 +629,13 @@ def rd_log(d, root, redeemer, manager=MANAGER, args=None):
             "data_hex": cv.abi_encode_delegation(event_args(d, args)).hex()}
 
 
-def transfer_log(sender, to, amount):
-    return {"address_hex": USDC.hex(), "topics_hex": [cv.TRANSFER_TOPIC.hex(), topic_address(sender), topic_address(to)],
+def transfer_log(sender, to, amount, emitter=USDC):
+    return {"address_hex": emitter.hex(), "topics_hex": [cv.TRANSFER_TOPIC.hex(), topic_address(sender), topic_address(to)],
             "data_hex": cv.u256(amount).hex()}
 
 
-def authorization_used_log(authorizer, auth_nonce):
-    return {"address_hex": USDC.hex(),
+def authorization_used_log(authorizer, auth_nonce, emitter=USDC):
+    return {"address_hex": emitter.hex(),
             "topics_hex": [cv.AUTHORIZATION_USED_TOPIC.hex(), topic_address(authorizer), auth_nonce.hex()],
             "data_hex": ""}
 
@@ -796,6 +806,44 @@ def leaf_salt_cases():
                   {"eip3009": ["x402:transfer"], "chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
                    "unpaired": ["leaf/credits"], "payments": [], "unbound": []},
                   [("credits", None)]))
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [])
+    fake = ("fake:transfer", transfer_log(W_H, PAYEE, PRICE, emitter=IMPOSTOR.address))
+    c.append(case("transfer-from-another-contract",
+                  "a contract that is not USDC emits Transfer(root, payee, price), as a root whose code moves "
+                  "nothing could arrange: it is no USDC Transfer, so the binding leaf pairs with nothing",
+                  pre + [fake] + ev,
+                  {"chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")], "unpaired": ["leaf/credits"],
+                   "payments": [], "unbound": []},
+                  [("credits", None)]))
+    pre, ev = redemption("r", [L["leaf/credits"]] + above, [PRICE])
+    fake = ("fake:authorization", authorization_used_log(W_H, cv.keccak256(b"a forged authorization"),
+                                                         emitter=IMPOSTOR.address))
+    c.append(case("authorization-used-from-another-contract",
+                  "a contract that is not USDC emits AuthorizationUsed for the root right before the root's real "
+                  "Transfer: it is not USDC's event, so the Transfer is no EIP-3009 one and still pairs",
+                  [pre[0], fake, pre[1]] + ev,
+                  {"chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "r:transfer0")],
+                   "payments": [("leaf/credits", "r:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits")]))
+    fake = ("x402:authorization-other", authorization_used_log(SELLER, cv.keccak256(b"another account's authorization")))
+    c.append(case("authorization-used-for-another-account",
+                  "USDC's AuthorizationUsed for another account sits right before the root's real Transfer: it "
+                  "names a different from, so the Transfer is no EIP-3009 one and still pairs",
+                  [pre[0], fake, pre[1]] + ev,
+                  {"chains": [(["leaf/credits", "D_AB", "D_HA"], "leaf/credits")],
+                   "pairs": [("leaf/credits", "r:transfer0")],
+                   "payments": [("leaf/credits", "r:transfer0", PRICE)], "unbound": []},
+                  [("credits", "leaf/credits")]))
+    for name, what in (("leaf/pin-other-target", "a contract that is not USDC"),
+                       ("leaf/pin-approve", "approve, not transfer, on USDC")):
+        pre, ev = redemption("r", [L[name]] + above, [PRICE])
+        c.append(case(name.replace("leaf/", "", 1),
+                      f"a leaf pins a call on {what}: no binding, so nothing pairs and the root's real Transfer "
+                      "is unbound",
+                      pre + ev,
+                      {"chains": [([name, "D_AB", "D_HA"], None)], "payments": [], "unbound": ["r:transfer0"]},
+                      [("grant", None)]))
     pre, ev = redemption("r", [L["leaf/credits"]] + above, [PRICE], manager=UNLISTED_MANAGER)
     c.append(case("unlisted-manager",
                   "the events come from a delegation manager the verifier does not list: no chain, and the "
@@ -837,7 +885,7 @@ def leaf_salt_fixture():
                         "request binds, or null",
         },
         "keys": [k.json() for k in LEAF_KEYS.values()],
-        "accounts": [UNLISTED_ENFORCER.json()],
+        "accounts": [UNLISTED_ENFORCER.json(), IMPOSTOR.json()],
         "config": {
             "chain_id": CHAIN_ID, "usdc_hex": USDC.hex(), "payee_hex": PAYEE.hex(),
             "delegation_managers": [{

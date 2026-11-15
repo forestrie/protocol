@@ -1470,7 +1470,9 @@ def check_leaf_salt() -> int:
     if not {"one-payment", "two-payments-one-root", "salted-hop-above-salted-leaf", "stranger-extends-leaf",
             "no-call-limit", "no-call-limit-takes-part", "two-bindings-one-transfer",
             "eip3009-transfer-beside-binding", "two-roots-pair-by-root",
-            "call-limit-two", "call-limit-unlisted", "pin-unlisted-enforcer", "pin-to-another-payee"} <= set(results):
+            "call-limit-two", "call-limit-unlisted", "pin-unlisted-enforcer", "pin-to-another-payee",
+            "transfer-from-another-contract", "authorization-used-from-another-contract",
+            "authorization-used-for-another-account", "pin-other-target", "pin-approve"} <= set(results):
         print(f"{name}: a case the rule requires is missing")
         bad += 1
     return bad
@@ -1548,6 +1550,20 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["cases"], "two-bindings-one-transfer")["expect"], unpaired_bindings=[])),
     ("erc7710-leaf-salt-v1.json", "an EIP-3009 Transfer counted as unbound",
      lambda v: _set(_named(v["cases"], "eip3009-transfer-beside-binding")["expect"], unbound_transfers=[1])),
+    ("erc7710-leaf-salt-v1.json", "a Transfer from another contract paired",
+     lambda v: _set(_named(v["cases"], "transfer-from-another-contract")["expect"], unpaired_bindings=[])),
+    ("erc7710-leaf-salt-v1.json", "an AuthorizationUsed from another contract making the Transfer EIP-3009",
+     lambda v: _set(_named(v["cases"], "authorization-used-from-another-contract")["expect"],
+                    eip3009_transfers=[2], pairs=[], payments=[])),
+    ("erc7710-leaf-salt-v1.json", "an AuthorizationUsed for another account making the Transfer EIP-3009",
+     lambda v: _set(_named(v["cases"], "authorization-used-for-another-account")["expect"],
+                    eip3009_transfers=[2], pairs=[], payments=[])),
+    ("erc7710-leaf-salt-v1.json", "a pin on another contract binding",
+     lambda v: _set(_named(v["cases"], "pin-other-target")["expect"]["chains"][0],
+                    binding=_named(v["delegations"], "leaf/pin-other-target")["struct_hash_hex"])),
+    ("erc7710-leaf-salt-v1.json", "a pin on approve binding",
+     lambda v: _set(_named(v["cases"], "pin-approve")["expect"]["chains"][0],
+                    binding=_named(v["delegations"], "leaf/pin-approve")["struct_hash_hex"])),
     ("erc7710-leaf-salt-v1.json", "a RedeemedDelegation byte",
      lambda v: _set(_named(v["cases"], "one-payment")["receipt"]["logs"][-1],
                     data_hex=_flip(_named(v["cases"], "one-payment")["receipt"]["logs"][-1]["data_hex"], 100))),

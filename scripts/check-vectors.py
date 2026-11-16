@@ -968,7 +968,7 @@ def statement_attributed_signer(sign1, auditor):
     """Who an auditor attributes a KS256 statement to (spec section 8.2). A kid without code is the
     ecrecovered address. A kid with code is attributed, to the kid, only when an ERC-1271
     attestation binds that contract, the Sig_structure digest, the signature and the magic value
-    on the auditor's chain; otherwise nobody, and never the address a contract's signature recovers to."""
+    on the auditor's chain, at the block current at the entry's registration (`registration_block`); otherwise nobody, and never the address a contract's signature recovers to."""
     recovered = ks256_statement_signer(sign1)
     if not auditor.get("kid_has_code"):
         return recovered
@@ -980,7 +980,8 @@ def statement_attributed_signer(sign1, auditor):
         if (a["chain_id"] == auditor.get("chain_id") and bytes.fromhex(a["address_hex"]) == bytes(kid)
                 and bytes.fromhex(a["digest_hex"]) == digest
                 and bytes.fromhex(a["signature_hash_hex"]) == keccak256(bytes(sign1["signature"]))
-                and bytes.fromhex(a["magic_hex"]) == ERC1271_MAGIC):
+                and bytes.fromhex(a["magic_hex"]) == ERC1271_MAGIC
+                and a.get("block_number") == auditor.get("registration_block")):
             return bytes(kid)
     return None
 
@@ -1768,6 +1769,9 @@ SELF_TEST_MUTATIONS = [
     ("erc7710-statements.json", "an attestation of another digest",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["attestations"][0],
                     digest_hex=_flip(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["attestations"][0]["digest_hex"]))),
+    ("erc7710-statements.json", "an attestation from a block after the entry's registration",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["attestations"][0],
+                    block_number=_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["registration_block"] + 1)),
     ("erc7710-statements.json", "a contract kid attributed to the owner its signature recovers to",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-unattested")["auditor"], kid_has_code=False)),
     ("erc7710-statements.json", "the map key orders swapped",

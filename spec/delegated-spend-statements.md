@@ -401,7 +401,9 @@ its `kid` (protected key 4, the signer's 20-byte address):
   `idTimestamp`), where `digest` is the Keccak-256 of the Sig_structure and
   `signature` is the statement's. The attestation binds the chain, the
   contract address, the digest, the hash of the signature and the magic
-  value, and is supplied to the checker as data; it is the same read-only
+  value, and the block it was read at, which must be the registration
+  block; it is supplied to the checker as data (with that block, as the
+  auditor's `registration_block`); it is the same read-only
   call canopy's route makes, so there is no transaction to find, and an
   auditor needs an archive node for older blocks. A contract-signed
   statement with no such attestation is reported **unattributed**.
@@ -412,8 +414,8 @@ its `kid` (protected key 4, the signer's 20-byte address):
   a `kid` alone names whoever the header claims, not whoever signed.
 
 The reference checker and the vectors attribute KS256 statements only;
-ES256 attribution by `kid` is outside them. Whether a `kid` has code, and
-the attestations, are the auditor's input to the checker, not read from the
+ES256 attribution by `kid` is outside them. Whether a `kid` has code, the registration block and
+the attestations are the auditor's input to the checker, not read from the
 statement.
 
 An auditor never trusts key 2 alone; it recomputes the hash from the

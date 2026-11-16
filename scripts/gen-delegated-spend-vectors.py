@@ -729,7 +729,8 @@ def statements_fixture():
          "note": "a statement whose kid is a contract with code, signed with an owner's key, and an ERC-1271 "
                  "attestation of the contract's isValidSignature over the Sig_structure digest: the tag is the "
                  "contract's, not the owner's the signature recovers to",
-         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "attestations": [safe_attestation]},
+         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "registration_block": 123456,
+                     "attestations": [safe_attestation]},
          "cose_sign1_hex": safe_statement.hex(),
          "expect": {"publications": [pub(safe_statement.find(cv.DELEGATION_TAG), D_AB.struct_hash,
                                          "flag:outside-key-2", safe)],
@@ -737,7 +738,16 @@ def statements_fixture():
         {"name": "flag/tag-in-contract-signed-statement-unattested", "rule": "1b",
          "note": "the same statement with no attestation: the kid has code, so the recovered owner is not "
                  "the signer, and the tag is reported unattributed",
-         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "attestations": []},
+         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "registration_block": 123456, "attestations": []},
+         "cose_sign1_hex": safe_statement.hex(),
+         "expect": {"publications": [pub(safe_statement.find(cv.DELEGATION_TAG), D_AB.struct_hash,
+                                         "flag:outside-key-2", None)],
+                    "route": "accepted"}},
+        {"name": "flag/tag-in-contract-signed-statement-attested-at-another-block", "rule": "1b",
+         "note": "the same attestation, but from a block after the entry's registration: the contract's signer "
+                 "set or the signature may have changed since, so it attributes nobody and the tag is unattributed",
+         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "registration_block": 123456,
+                     "attestations": [dict(safe_attestation, block_number=123457)]},
          "cose_sign1_hex": safe_statement.hex(),
          "expect": {"publications": [pub(safe_statement.find(cv.DELEGATION_TAG), D_AB.struct_hash,
                                          "flag:outside-key-2", None)],

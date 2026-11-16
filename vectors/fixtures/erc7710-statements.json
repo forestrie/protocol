@@ -937,6 +937,7 @@
       "auditor": {
         "chain_id": 84532,
         "kid_has_code": true,
+        "registration_block": 123456,
         "attestations": [
           {
             "chain_id": 84532,
@@ -968,7 +969,40 @@
       "auditor": {
         "chain_id": 84532,
         "kid_has_code": true,
+        "registration_block": 123456,
         "attestations": []
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-attested-at-another-block",
+      "rule": "1b",
+      "note": "the same attestation, but from a block after the entry's registration: the contract's signer set or the signature may have changed since, so it attributes nobody and the tag is unattributed",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "registration_block": 123456,
+        "attestations": [
+          {
+            "chain_id": 84532,
+            "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc",
+            "digest_hex": "e3f33d9a20f05cd1cc6094b267feb97f2d4271d655bd4f3f082cef697b7791f5",
+            "block_number": 123457,
+            "signature_hash_hex": "3eaefcd5f6c29c14e3405fdd964adccb301527cc049c1aa888fb6d1d9633d201",
+            "magic_hex": "1626ba7e"
+          }
+        ]
       },
       "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
       "expect": {

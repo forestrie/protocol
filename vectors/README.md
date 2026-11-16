@@ -267,8 +267,9 @@ it, the verdict and the signer the statement's signature recovers to, or
 the signature does not cover. A case may
 also give `auditor`, what the auditor read from the chain: `kid_has_code`,
 `chain_id` and the ERC-1271 `attestations` it holds (an attestation binds
-`address_hex`, `digest_hex`, `signature_hash_hex` and `magic_hex`; the
-block is recorded, not checked). Each
+`address_hex`, `digest_hex`, `signature_hash_hex`, `magic_hex` and the
+`block_number` it was read at, which must equal the auditor's
+`registration_block`, the block current at the entry's registration). Each
 also gives `route`: whether a registration service accepts the statement
 or refuses it because a revocation or spend statement holds the tag.
 

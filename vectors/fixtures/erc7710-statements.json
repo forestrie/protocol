@@ -1,0 +1,1100 @@
+{
+  "version": 1,
+  "description": "ERC-7710 delegation, revocation and spend statements (spec/delegated-spend-statements.md): the delegation hash a statement must carry, the statement bytes, the leaf the publication enforcer rebuilds from them, and how auditors classify every TAG ‖ H they find.",
+  "generator": "scripts/gen-delegated-spend-vectors.py (standard library, RFC 6979). Deterministic: rerunning gives these bytes.",
+  "conventions": {
+    "hex": "unprefixed lowercase",
+    "delegation_tag_label": "univocity/erc7710-delegation/v1",
+    "delegation_tag_hex": "b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649",
+    "delegation_typehash_hex": "88c1d2ecf185adf710588203a5f263f0ff61be0d33da39792cde19ba9aa4331e",
+    "caveat_typehash_hex": "80ad7e1b04ee6d994a125f4714ca0720908bd80ed16063ec8aee4b88e9253e2d",
+    "root_authority_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "any_delegate_hex": "0000000000000000000000000000000000000a11",
+    "content_types": {
+      "delegation": "application/univocity.erc7710-delegation+cbor",
+      "revocation": "application/univocity.erc7710-revocation+cbor",
+      "spend": "application/univocity.erc7710-spend+cbor"
+    },
+    "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
+    "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
+    "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1 (an auditor also accepts 27 or 28), low s",
+    "cose_sign1": "attached payload, empty unprotected header except in the refuse cases; untagged, or a single leading tag 18 (0xd2) in the -tag18 vectors, which the entry commits to as registered",
+    "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a deployed key",
+    "account": "address_hex is the low 20 bytes of keccak256 of the label; nobody holds its key",
+    "intent_document": "{\"natural_language_description\":\"Pay registration fees and buy research for the household accounts project\",\"intent_expiry\":\"2027-01-01T00:00:00Z\",\"requires_refundability\":true}"
+  },
+  "keys": [
+    {
+      "label": "protocol vectors delegated spend: human root owner",
+      "private_key_d_hex": "4b6005332b9a3740872e6f819747a58f47c1e00a7c504ef183d5740e6c2fad68",
+      "address_hex": "879fdef037e3f42e0fd9d3af848922811c907f71"
+    },
+    {
+      "label": "protocol vectors delegated spend: human statement key",
+      "private_key_d_hex": "baef72f0bfc81afbc171495837a6a1257b59042e13e6b789537f55fe6c14354e",
+      "address_hex": "d0f004c4d234ed64205a886f3d922bc1b4ecc756"
+    },
+    {
+      "label": "protocol vectors delegated spend: agent A spending key",
+      "private_key_d_hex": "3f184b2ddbf41e37ef9be6bf05aba2ed3f14c1e8a6dd44381d4a8daa41b39a1f",
+      "address_hex": "20e240252d8a590e8a1fe2cbbf64c755a1e4a8d2"
+    },
+    {
+      "label": "protocol vectors delegated spend: agent A statement key",
+      "private_key_d_hex": "34073255206c1ad7c757942718a31b4201df1b7882ebd30de73f82a8914cadef",
+      "address_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+    },
+    {
+      "label": "protocol vectors delegated spend: agent B spending key",
+      "private_key_d_hex": "018ad30f3351b05cd0bc9d16fbdad5dfc4299848c82e256a12ad53e16dc4fb7a",
+      "address_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4"
+    },
+    {
+      "label": "protocol vectors delegated spend: agent B statement key",
+      "private_key_d_hex": "55dae9eba4c482e1ad12dd72c51127374bd561b0982ef3640ceaaa726fb718d8",
+      "address_hex": "6513f207a4726d0de9876d4f4714e6f02a8bf3a4"
+    },
+    {
+      "label": "protocol vectors delegated spend: agent B gas account",
+      "private_key_d_hex": "c4a9af037512a207c31201c9d89709f00a12b809cd4c101155d87e2eaa6cc67f",
+      "address_hex": "c7de302f72a1dcd999581665c829e1fcbce2a9c0"
+    },
+    {
+      "label": "protocol vectors delegated spend: stranger spending key",
+      "private_key_d_hex": "9804a341836b8178445561dd4e657c62e4ee61fa11dbe11ffc7f74fe06d946af",
+      "address_hex": "05a1c80f4182a816f7883acf0aab5ad1a199f776"
+    },
+    {
+      "label": "protocol vectors delegated spend: stranger gas account",
+      "private_key_d_hex": "d7ea954f9e2521efca253758d497bab222b5f16939e5dd2109ecbfc9f3e835d3",
+      "address_hex": "3d92c9bb7e4c970102415b15f6edd283afc7a0bd"
+    },
+    {
+      "label": "protocol vectors delegated spend: stranger statement key",
+      "private_key_d_hex": "84cee8883374b25ad35c544de184f04c8cdd7994b69ba9b18733ef72729d6e88",
+      "address_hex": "792d16a5766525db296134962683d1bf2b64273d"
+    }
+  ],
+  "accounts": [
+    {
+      "label": "protocol vectors delegated spend: human root account",
+      "address_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5"
+    },
+    {
+      "label": "protocol vectors delegated spend: payee",
+      "address_hex": "f3ee055a3940308687eee11300d09680a4e7a690"
+    },
+    {
+      "label": "protocol vectors delegated spend: seller",
+      "address_hex": "936f925ecbcdea42c8efbeb50a1788c69162270d"
+    },
+    {
+      "label": "protocol vectors delegated spend: published enforcer (test deployment)",
+      "address_hex": "6fff311c6ef3a201d71dab58d9d6ef25594299b2"
+    },
+    {
+      "label": "protocol vectors delegated spend: univocity instance (test deployment)",
+      "address_hex": "0fe4e9b43fe6ea92ab436d980f3711bb63bcc411"
+    },
+    {
+      "label": "protocol vectors delegated spend: unlisted delegation manager",
+      "address_hex": "fdfc0f338b32b0e83011acb1e92f7bc2175cb1b9"
+    },
+    {
+      "label": "protocol vectors delegated spend: second root account",
+      "address_hex": "a2baece5f1bc76fc15f33a4469be7df240c02ce9"
+    },
+    {
+      "label": "protocol vectors delegated spend: stranger smart account (a contract with code)",
+      "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc"
+    }
+  ],
+  "delegations": [
+    {
+      "name": "D_HA",
+      "note": "the root hop, from the human's smart account to agent A's spending key; the account checks its owner's signature (ERC-1271), so it recovers to the owner, not to the delegator",
+      "chain_id": 84532,
+      "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+      "delegate_hex": "20e240252d8a590e8a1fe2cbbf64c755a1e4a8d2",
+      "delegator_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "delegator_kind": "contract",
+      "authority_hex": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "caveats": [
+        {
+          "enforcer_hex": "6fff311c6ef3a201d71dab58d9d6ef25594299b2",
+          "terms_hex": "0000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc4110000000000000000000000000000000076cbc600b9858ea8c7404cb745b55118",
+          "note": "publication caveat: abi.encode(instance, L_H)"
+        },
+        {
+          "enforcer_hex": "f100b0819427117ecf76ed94b358b1a5b5c6d2fc",
+          "terms_hex": "036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000004c4b40",
+          "note": "ERC20TransferAmountEnforcer: USDC, at most 5 USDC in all"
+        },
+        {
+          "enforcer_hex": "1046bb45c8d673d4ea75321280db34899413c069",
+          "terms_hex": "000000000000000000000000000000000000000000000000000000006b36ec80",
+          "note": "TimestampEnforcer: usable until 2027-01-01T00:00:00Z"
+        }
+      ],
+      "salt_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+      "signer": "protocol vectors delegated spend: human root owner",
+      "signature_hex": "76f2ca72850405a72793ec9dcde0d46933882f9c537978979ac5ea3208a56fa020b326abe8a88a940ed12ea568e27b1c735b108008232e5c05f7a3668c6984bc1c",
+      "struct_hash_hex": "e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96",
+      "domain_separator_hex": "e71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+      "typed_data_digest_hex": "9f9c4f395ea8010d4eb30ebcfbcc66c0fb2d906ef28995fd35c777ca4f06d8e9"
+    },
+    {
+      "name": "D_AB",
+      "note": "a reusable hop from agent A to agent B, signed by A's spending key, narrower than D_HA",
+      "chain_id": 84532,
+      "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+      "delegate_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4",
+      "delegator_hex": "20e240252d8a590e8a1fe2cbbf64c755a1e4a8d2",
+      "delegator_kind": "eoa",
+      "authority_hex": "e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96",
+      "caveats": [
+        {
+          "enforcer_hex": "6fff311c6ef3a201d71dab58d9d6ef25594299b2",
+          "terms_hex": "0000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf",
+          "note": "publication caveat: abi.encode(instance, L_A)"
+        },
+        {
+          "enforcer_hex": "f100b0819427117ecf76ed94b358b1a5b5c6d2fc",
+          "terms_hex": "036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f4240",
+          "note": "ERC20TransferAmountEnforcer: USDC, at most 1 USDC in all"
+        },
+        {
+          "enforcer_hex": "1046bb45c8d673d4ea75321280db34899413c069",
+          "terms_hex": "000000000000000000000000000000000000000000000000000000006b0e0e00",
+          "note": "TimestampEnforcer: usable until 2026-12-01T00:00:00Z"
+        }
+      ],
+      "salt_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+      "signer": "protocol vectors delegated spend: agent A spending key",
+      "signature_hex": "4066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b",
+      "struct_hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+      "domain_separator_hex": "e71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+      "typed_data_digest_hex": "8f6eaf7cd1e026d4a4a5ca5bab2bfb4468591f79aac273e6d7c6a327d349aa8f"
+    },
+    {
+      "name": "leaf/credits",
+      "note": "a payment leaf beneath D_AB: open delegate, the exact transfer, one call, the credits nonce as salt",
+      "chain_id": 84532,
+      "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+      "delegate_hex": "0000000000000000000000000000000000000a11",
+      "delegator_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4",
+      "delegator_kind": "eoa",
+      "authority_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+      "caveats": [
+        {
+          "enforcer_hex": "146713078d39ecc1f5338309c28405ccf85abfbb",
+          "terms_hex": "036cbd53842c5426634e7929541ec2318f3dcf7e0000000000000000000000000000000000000000000000000000000000000000a9059cbb000000000000000000000000f3ee055a3940308687eee11300d09680a4e7a6900000000000000000000000000000000000000000000000000000000000002710",
+          "note": "ExactExecutionEnforcer: USDC, value 0, transfer(payee, 10000)"
+        },
+        {
+          "enforcer_hex": "04658b29f6b82ed55274221a06fc97d318e25416",
+          "terms_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+          "note": "LimitedCallsEnforcer: 1"
+        }
+      ],
+      "salt_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e",
+      "signer": "protocol vectors delegated spend: agent B spending key",
+      "signature_hex": "ea54add28e399f38b8e3c162e91534b46cbcdf2526d612e262f28661c4eb9d511713fa4626794d67d468d252b1c68440488fedc043d579b1d3235d5cc88c5ca61c",
+      "struct_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+      "domain_separator_hex": "e71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+      "typed_data_digest_hex": "6302146bd2cadcbebfd26687b1bb0d3bf4e242125d8c9a53a25cf5da1ff49906"
+    },
+    {
+      "name": "leaf/seller",
+      "note": "a payment leaf for a seller; a seller's payment carries no payment nonce",
+      "chain_id": 84532,
+      "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+      "delegate_hex": "0000000000000000000000000000000000000a11",
+      "delegator_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4",
+      "delegator_kind": "eoa",
+      "authority_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+      "caveats": [
+        {
+          "enforcer_hex": "146713078d39ecc1f5338309c28405ccf85abfbb",
+          "terms_hex": "036cbd53842c5426634e7929541ec2318f3dcf7e0000000000000000000000000000000000000000000000000000000000000000a9059cbb000000000000000000000000936f925ecbcdea42c8efbeb50a1788c69162270d000000000000000000000000000000000000000000000000000000000003d090",
+          "note": "ExactExecutionEnforcer: USDC, value 0, transfer(seller, 250000)"
+        },
+        {
+          "enforcer_hex": "04658b29f6b82ed55274221a06fc97d318e25416",
+          "terms_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+          "note": "LimitedCallsEnforcer: 1"
+        }
+      ],
+      "salt_hex": "7924a80a68f01017f3c07ccdf3cadcd1569a6896ef6a6c88c19646c40455eec5",
+      "signer": "protocol vectors delegated spend: agent B spending key",
+      "signature_hex": "db7c67fa4f492f53883b1e4650989dc4ebd9dc3a50429c894ecaf71fecb1b5cf00be6402ecd19daf4e5bb4386b74905fb8949e2b760ebfc183cb834a4dae14461b",
+      "struct_hash_hex": "6447083d29b52296b36f0a69159b8802dfcea28762cb15da44b07b0b6129532f",
+      "domain_separator_hex": "e71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+      "typed_data_digest_hex": "f79eeda71d1b683dde67ef1fa61205d5d9a9db5e40490c9cf2a1a18725619fe8"
+    },
+    {
+      "name": "leaf/wrong-root",
+      "note": "a payment leaf beneath D_AB whose salt is the credits nonce over its own delegator, not over the root of its authority chain",
+      "chain_id": 84532,
+      "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+      "delegate_hex": "0000000000000000000000000000000000000a11",
+      "delegator_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4",
+      "delegator_kind": "eoa",
+      "authority_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+      "caveats": [
+        {
+          "enforcer_hex": "146713078d39ecc1f5338309c28405ccf85abfbb",
+          "terms_hex": "036cbd53842c5426634e7929541ec2318f3dcf7e0000000000000000000000000000000000000000000000000000000000000000a9059cbb000000000000000000000000f3ee055a3940308687eee11300d09680a4e7a6900000000000000000000000000000000000000000000000000000000000002710",
+          "note": "ExactExecutionEnforcer: USDC, value 0, transfer(payee, 10000)"
+        },
+        {
+          "enforcer_hex": "04658b29f6b82ed55274221a06fc97d318e25416",
+          "terms_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+          "note": "LimitedCallsEnforcer: 1"
+        }
+      ],
+      "salt_hex": "add919914d848e59e19284810a5970d12b7bc079c02ea36c19119b334b2ec401",
+      "signer": "protocol vectors delegated spend: agent B spending key",
+      "signature_hex": "0e521c2335e82bac4c80e209848f2dc6d3b2d0833baa4698bc1054438ddabccd33c95bac075fa3f8117c57a6fd612b830fa8c7e7ed6b688f31c6f9336f2061081b",
+      "struct_hash_hex": "533802de9c56d6d40c7517074d3694170692a281b13bfa72e4dd96dfcf376620",
+      "domain_separator_hex": "e71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+      "typed_data_digest_hex": "efef1abe8f8c16c99b945be751990c8924588836b90c46b1336a7854b1580df6"
+    }
+  ],
+  "statements": [
+    {
+      "name": "delegation/D_HA",
+      "type": "delegation",
+      "note": "the root hop, published in the human's authority log L_H by the human's statement key",
+      "signer": "protocol vectors delegated spend: human statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation": "D_HA",
+        "delegate_log_id_hex": "000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf",
+        "depth": 3,
+        "purpose": {
+          "description": "Agent A pays registration fees and buys research, up to 5 USDC",
+          "intent_digest_hex": "dca3682052e71b83f546d6c2ec29fa5d22868c5b9abb222c96e321109341430f"
+        }
+      },
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f720454d0f004c4d234ed64205a886f3d922bc1b4ecc7560fa20178286430663030346334643233346564363432303561383836663364393232626331623465636337353602784065303135623033313434313138383336383062346366346263643432306133323263303237306337343936386463353832636363613434623264363061633936a059027da80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db305865420e240252d8a590e8a1fe2cbbf64c755a1e4a8d254c69f590389a836c5d6fbc151b74c6907fd2ec9a55820ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc4110000000000000000000000000000000076cbc600b9858ea8c7404cb745b551188254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000004c4b4082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b36ec8058200000000000000000000000000000000000000000000000000000000000000001584176f2ca72850405a72793ec9dcde0d46933882f9c537978979ac5ea3208a56fa020b326abe8a88a940ed12ea568e27b1c735b108008232e5c05f7a3668c6984bc1c065820000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf07030aa203783e4167656e742041207061797320726567697374726174696f6e206665657320616e6420627579732072657365617263682c20757020746f20352055534443045820dca3682052e71b83f546d6c2ec29fa5d22868c5b9abb222c96e321109341430f5841cb4fe8ecc397ac38b1009d7ac7d8d834692af979083401f942d9d403441a430a109dbc49813ea75cafdb404691d90f895b3e23ebc8a840a35b7e768fa161e93001",
+      "publication": {
+        "delegation_hash_hex": "e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96",
+        "prefix_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f720454d0f004c4d234ed64205a886f3d922bc1b4ecc7560fa20178286430663030346334643233346564363432303561383836663364393232626331623465636337353602784065303135623033313434313138383336383062346366346263643432306133323263303237306337343936386463353832636363613434623264363061633936a059027da80101025840",
+        "suffix_hex": "031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db305865420e240252d8a590e8a1fe2cbbf64c755a1e4a8d254c69f590389a836c5d6fbc151b74c6907fd2ec9a55820ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc4110000000000000000000000000000000076cbc600b9858ea8c7404cb745b551188254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000004c4b4082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b36ec8058200000000000000000000000000000000000000000000000000000000000000001584176f2ca72850405a72793ec9dcde0d46933882f9c537978979ac5ea3208a56fa020b326abe8a88a940ed12ea568e27b1c735b108008232e5c05f7a3668c6984bc1c065820000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf07030aa203783e4167656e742041207061797320726567697374726174696f6e206665657320616e6420627579732072657365617263682c20757020746f20352055534443045820dca3682052e71b83f546d6c2ec29fa5d22868c5b9abb222c96e321109341430f5841cb4fe8ecc397ac38b1009d7ac7d8d834692af979083401f942d9d403441a430a109dbc49813ea75cafdb404691d90f895b3e23ebc8a840a35b7e768fa161e93001",
+        "idtimestamp_hex": "019a8f6e2c000001",
+        "leaf_hex": "081d2dce65f22e8d61e6c9c6ad0ae801ad84f5e5fac49547e7257106a20fda8f"
+      }
+    },
+    {
+      "name": "delegation/D_AB",
+      "type": "delegation",
+      "note": "a reusable hop, published in agent A's log L_A by A's statement key, never its spending key",
+      "signer": "protocol vectors delegated spend: agent A statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation": "D_AB",
+        "delegate_log_id_hex": "00000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f",
+        "depth": 2,
+        "purpose": {
+          "description": "Agent B pays the registration fees of log L_B"
+        }
+      },
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+      "publication": {
+        "delegation_hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+        "prefix_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840",
+        "suffix_hex": "031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+        "idtimestamp_hex": "019a8f7a11000003",
+        "leaf_hex": "46f7635dc1d0c894555b126cf7c8471d2f13361072e32ed2f20f5108fb29bea6"
+      }
+    },
+    {
+      "name": "delegation/D_AB-tag18",
+      "type": "delegation",
+      "note": "delegation/D_AB registered as a tag-18 COSE_Sign1: the entry commits to the bytes as registered, so the publication prefix starts with 0xd2, and the publication is the same hash at one byte more",
+      "signer": "protocol vectors delegated spend: agent A statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation": "D_AB",
+        "delegate_log_id_hex": "00000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f",
+        "depth": 2,
+        "purpose": {
+          "description": "Agent B pays the registration fees of log L_B"
+        }
+      },
+      "cose_sign1_hex": "d28458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+      "publication": {
+        "delegation_hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+        "prefix_hex": "d28458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840",
+        "suffix_hex": "031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+        "idtimestamp_hex": "019a8f7a11000004",
+        "leaf_hex": "76633b12ff4abab73baabdb6c79473b008df30a5bfb7a99d82ad14bc3374f7f3"
+      }
+    },
+    {
+      "name": "revocation/D_AB",
+      "type": "revocation",
+      "note": "agent A records, in L_A, that it disabled D_AB on chain; the revoked hash is bare",
+      "signer": "protocol vectors delegated spend: agent A statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+        "transaction_hash_hex": "0fca18cd163328d29e1ab5f53b156c54ef339119aecf35cc681d92442d3cd3c0",
+        "reason": "Agent B's task is finished"
+      },
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d7265766f636174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a05882a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c0958200fca18cd163328d29e1ab5f53b156c54ef339119aecf35cc681d92442d3cd3c00b781a4167656e7420422773207461736b2069732066696e69736865645841fabb0b82470478ce4435b8941c2dcadb4b421dc0617a554486b490394d227f100e77a8f8c3c45a23fbdd84fd2d6d0b904b37af147ffbdeff08117a511d5eabb800"
+    },
+    {
+      "name": "spend/credits",
+      "type": "spend",
+      "note": "agent B records, in L_B, the payment leaf/credits made; amount, asset and payee are read from the transaction, and the purpose digest is the credits nonce's",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "delegation": "leaf/credits",
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841e1bd4409fc78cc53d53673b65a88dca09d05133a177645b6a55048a43c5984d7520f44596b2d957a4f0d3353b5696a959d8af02d2fbe65c22d2e7095646079a500"
+    },
+    {
+      "name": "spend/seller",
+      "type": "spend",
+      "note": "agent B records a purchase from a seller; the purpose digest is the seller's reference for what was bought",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "6447083d29b52296b36f0a69159b8802dfcea28762cb15da44b07b0b6129532f",
+        "transaction_hash_hex": "3b884904ce6361350ebe4a8855305b320a7bdbb97aa3eb2497cbe6f7a5de5c15",
+        "purpose": {
+          "kind": 4,
+          "digest_hex": "7924a80a68f01017f3c07ccdf3cadcd1569a6896ef6a6c88c19646c40455eec5",
+          "description": "A research report"
+        }
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784036343437303833643239623532323936623336663061363931353962383830326466636561323837363263623135646134346230376230623631323935333266a0589fa60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30858206447083d29b52296b36f0a69159b8802dfcea28762cb15da44b07b0b6129532f0958203b884904ce6361350ebe4a8855305b320a7bdbb97aa3eb2497cbe6f7a5de5c150aa301040258207924a80a68f01017f3c07ccdf3cadcd1569a6896ef6a6c88c19646c40455eec5037141207265736561726368207265706f72745841ab1cb6668c6d4503569a4ca8d5bf7a91f28ef7a2f323f0a5ab978e7370dac9a86202652113457df831414ca32e9a1f4180ba4de758df59f041cf77f48c87ed6e01"
+    }
+  ],
+  "refused_spends": [
+    {
+      "name": "spend/credits-under-salted-hop",
+      "type": "spend",
+      "note": "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's binding delegation is the salted hop above it (payment-nonce-and-binding.md §3.2), so the leaf is not a payment, and an auditor refuses the spend although the nonce over its purpose and root is the leaf's salt",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "4c1907e10b3d9d7a33a464c1f7f15de5de41159b3dc4cc080cff426bebf8b268",
+        "transaction_hash_hex": "4c509d19013dbf80b1fa57a72dae6e3f9645ce3f98cc496df3fd8245c3c14268",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784034633139303765313062336439643761333361343634633166376631356465356465343131353962336463346363303830636666343236626562663862323638a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30858204c1907e10b3d9d7a33a464c1f7f15de5de41159b3dc4cc080cff426bebf8b2680958204c509d19013dbf80b1fa57a72dae6e3f9645ce3f98cc496df3fd8245c3c142680aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841a7e0b9d0648e02d6b8a7181b6282f937bf06256e0166486f512ce598d6532fbc0b7c375b3603d37d97a2b0673174d7ef76094ba2ac58a4fd59aeda5f96e560ef01",
+      "refused": "binding"
+    },
+    {
+      "name": "spend/credits-pays-the-agent",
+      "type": "spend",
+      "note": "a credits spend whose leaf is salted with the credits nonce over the root, and pins the transfer to agent B's own account: an auditor runs the binding rule with the registration service's payee from its own configuration, not the leaf's pin, so the leaf binds nothing and the spend is refused",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "d0da6845c421fcbd31de48254c8b4aea7e3950f2209c57ab2da809d3df2971d7",
+        "transaction_hash_hex": "7b8d9499dbbd2012a9126af04eff377431c15ceb205efe17c4a16dda2e97d81d",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784064306461363834356334323166636264333164653438323534633862346165613765333935306632323039633537616232646138303964336466323937316437a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820d0da6845c421fcbd31de48254c8b4aea7e3950f2209c57ab2da809d3df2971d70958207b8d9499dbbd2012a9126af04eff377431c15ceb205efe17c4a16dda2e97d81d0aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841cc3be52315159c6d8af66b3d2dc70af50ab09bbb132989a60cff1b0ab7363201596f696e647f948d24b5231831271e918e40ffb25a806930c83cf275a9c6917401",
+      "refused": "binding"
+    },
+    {
+      "name": "spend/credits-another-purchase",
+      "type": "spend",
+      "note": "a credits spend that names leaf/credits, a genuine payment of the receipt, but states the purpose digest of credits/another-purchase: the nonce over it is not the payment's salt, so the spend misstates what was bought and an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "description": "100 credits for the test instance",
+          "digest_hex": "e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7e"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa30103025820e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7e037821313030206372656469747320666f7220746865207465737420696e7374616e63655841570120cddcfd6311a545a1063c69e2f8762098cd80ee70b1df49d5060b758ae06527ce49d3037dca51077ab17feb9504239337d9f07a1629f008f4c17dbb77ef00",
+      "refused": "purpose"
+    },
+    {
+      "name": "spend/credits-claimed-as-grant",
+      "type": "spend",
+      "note": "a kind 1 spend with the grant's digest that names leaf/credits, a genuine payment of the receipt: the nonce over a grant is not the payment's salt, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 1,
+          "digest_hex": "c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb",
+          "description": "a grant"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a05895a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa30101025820c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb036761206772616e745841c642a5ac20215b4a055c3b04af5521a7ee427e5aa0cd454ba47a7ec1865594914a739468d5ac4f20a43377a02a4a705c512ebe665835ff40d8f2c0ed621b8e1400",
+      "refused": "purpose"
+    },
+    {
+      "name": "spend/credits-on-another-chain",
+      "type": "spend",
+      "note": "a credits spend that names the one-payment payment on chain 1: the payment is on the receipt's chain, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 1,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058aca6010103010454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e636558415da052a040f63a7faff75e4f5e8bb93fe1f41f0a6e5cd5f498f859866defeabe5efd5896dbc0259fe925e8a6f50c5d0536efc1c07019a207c1b3328b7ba30b4901",
+      "refused": "chain"
+    },
+    {
+      "name": "spend/credits-under-another-manager",
+      "type": "spend",
+      "note": "a credits spend that names the one-payment payment under another delegation manager: the payment is the listed manager's, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "fdfc0f338b32b0e83011acb1e92f7bc2175cb1b9",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454fdfc0f338b32b0e83011acb1e92f7bc2175cb1b9085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841bcb021ae8c0d54f9ef881dfbd125d5feebdf72ab24b5fc97dde8682573734ab233ef93d79a81336169af3ab490d9c674e9cc387d0f62fa567e1705b50650396e01",
+      "refused": "manager"
+    },
+    {
+      "name": "spend/credits-wrong-receipt",
+      "type": "spend",
+      "note": "a credits spend whose leaf pays in the one-payment transaction but whose key 9 names another transaction, whose receipt holds no payment of that leaf: an auditor reads the receipt key 9 names, so it refuses the spend, and one that ignores key 9 would pass it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70",
+        "transaction_hash_hex": "f2d44ce35a8190665a2304dec939994d87ae1b4b62637123544fc290a87a599e",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "root_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+        "receipt_checked": true
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820f2d44ce35a8190665a2304dec939994d87ae1b4b62637123544fc290a87a599e0aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841dda10ff61a38ada0c17b3eaaad4e9320d351e581cbb2582d38db472bb48c1dfa51ab4c2eb5b0dad8c71af7e0e3426c8fa4008220a1a0738f744d746b914581ac00",
+      "refused": "binding"
+    },
+    {
+      "name": "spend/credits-salted-over-own-delegator",
+      "type": "spend",
+      "note": "a credits spend whose leaf is salted with the nonce over the leaf's own delegator, and whose root_hex says that delegator is the root: the nonce matches, but the root of the leaf's authority chain is the human's account, so an auditor refuses it",
+      "signer": "protocol vectors delegated spend: agent B statement key",
+      "fields": {
+        "chain_id": 84532,
+        "delegation_manager_hex": "db9b1e94b5b69df7e401ddbede43491141047db3",
+        "delegation_hash_hex": "533802de9c56d6d40c7517074d3694170692a281b13bfa72e4dd96dfcf376620",
+        "transaction_hash_hex": "b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a33253",
+        "purpose": {
+          "kind": 3,
+          "digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+          "description": "100 credits for the test instance"
+        }
+      },
+      "paid_by": {
+        "delegation": "leaf/wrong-root",
+        "root_hex": "2d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b4"
+      },
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784035333338303264653963353664366434306337353137303734643336393431373036393261323831623133626661373265346464393664666366333736363230a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820533802de9c56d6d40c7517074d3694170692a281b13bfa72e4dd96dfcf376620095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e636558419dae57f0ecca5863748331686a6281ad94638171bdd8fa31944edd210212dac842ac08ad589f3956d1e64f8c6a73d56c2080690769730ea39fc221a73ae6d5b701",
+      "refused": "root"
+    }
+  ],
+  "decode_negatives": [
+    {
+      "name": "head-not-shortest",
+      "type": "spend",
+      "note": "spend/credits with its outer array's head written 0x98 0x04 for 0x84: a head longer than it needs",
+      "cose_sign1_hex": "980458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a058b0a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa301030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237037821313030206372656469747320666f7220746865207465737420696e7374616e63655841e1bd4409fc78cc53d53673b65a88dca09d05133a177645b6a55048a43c5984d7520f44596b2d957a4f0d3353b5696a959d8af02d2fbe65c22d2e7095646079a500"
+    },
+    {
+      "name": "payload-key-not-defined",
+      "type": "spend",
+      "note": "a spend payload with key 12, which no statement type defines",
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a0588fa70101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562370c410058419246b0aebcf2c51b76c30ecc34eebea669689c4a30d1f29d099b8adff98589cb12d5fb42a753d7ee7989ec59042822b3117709b0fb9283f5b8f5bf1b63ae858100"
+    },
+    {
+      "name": "purpose-kind-text",
+      "type": "spend",
+      "note": "a spend whose purpose kind is the text string \"credits\"; a kind is an unsigned integer",
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a05893a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa20167637265646974730258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841768dbade6574b9deec477c60e7babb483f8ffcf2221484c288b3855870f9189111fd7455d39b08ac9fdc8a5c71efe277083ec55ebd023fc00d9b91a215ba52da01"
+    },
+    {
+      "name": "delegation-purpose-without-description",
+      "type": "delegation",
+      "note": "a delegation statement whose purpose has an intent digest and no description",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a059023ca80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa1045820dca3682052e71b83f546d6c2ec29fa5d22868c5b9abb222c96e321109341430f584105cdce0c1c5652a0e582e49d46b4461b5636ffeaf7b5caa3f6ae22bc0c3e258725cfca01bf85d06a66535ee53c61b140b291f37567b6f73c2b8fe094c2142fd801"
+    },
+    {
+      "name": "unprotected-label-not-the-endorsement",
+      "type": "spend",
+      "note": "a spend statement whose unprotected header holds a label other than the session endorsement's",
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a13a0001116f4100588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841417648aa1a8ac596ad374086cb7ca107cf863b394e16675f0df16fa32795ce5b6f5727e65911e55369087f7c774478de58f0452b095565b818e1480086b8b98401"
+    }
+  ],
+  "decode_accepts": [
+    {
+      "name": "purpose-kind-5",
+      "type": "spend",
+      "note": "a spend whose purpose kind is 5, which no section 7 kind names: the kinds are an open registry (spec section 7), so a decoder accepts it and an auditor reports it as an unverified claim",
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a0588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201050258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841a5c1542be06162a95060ae73c7ebd7fb8b3e46d757c0f10c981791a1feb0142a290717fb0cdb5fafbc3005ef6e2330fd5b3e4fbd6f43f3c8100ab71b2e9a59b900"
+    }
+  ],
+  "audit_cases": [
+    {
+      "name": "well-formed/D_AB-tag18",
+      "rule": "1b",
+      "note": "delegation/D_AB as a tag-18 COSE_Sign1: the route check and the auditor strip the tag before classifying, and the publication sits one byte later",
+      "cose_sign1_hex": "d28458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 203,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "well-formed",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "well-formed/D_AB",
+      "rule": "1b",
+      "note": "TAG ‖ H at key 2 of a delegation statement, H the struct hash of the hop at key 5",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258414e4c2b2f54c2f77a4db2c5bff2fe8187b9c2a09673c9f7e3a9ecdaf1569717bc747ee0ebd17410acbc06928b4338779dda90233bf61b5d520e085a70d829cf8f00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 202,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "well-formed",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-hop-signature",
+      "rule": "1b",
+      "note": "a well-formed delegation statement of D_AB whose key 5 signature bytes also hold TAG ‖ H(D_HA): the signature is outside the delegation hash, so the hop and its key 2 are unchanged, yet the statement publishes D_HA as well. An auditor that reads key 2 alone reports one publication; it must report both, and flag the second",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e00582000000000000000000000000000000000000000000000000000000000000000015841b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac961b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f4258417e07a0c9210ffbb171c1eb643e99e4a0644cc4ab99ec89ce3498491134773f632828aabb866e528b1f0cc4bb3c50ecd11aa96551396ae876a48a6503090179fb00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 202,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "well-formed",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          },
+          {
+            "offset": 629,
+            "hash_hex": "e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/hash-mismatch",
+      "rule": "1b",
+      "note": "key 2 publishes D_HA while key 5 shows the terms of D_AB: it publishes D_HA, and auditors flag it",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065303135623033313434313138383336383062346366346263643432306133323263303237306337343936386463353832636363613434623264363061633936a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f42584198205fdfcfac1bf14908491b283d5a73b607036af671dac8459436b433ef69856ca561ba7290d1e4424daa6e447d757991d15fd6ef431ec9f237828da83c1e8200",
+      "expect": {
+        "publications": [
+          {
+            "offset": 202,
+            "hash_hex": "e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac96",
+            "verdict": "flag:hash-mismatch",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/signed-digest-not-struct-hash",
+      "rule": "1b",
+      "note": "key 2 carries the EIP-712 digest D_AB's delegator signed instead of its struct hash: it publishes a value no delegation manager ever hands an enforcer, so D_AB stays unpublished",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d64656c65676174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784038663665616637636431653032366434613461356361356261623262666234343638353931663739616163323733653664376336613332376433343961613866a0590249a80101025840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd852516498f6eaf7cd1e026d4a4a5ca5bab2bfb4468591f79aac273e6d7c6a327d349aa8f031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db30586542d753dbb20855f1f37caa4b8d9d7ba7f9c41d0b45420e240252d8a590e8a1fe2cbbf64c755a1e4a8d25820e015b0314411883680b4cf4bcd420a322c0270c74968dc582ccca44b2d60ac968382546fff311c6ef3a201d71dab58d9d6ef25594299b258400000000000000000000000000fe4e9b43fe6ea92ab436d980f3711bb63bcc411000000000000000000000000000000003bf8c8a1c09495f9d13a8f6834f4feaf8254f100b0819427117ecf76ed94b358b1a5b5c6d2fc5834036cbd53842c5426634e7929541ec2318f3dcf7e00000000000000000000000000000000000000000000000000000000000f424082541046bb45c8d673d4ea75321280db34899413c0695820000000000000000000000000000000000000000000000000000000006b0e0e005820000000000000000000000000000000000000000000000000000000000000000158414066531b69a6e2a155c7bf7bd792a91536ca587c8fb2d767bdd3fa7b9ce45da8043863cb3465520b3e22f0c808dac08a1f3f85bbf4be18df61e029443569cc6f1b06582000000000000000000000000000000000b4de70cc0f9923afd18ebd81d62bc51f07020aa103782d4167656e74204220706179732074686520726567697374726174696f6e2066656573206f66206c6f67204c5f425841b4aa4a516534c83bd2bb1c58a9969de3986c30310a43c9844d6f9714dc8f9d46472587ace5f681ebea69c8215f80823b5e3559ed02cf5435bc964eb3528cbcd600",
+      "expect": {
+        "publications": [
+          {
+            "offset": 202,
+            "hash_hex": "8f6eaf7cd1e026d4a4a5ca5bab2bfb4468591f79aac273e6d7c6a327d349aa8f",
+            "verdict": "flag:hash-mismatch",
+            "signer_hex": "0facc02b54dc4666c395693a7aa5e572704452a2"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type",
+      "rule": "1b",
+      "note": "a statement of another content type, signed by someone else with a grant to the log, quotes TAG ‖ H(D_AB): it still publishes D_AB, and auditors flag it and attribute it to its signer",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "refuse/spend-with-tag",
+      "rule": "1a",
+      "note": "a spend statement whose unprotected header carries TAG ‖ H(D_AB), under -70000, a label nothing assigns: the registration service refuses it on its route; were it anchored anyway, it would publish D_AB and auditors would flag it, with no signer, because the signature does not cover the unprotected header",
+      "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841417648aa1a8ac596ad374086cb7ca107cf863b394e16675f0df16fa32795ce5b6f5727e65911e55369087f7c774478de58f0452b095565b818e1480086b8b98401",
+      "expect": {
+        "publications": [
+          {
+            "offset": 195,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "refuse/revocation-with-tag",
+      "rule": "1a",
+      "note": "a revocation statement whose unprotected header carries TAG ‖ H(D_AB), the very hop it revokes: the route refuses it, as it refuses a spend; were it anchored anyway, it would publish D_AB and auditors would flag it, with no signer",
+      "cose_sign1_hex": "8458bda4013a0001010603782d6170706c69636174696f6e2f756e69766f636974792e657263373731302d7265766f636174696f6e2b63626f7204540facc02b54dc4666c395693a7aa5e572704452a20fa20178283066616363303262353464633436363663333935363933613761613565353732373034343532613202784065356233393561666362326132383430643962323363656163333162366331393165616663633564613161303835666464393830316232646565363434393763a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5882a60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c0958200fca18cd163328d29e1ab5f53b156c54ef339119aecf35cc681d92442d3cd3c00b781a4167656e7420422773207461736b2069732066696e69736865645841fabb0b82470478ce4435b8941c2dcadb4b421dc0617a554486b490394d227f100e77a8f8c3c45a23fbdd84fd2d6d0b904b37af147ffbdeff08117a511d5eabb800",
+      "expect": {
+        "publications": [
+          {
+            "offset": 200,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "refuse/spend-with-tag-tag18",
+      "rule": "1a",
+      "note": "the same spend statement registered as a tag-18 COSE_Sign1: the route check strips the tag, classifies it as a spend and refuses it all the same",
+      "cose_sign1_hex": "d28458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841417648aa1a8ac596ad374086cb7ca107cf863b394e16675f0df16fa32795ce5b6f5727e65911e55369087f7c774478de58f0452b095565b818e1480086b8b98401",
+      "expect": {
+        "publications": [
+          {
+            "offset": 196,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "refuse/spend-with-tag-reencoded",
+      "rule": "1a",
+      "note": "the same spend statement with its outer array's head re-encoded longer than it needs: the KS256 signature still verifies, a strict decoder refuses it, so it cannot be classified and carries the tag: the route refuses it, and an auditor flags the tag with no signer",
+      "cose_sign1_hex": "980458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a13a0001116f5840b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201030258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841417648aa1a8ac596ad374086cb7ca107cf863b394e16675f0df16fa32795ce5b6f5727e65911e55369087f7c774478de58f0452b095565b818e1480086b8b98401",
+      "expect": {
+        "publications": [
+          {
+            "offset": 196,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-reencoded",
+      "rule": "1b",
+      "note": "the stranger's statement with its outer array's head written 0x98 0x04 for 0x84: the head is not signed, the signature still verifies, and no strict decoder reads it, but the tag sits in the signed payload, so an auditor still attributes it to the stranger",
+      "cose_sign1_hex": "98045838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 103,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-tag18-long",
+      "rule": "1b",
+      "note": "the stranger's statement led by tag 18 written 0xd8 0x12, not 0xd2: a strict decoder refuses the form, the signature does not cover it, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "d812845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 104,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-indefinite-array",
+      "rule": "1b",
+      "note": "the stranger's statement with its outer array written indefinite (0x9f ... 0xff): a strict decoder refuses it, the signature does not cover it, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "9f5838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900ff",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-unprotected-simple",
+      "rule": "1b",
+      "note": "the stranger's statement with {-70000: true} in the unprotected header, a simple value anyone holding the statement can add: the signature does not cover it, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da13a0001116ff55868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 108,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-chunked-payload",
+      "rule": "1b",
+      "note": "the stranger's statement with its payload written as an indefinite-length byte string of two chunks: the signature covers the chunks' concatenation, so the tag, inside one chunk, is the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05f5825612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f745843657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497cff5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 105,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-high-s",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature malleated to (r, n - s, recid ^ 1): it is not low-s, so no verifier accepts it, but it still proves the stranger's key signed these bytes, and the tag in the signed payload is the stranger's; it decodes strictly, so the route accepts it",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce7db4a9a1a1aedf548609fc01c49a7b82b4cdbfcd5577e983a6c4e0a3071780c3801",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-v27",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature's last byte 27, not the recovery id 0: canopy and univocity accept it, so an auditor normalises it before it recovers, and attributes the tag to the stranger",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da0586a612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c20345841ceac8872a76c659207ef6e805f1e0c20fc9b84650f58ee6da9389b66de2cbd70582174cd44718e647d5392f594faf16dadbea1766f4d4084967c057480eb00ac1b",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-v28",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature's last byte 28, not the recovery id 1: canopy and univocity accept it, so an auditor normalises it before it recovers, and attributes the tag to the stranger",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da0586a612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c20305841ca626eb72c8d901ff441ae3a2d1dcec9731b11260f3b52d262a3b83e3b4865ad54df05354a157ffb6c14980339ca2846a7ecd16a2bfcaac410644dd58908a3391c",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-attested",
+      "rule": "1b",
+      "note": "a statement whose kid is a contract with code, signed with an owner's key, and an ERC-1271 attestation of the contract's isValidSignature over the Sig_structure digest: the tag is the contract's, not the owner's the signature recovers to",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "registration_block": 123456,
+        "attestations": [
+          {
+            "chain_id": 84532,
+            "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc",
+            "digest_hex": "e3f33d9a20f05cd1cc6094b267feb97f2d4271d655bd4f3f082cef697b7791f5",
+            "block_number": 123456,
+            "signature_hash_hex": "3eaefcd5f6c29c14e3405fdd964adccb301527cc049c1aa888fb6d1d9633d201",
+            "magic_hex": "1626ba7e"
+          }
+        ]
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "4412e41322104a9bbefe27682c9aa105917058fc"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-unattested",
+      "rule": "1b",
+      "note": "the same statement with no attestation: the kid has code, so the recovered owner is not the signer, and the tag is reported unattributed",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "registration_block": 123456,
+        "attestations": []
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-attested-at-another-block",
+      "rule": "1b",
+      "note": "the same attestation, but from a block after the entry's registration: the contract's signer set or the signature may have changed since, so it attributes nobody and the tag is unattributed",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "registration_block": 123456,
+        "attestations": [
+          {
+            "chain_id": 84532,
+            "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc",
+            "digest_hex": "e3f33d9a20f05cd1cc6094b267feb97f2d4271d655bd4f3f082cef697b7791f5",
+            "block_number": 123457,
+            "signature_hash_hex": "3eaefcd5f6c29c14e3405fdd964adccb301527cc049c1aa888fb6d1d9633d201",
+            "magic_hex": "1626ba7e"
+          }
+        ]
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-unprotected-not-a-map",
+      "rule": "1b",
+      "note": "the stranger's statement with the integer 0 as its unprotected header: the signature does not cover it, canopy's grant-data path reads it as an empty map and admits the statement, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273d005868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe350900",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-24-element-array",
+      "rule": "1b",
+      "note": "the stranger's statement in an outer array of 24 elements, the first four the COSE_Sign1 and twenty more after them: the signature covers none of that, canopy admits any array of four or more, and the tag in the signed payload is still the stranger's",
+      "cose_sign1_hex": "98185838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a7e061cea2001fe91d5e8821ef01e4f149ad1e4a4c9afeee2b4f96bb8692bce724b565e5e5120ab79f603fe3b65847d36dd2e01157ca08015384545c5ebe3509000000000000000000000000000000000000000000",
+      "expect": {
+        "publications": [
+          {
+            "offset": 103,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    },
+    {
+      "name": "flag/tag-in-protected-header-running-into-unprotected",
+      "rule": "1b",
+      "note": "the stranger's statement whose protected header ends in TAG ‖ H[:31], the empty unprotected header's 0xa0 being H's last byte: the signer wrote every byte of the tag, so an auditor attributes it to the stranger, though the 32 bytes of H reach into the unsigned header",
+      "cose_sign1_hex": "84587ea4013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273d3a0001116f583fb09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee6449a0581b612073746174656d656e74206f6620616e6f7468657220747970655841d6377d9992bc2bba557646cd5bd42f19eff2de4b040f5b6b721ab0813834e5b054440348d4cf1389a16394b729b6fb71f61ca9380fdd511a9e5288b4e25c4d9500",
+      "expect": {
+        "publications": [
+          {
+            "offset": 66,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee6449a0",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-statement-with-protected-not-a-map",
+      "rule": "1b",
+      "note": "a statement whose protected header is the integer 5, not a map: it has no content type and no algorithm, so the route refuses it as unclassifiable and an auditor flags the tag in its payload and attributes it to nobody, rather than failing on the entry",
+      "cose_sign1_hex": "844105a05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c584193d362711ee2f6b15c8c51eb263ebde01867d08210688ccf192c89378eaffa1a272a230f9ecea361401d0a583373d29cdf38ed463213f699c183cffc2215210b01",
+      "expect": {
+        "publications": [
+          {
+            "offset": 46,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
+          }
+        ],
+        "route": "refused:tag-present"
+      }
+    }
+  ],
+  "map_key_order": {
+    "canonical": "bytewise",
+    "note": "A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in two. Bytewise order (RFC 8949 4.2.1, rules/platform.md P16) gives 1, 100, -1 and is canon; length-first order, which a shared implementation uses, gives 1, -1, 100 and is not. No statement map in this file has such labels, so no other vector depends on it.",
+    "map": {
+      "1": "01",
+      "100": "64",
+      "-1": "ff"
+    },
+    "bytewise_hex": "a3014101186441642041ff",
+    "length_first_hex": "a30141012041ff18644164"
+  }
+}

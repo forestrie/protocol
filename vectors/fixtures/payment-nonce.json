@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "description": "The payment nonce (spec/payment-nonce-and-binding.md section 2): SHA-256 over a tag, the purpose's kind, its digest and the payer, for each kind, with preimages that no request can ever derive.",
+  "generator": "scripts/gen-delegated-spend-vectors.py. Deterministic: rerunning gives these bytes.",
+  "conventions": {
+    "hex": "unprefixed lowercase",
+    "tag_utf8": "univocity/payment-nonce/v1",
+    "kinds": {
+      "grant": 1,
+      "onboarding": 2,
+      "credits": 3
+    },
+    "preimage": "tag (26 bytes) || kind (1 byte) || purpose digest (32 bytes) || payer (20 bytes): 79 bytes",
+    "payer": "the account the USDC leaves: the root delegator of a delegated payment, from of an EIP-3009 one"
+  },
+  "vectors": [
+    {
+      "name": "grant",
+      "kind": "grant",
+      "note": "the inner grant in payload form, keys 1 to 6, as a Forestrie-Grant carries it at -65538",
+      "purpose": {
+        "from_grant_vector": "golden grant (all fields, fixed-length left-padded)",
+        "grant_hex": "a601582000000000000000000000000000000000000102030405060708090a0b0c0d0e0f02582000000000000000000000000000000000101112131415161718191a1b1c1d1e1f03480000000000000001041903e805010642abcd"
+      },
+      "payer_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "purpose_digest_hex": "c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f763101c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bbc69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "nonce_hex": "cf16ff3b443aa69fa128ac64b1bba4c5e292be997501d75197ba517a8d8ac745"
+    },
+    {
+      "name": "grant/another-payer",
+      "kind": "grant",
+      "note": "the same grant paid from another root: another nonce, so each payer claims its own",
+      "purpose": {
+        "from_grant_vector": "golden grant (all fields, fixed-length left-padded)",
+        "grant_hex": "a601582000000000000000000000000000000000000102030405060708090a0b0c0d0e0f02582000000000000000000000000000000000101112131415161718191a1b1c1d1e1f03480000000000000001041903e805010642abcd"
+      },
+      "payer_hex": "a2baece5f1bc76fc15f33a4469be7df240c02ce9",
+      "purpose_digest_hex": "c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bb",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f763101c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bba2baece5f1bc76fc15f33a4469be7df240c02ce9",
+      "nonce_hex": "5458c4b95f66410cb49616b3c1f1e17df7d531bee84e8222dbd8b0999d82ce45"
+    },
+    {
+      "name": "onboarding",
+      "kind": "onboarding",
+      "note": "the onboarding request id, as the registration service issued it",
+      "purpose": {
+        "request_id": "0b6e8f62-4d1a-4c8e-9f3b-7a2d5c1e9b40"
+      },
+      "payer_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "purpose_digest_hex": "77faab69dcd2b848cf6633b03353d94b6ccc4d9f56284c91c1490eae8f66a1b9",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f76310277faab69dcd2b848cf6633b03353d94b6ccc4d9f56284c91c1490eae8f66a1b9c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "nonce_hex": "9fba26f335a38a5565f4b7b87cebc26260f8ef1c4968666e2fd55a5de5d18f85"
+    },
+    {
+      "name": "credits",
+      "kind": "credits",
+      "note": "100 credits for the test instance, purchase id SHA-256 of the Idempotency-Key",
+      "purpose": {
+        "univocity_instance_id": "eip155:84532:0x0fe4e9b43fe6ea92ab436d980f3711bb63bcc411",
+        "credits": 100,
+        "idempotency_key": "5f1c7a3e-2b9d-4e60-8a4f-c3d2b1e0f987"
+      },
+      "payer_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "purchase_id_hex": "4dc0af85795ac1fa6c642d42f534c886afa3866a5e536802c307284112be2c00",
+      "purpose_digest_hex": "4cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f7631034cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d456237c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "nonce_hex": "b6ee96fb5bfd3f94a5534ca71e4b9f9e8d9572b20523c4487661f786a7693f5e"
+    },
+    {
+      "name": "credits/another-purchase",
+      "kind": "credits",
+      "note": "the same count for the same instance under another Idempotency-Key: a distinct purchase",
+      "purpose": {
+        "univocity_instance_id": "eip155:84532:0x0fe4e9b43fe6ea92ab436d980f3711bb63bcc411",
+        "credits": 100,
+        "idempotency_key": "a2e4c6f8-1b3d-4f5a-9c7e-0d2f4b6a8c1e"
+      },
+      "payer_hex": "c69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "purchase_id_hex": "d5a78f1d4b8535b3a86cf95eea07b3c343faccfe6e7e8f1794935e2af1c24b90",
+      "purpose_digest_hex": "e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7e",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f763103e219f82357b2e02501446c222f87a1ebd007d309494bb326f0252f13a4781e7ec69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "nonce_hex": "cece541f671b642b4534f694afd85e31b0a2c0fed58c89260ffa097bd02f82ca"
+    }
+  ],
+  "not_canonical": [
+    {
+      "name": "earlier-grant-nonce",
+      "preimage_hex": "666f726573747269652f6d63702d72656769737465722078343032206772616e74207061796d656e74206e6f6e636520763100c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bbc69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "salt_hex": "4b5acac2e8c6b8e1da2fe1aa168586141e42d07ef2d056d3b7913a9a9fd38226",
+      "reason": "the tag of an earlier, tool-specific grant nonce: no request derives a nonce from it"
+    },
+    {
+      "name": "kind-outside-1-to-3",
+      "preimage_hex": "756e69766f636974792f7061796d656e742d6e6f6e63652f763104c598b0af292282a90929e35213d5a06952f6ba26c9a8c70af3aaa42cad5859bbc69f590389a836c5d6fbc151b74c6907fd2ec9a5",
+      "salt_hex": "57dddbe818e284787961e25cc86fefb62de972774a857e89d60c4ddced21a083",
+      "reason": "the canonical tag with kind 4, which names no purpose"
+    }
+  ]
+}

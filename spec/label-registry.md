@@ -136,6 +136,17 @@ The three text-string keys:
 [leaf-admission-and-session-endorsement.md](./leaf-admission-and-session-endorsement.md)
 §3.
 
+### 3.4 Delegated-spend statement payloads
+
+The delegation, revocation and spend statements share one payload key space,
+keys `1`–`11`, and one purpose map, keys `1`–`4`:
+[delegated-spend-statements.md](./delegated-spend-statements.md) §3 and §7.
+Their content types are `application/univocity.erc7710-delegation+cbor`,
+`application/univocity.erc7710-revocation+cbor` and
+`application/univocity.erc7710-spend+cbor`; the `forestrie.` prefix is
+not used for them, and `application/forestrie.delegation+cbor` remains the
+delegation certificate's.
+
 ## 4. The `-65800` collision
 
 **`-65800` means two things**: a COSE *algorithm* and a COSE *header

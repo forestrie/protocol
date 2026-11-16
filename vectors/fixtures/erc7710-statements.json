@@ -613,7 +613,7 @@
     {
       "name": "purpose-kind-5",
       "type": "spend",
-      "note": "a spend whose purpose kind is 5, which no section 7 kind names: the kinds are an open registry (Q78), so a decoder accepts it and an auditor reports it as an unverified claim",
+      "note": "a spend whose purpose kind is 5, which no section 7 kind names: the kinds are an open registry (spec section 7), so a decoder accepts it and an auditor reports it as an unverified claim",
       "cose_sign1_hex": "8458b8a4013a000101060378286170706c69636174696f6e2f756e69766f636974792e657263373731302d7370656e642b63626f7204546513f207a4726d0de9876d4f4714e6f02a8bf3a40fa20178283635313366323037613437323664306465393837366434663437313465366630326138626633613402784065303465313631333831356565613531396239366236666532393265313534636539373237373434316338313735633535396666653133626232663261653730a0588ca60101031a00014a340454db9b1e94b5b69df7e401ddbede43491141047db3085820e04e1613815eea519b96b6fe292e154ce97277441c8175c559ffe13bb2f2ae70095820b560aae574e3676c7386e358cd880fc60310137b99d7643ba68f35b917a332530aa201050258204cd74cc4d17b5244a08cd1d521aefa11748d5c2b661ee9fdfd4b62082d4562375841a5c1542be06162a95060ae73c7ebd7fb8b3e46d757c0f10c981791a1feb0142a290717fb0cdb5fafbc3005ef6e2330fd5b3e4fbd6f43f3c8100ab71b2e9a59b900"
     }
   ],
@@ -1088,7 +1088,7 @@
   ],
   "map_key_order": {
     "canonical": "bytewise",
-    "note": "A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in two. Bytewise order (RFC 8949 4.2.1, rules/platform.md P16, Q85) gives 1, 100, -1 and is canon; length-first order, which a shared implementation uses, gives 1, -1, 100 and is not. No statement map in this file has such labels, so no other vector depends on it.",
+    "note": "A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in two. Bytewise order (RFC 8949 4.2.1, rules/platform.md P16) gives 1, 100, -1 and is canon; length-first order, which a shared implementation uses, gives 1, -1, 100 and is not. No statement map in this file has such labels, so no other vector depends on it.",
     "map": {
       "1": "01",
       "100": "64",

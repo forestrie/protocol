@@ -778,7 +778,7 @@ def parse_purpose(p, statement_type: str):
     if (1 in p) != (2 in p):
         raise ValueError("purpose kind (1) and digest (2) appear together")
     if 1 in p and not (isinstance(p[1], int) and not isinstance(p[1], bool) and p[1] >= 0 and is_bstr(p[2], 32)):
-        raise ValueError("purpose kind is an unsigned integer (an open registry, Q78) and its digest 32 bytes")
+        raise ValueError("purpose kind is an unsigned integer (an open registry, spec section 7) and its digest 32 bytes")
     if 3 in p and not (isinstance(p[3], str) and p[3]):
         raise ValueError("purpose description is a non-empty text string")
     if 4 in p and not is_bstr(p[4], 32):
@@ -1316,7 +1316,7 @@ def check_delegated_spend_statements() -> int:
             print(f"{name}: decode accept {acc['name']!r}: a conforming decoder accepts it, and refused it: {e}")
             bad += 1
     if not any(a["name"] == "purpose-kind-5" for a in v["decode_accepts"]):
-        print(f"{name}: needs a spend of a kind no section 7 kind names, which a decoder accepts (Q78)")
+        print(f"{name}: needs a spend of a kind no section 7 kind names, which a decoder accepts")
         bad += 1
     if not {"binding", "manager", "chain", "purpose", "root"} <= {st["refused"] for st in v["refused_spends"]}:
         print(f"{name}: needs a spend refused for each code: key 8 no payment of its receipt (binding), "

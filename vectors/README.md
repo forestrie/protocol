@@ -257,7 +257,7 @@ The check fails if any of them decodes.
 
 **`decode_accepts`.** Each entry is a signed statement that a conforming
 decoder accepts although no section 7 kind names it: a spend of kind 5
-(`purpose-kind-5`), because purpose kinds are an open registry (Q78). The
+(`purpose-kind-5`), because purpose kinds are an open registry (spec section 7). The
 check fails if any of them is refused.
 
 **`audit_cases`.** Each gives statement bytes and every publication an
@@ -298,9 +298,10 @@ or refuses it because a revocation or spend statement holds the tag.
 
 **`map_key_order`** is a map whose labels differ in encoded length (`1`,
 `100`, `-1`), with its bytes in bytewise order and in length-first order.
-Bytewise order (RFC 8949 section 4.2.1) is canon everywhere Forestrie
-encodes (P16, Q85), so the entry carries `canonical: bytewise`, and the check
-fails if it says otherwise or if either order's bytes decode under the other.
+Bytewise order (RFC 8949 section 4.2.1) is canon for these statements
+and every format but the checkpoint envelope, whose exception P16 names
+(`rules/platform.md`), so the entry carries `canonical: bytewise`, and
+the check fails if it says otherwise or if either order's bytes decode under the other.
 A shared implementation that sorts length-first diverges from it (see
 [implementation-status.md](../spec/implementation-status.md)). No statement
 in the file has such labels, so no other vector depends on the order.

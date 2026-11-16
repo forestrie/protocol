@@ -481,9 +481,11 @@ a description (§4, §7) and an unprotected label other than the endorsement's
 purpose kind, because the kinds are an open registry (§7); the vectors
 include a spend of kind 5 (`decode_accepts`), which must decode.
 
-Bytewise order of the encoded keys (RFC 8949 section 4.2.1) is canon
-wherever Forestrie encodes ([P16](../rules/platform.md#p16--conformant-cosecbor-everywhere-with-one-named-exception),
-Q85): length-first order is not. Every label these types use encodes in one
+Bytewise order of the encoded keys (RFC 8949 section 4.2.1) is canon for
+these statements and for every Forestrie format but the checkpoint
+envelope, whose length-first exception
+[P16](../rules/platform.md#p16--conformant-cosecbor-everywhere-with-one-named-exception)
+and ADR-0068 name: length-first order is not canon for these statements. Every label these types use encodes in one
 byte, so the two orders give the same bytes for these encodings today. The
 vectors include one map whose labels differ in encoded length,
 `map_key_order`, with its bytes in both orders and bytewise marked canon. A

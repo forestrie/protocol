@@ -346,7 +346,7 @@ def map_key_order():
     return {
         "canonical": "bytewise",
         "note": "A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in two. "
-                "Bytewise order (RFC 8949 4.2.1, rules/platform.md P16, Q85) gives 1, 100, -1 and is canon; "
+                "Bytewise order (RFC 8949 4.2.1, rules/platform.md P16) gives 1, 100, -1 and is canon; "
                 "length-first order, which a shared implementation uses, gives 1, -1, 100 and is not. No "
                 "statement map in this file has such labels, so no other vector depends on it.",
         "map": {str(k): v.hex() for k, v in m.items()},
@@ -817,7 +817,7 @@ def statements_fixture():
         "decode_accepts": [
             {"name": "purpose-kind-5", "type": "spend",
              "note": "a spend whose purpose kind is 5, which no section 7 kind names: the kinds are an open "
-                     "registry (Q78), so a decoder accepts it and an auditor reports it as an unverified claim",
+                     "registry (spec section 7), so a decoder accepts it and an auditor reports it as an unverified claim",
              "cose_sign1_hex": kind5.hex()},
         ],
         "audit_cases": audit_cases,

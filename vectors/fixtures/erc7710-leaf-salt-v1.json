@@ -2679,7 +2679,7 @@
     },
     {
       "name": "pin-trailing-bytes",
-      "note": "a leaf whose ExactExecutionEnforcer terms are the 120-byte pin and one more byte: the framework redeems it and the Transfer happens, but the terms are not exactly the pin, so the leaf binds nothing and the Transfer is unbound, a refund (Q54), not a payment",
+      "note": "a leaf whose ExactExecutionEnforcer terms are the 120-byte pin and one more byte: the framework redeems it and the Transfer happens, but the terms are not exactly the pin, so the leaf binds nothing and the Transfer is unbound, a refund, not a payment",
       "transaction_hash_hex": "153b8a76e579bf39118a6f267995db1f4908a976739d72251bc4c1ce4df8f867",
       "receipt": {
         "status": 1,

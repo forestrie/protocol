@@ -479,7 +479,7 @@ def statements_fixture():
          "transaction_hash_hex": SALTED_HOP_TX.hex(),
          "purpose": {"kind": 3, "digest_hex": CREDITS_DIGEST.hex(), "description": "100 credits for the test instance"}},
         "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's "
-        "binding delegation is the salted hop above it (Q52), so the leaf is not a payment, and an auditor "
+        "binding delegation is the salted hop above it (payment-nonce-and-binding.md §3.2), so the leaf is not a payment, and an auditor "
         "refuses the spend although the nonce over its purpose and root is the leaf's salt",
         paid_by={"root_hex": W_H.hex(), "receipt_checked": True},
     )
@@ -1185,7 +1185,7 @@ def leaf_salt_cases():
     c.append(case("pin-trailing-bytes",
                   "a leaf whose ExactExecutionEnforcer terms are the 120-byte pin and one more byte: the framework "
                   "redeems it and the Transfer happens, but the terms are not exactly the pin, so the leaf binds "
-                  "nothing and the Transfer is unbound, a refund (Q54), not a payment",
+                  "nothing and the Transfer is unbound, a refund, not a payment",
                   pre + ev,
                   {"chains": [(["leaf/pin-trailing-bytes", "D_AB", "D_HA"], None)], "payments": [],
                    "unbound": ["r:transfer0"]},

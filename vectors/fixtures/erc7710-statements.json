@@ -395,7 +395,7 @@
     {
       "name": "spend/credits-under-salted-hop",
       "type": "spend",
-      "note": "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's binding delegation is the salted hop above it (Q52), so the leaf is not a payment, and an auditor refuses the spend although the nonce over its purpose and root is the leaf's salt",
+      "note": "a credits spend naming a leaf whose salt is the credits nonce, but which pays nothing: the receipt's binding delegation is the salted hop above it (payment-nonce-and-binding.md §3.2), so the leaf is not a payment, and an auditor refuses the spend although the nonce over its purpose and root is the leaf's salt",
       "signer": "protocol vectors delegated spend: agent B statement key",
       "fields": {
         "chain_id": 84532,

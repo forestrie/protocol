@@ -942,18 +942,47 @@ def lenient_cose_sign1(data: bytes):
 
 
 def ks256_statement_signer(sign1):
-    """The address a KS256 statement signature recovers to, or None. A high s still proves the key
+    """The address a KS256 statement signature recovers to, or None (an alg other than KS256, a
+    signature that is not 65 bytes, a v that is none of 0, 1, 27, 28, or no recovery). v is 27 or 28,
+    as canopy and univocity accept, or the bare recovery id 0 or 1. A high s still proves the key
     signed (the verifier refuses it, the key still made it), so it is normalised before recovery."""
     if not isinstance(sign1["protected"], dict):
         raise ValueError("protected header is not a map")
     if sign1["protected"].get(1) != KS256_ALG or len(sign1["signature"]) != 65:
         return None
     sig = sign1["signature"]
-    r, s, recid = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
+    r, s, v = int.from_bytes(sig[:32], "big"), int.from_bytes(sig[32:64], "big"), sig[64]
+    if v not in (0, 1, 27, 28):
+        return None
+    recid = v - 27 if v >= 27 else v
     if s > K1_HALF_N:
         s, recid = K1_N - s, recid ^ 1
     sig_structure = cbor_encode(["Signature1", bytes(sign1["protected_bytes"]), b"", bytes(sign1["payload"])])
     return k1_recover_address(keccak256(sig_structure), r, s, recid)
+
+
+ERC1271_MAGIC = bytes.fromhex("1626ba7e")
+
+
+def statement_attributed_signer(sign1, auditor):
+    """Who an auditor attributes a KS256 statement to (spec section 8.2). A kid without code is the
+    ecrecovered address. A kid with code is attributed, to the kid, only when an ERC-1271
+    attestation binds that contract, the Sig_structure digest, the signature and the magic value
+    on the auditor's chain; otherwise nobody, and never the address a contract's signature recovers to."""
+    recovered = ks256_statement_signer(sign1)
+    if not auditor.get("kid_has_code"):
+        return recovered
+    kid = sign1["protected"].get(4)
+    if not is_bstr(kid) or sign1["protected"].get(1) != KS256_ALG:
+        return None
+    digest = keccak256(cbor_encode(["Signature1", bytes(sign1["protected_bytes"]), b"", bytes(sign1["payload"])]))
+    for a in auditor.get("attestations", []):
+        if (a["chain_id"] == auditor.get("chain_id") and bytes.fromhex(a["address_hex"]) == bytes(kid)
+                and bytes.fromhex(a["digest_hex"]) == digest
+                and bytes.fromhex(a["signature_hash_hex"]) == keccak256(bytes(sign1["signature"]))
+                and bytes.fromhex(a["magic_hex"]) == ERC1271_MAGIC):
+            return bytes(kid)
+    return None
 
 
 def statement_type_of(sign1):
@@ -963,8 +992,9 @@ def statement_type_of(sign1):
     return next((t for t, c in CONTENT_TYPES.items() if c == cty), None)
 
 
-def audit_publications(statement: bytes):
-    """Every TAG ‖ H in the bytes publishes H. Only TAG ‖ H at key 2 of a delegation
+def audit_publications(statement: bytes, auditor=None):
+    """`auditor` is what the auditor read from the chain: kid_has_code, chain_id and the ERC-1271
+    attestations it holds (none by default, and a kid without code). Every TAG ‖ H in the bytes publishes H. Only TAG ‖ H at key 2 of a delegation
     statement whose hop hashes to H is well formed; anything else is flagged."""
     found, i = [], statement.find(DELEGATION_TAG)
     while i != -1:
@@ -979,7 +1009,7 @@ def audit_publications(statement: bytes):
         lenient = lenient_cose_sign1(statement)
         # The signature covers the protected header and the payload, not the unprotected header.
         signed = [r for k in ("protected_bytes", "payload") for r in lenient[k].ranges]
-        signer = ks256_statement_signer(lenient)
+        signer = statement_attributed_signer(lenient, auditor or {})
     except (ValueError, KeyError, IndexError, UnicodeDecodeError, RecursionError):
         pass
     try:
@@ -1297,7 +1327,7 @@ def check_delegated_spend_statements() -> int:
         bad += 1
     for case in v["audit_cases"]:
         data = bytes.fromhex(case["cose_sign1_hex"])
-        got = audit_publications(data)
+        got = audit_publications(data, case.get("auditor"))
         if got != case["expect"]["publications"]:
             print(f"{name}: audit case {case['name']!r}: publications {got}, expected {case['expect']['publications']}")
             bad += 1
@@ -1730,6 +1760,14 @@ SELF_TEST_MUTATIONS = [
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
     ("erc7710-statements.json", "the provisional vector frozen",
      lambda v: _set(v["map_key_order"], status="frozen", canonical="bytewise")),
+    ("erc7710-statements.json", "a v byte that is neither a recovery id nor 27 or 28",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-v27"),
+                    cose_sign1_hex=_named(v["audit_cases"], "flag/tag-in-another-statement-type-v27")["cose_sign1_hex"][:-2] + "1d")),
+    ("erc7710-statements.json", "an attestation of another digest",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["attestations"][0],
+                    digest_hex=_flip(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-attested")["auditor"]["attestations"][0]["digest_hex"]))),
+    ("erc7710-statements.json", "a contract kid attributed to the owner its signature recovers to",
+     lambda v: _set(_named(v["audit_cases"], "flag/tag-in-contract-signed-statement-unattested")["auditor"], kid_has_code=False)),
     ("erc7710-statements.json", "the map key orders swapped",
      lambda v: _set(v["map_key_order"], bytewise_hex=v["map_key_order"]["length_first_hex"])),
     ("payment-nonce.json", "a nonce byte",

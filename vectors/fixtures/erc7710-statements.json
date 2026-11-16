@@ -17,7 +17,7 @@
     },
     "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
     "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
-    "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1, low s",
+    "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1 (an auditor also accepts 27 or 28), low s",
     "cose_sign1": "attached payload, empty unprotected header except in the refuse cases; untagged, or a single leading tag 18 (0xd2) in the -tag18 vectors, which the entry commits to as registered",
     "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a deployed key",
     "account": "address_hex is the low 20 bytes of keccak256 of the label; nobody holds its key",
@@ -103,6 +103,10 @@
     {
       "label": "protocol vectors delegated spend: second root account",
       "address_hex": "a2baece5f1bc76fc15f33a4469be7df240c02ce9"
+    },
+    {
+      "label": "protocol vectors delegated spend: stranger smart account (a contract with code)",
+      "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc"
     }
   ],
   "delegations": [
@@ -887,6 +891,93 @@
             "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
             "verdict": "flag:outside-key-2",
             "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-v27",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature's last byte 27, not the recovery id 0: canopy and univocity accept it, so an auditor normalises it before it recovers, and attributes the tag to the stranger",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da0586a612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c20345841ceac8872a76c659207ef6e805f1e0c20fc9b84650f58ee6da9389b66de2cbd70582174cd44718e647d5392f594faf16dadbea1766f4d4084967c057480eb00ac1b",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-another-statement-type-v28",
+      "rule": "1b",
+      "note": "the stranger's statement with its KS256 signature's last byte 28, not the recovery id 1: canopy and univocity accept it, so an auditor normalises it before it recovers, and attributes the tag to the stranger",
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d0454792d16a5766525db296134962683d1bf2b64273da0586a612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c20305841ca626eb72c8d901ff441ae3a2d1dcec9731b11260f3b52d262a3b83e3b4865ad54df05354a157ffb6c14980339ca2846a7ecd16a2bfcaac410644dd58908a3391c",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "792d16a5766525db296134962683d1bf2b64273d"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-attested",
+      "rule": "1b",
+      "note": "a statement whose kid is a contract with code, signed with an owner's key, and an ERC-1271 attestation of the contract's isValidSignature over the Sig_structure digest: the tag is the contract's, not the owner's the signature recovers to",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "attestations": [
+          {
+            "chain_id": 84532,
+            "address_hex": "4412e41322104a9bbefe27682c9aa105917058fc",
+            "digest_hex": "e3f33d9a20f05cd1cc6094b267feb97f2d4271d655bd4f3f082cef697b7791f5",
+            "block_number": 123456,
+            "signature_hash_hex": "3eaefcd5f6c29c14e3405fdd964adccb301527cc049c1aa888fb6d1d9633d201",
+            "magic_hex": "1626ba7e"
+          }
+        ]
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": "4412e41322104a9bbefe27682c9aa105917058fc"
+          }
+        ],
+        "route": "accepted"
+      }
+    },
+    {
+      "name": "flag/tag-in-contract-signed-statement-unattested",
+      "rule": "1b",
+      "note": "the same statement with no attestation: the kid has code, so the recovered owner is not the signer, and the tag is reported unattributed",
+      "auditor": {
+        "chain_id": 84532,
+        "kid_has_code": true,
+        "attestations": []
+      },
+      "cose_sign1_hex": "845838a3013a000101060378186170706c69636174696f6e2f6f637465742d73747265616d04544412e41322104a9bbefe27682c9aa105917058fca05868612073746174656d656e74206f6620616e6f74686572207479706520746861742071756f74657320b09bc7d90e4fa6b305d213aa3f89a5df627c8bace691cabe3ccbe1bd85251649e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c5841a2a1473f503f1027b551efb5b201d4cfa3dc2e5ffa4949e21f32faae0213a1aa7669c9212d8f24bdcde864fcc6eaa0ebadf43cd343583516a8d030c6c739850c00",
+      "expect": {
+        "publications": [
+          {
+            "offset": 102,
+            "hash_hex": "e5b395afcb2a2840d9b23ceac31b6c191eafcc5da1a085fdd9801b2dee64497c",
+            "verdict": "flag:outside-key-2",
+            "signer_hex": null
           }
         ],
         "route": "accepted"

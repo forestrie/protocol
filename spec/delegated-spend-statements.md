@@ -380,14 +380,41 @@ The outer array's head, the byte-string heads and the form of tag 18 are not
 signed, and the signer chooses the encoding of its own protected header, so
 a statement that fails the strict decode still has its signed tags
 attributed: otherwise a signer could make a tag in its own payload
-unattributable by writing a head longer than it needs. For KS256 the auditor
-recovers the signer over the protected header and the payload as found. A
-KS256 recovery yields an address (a high s still recovers the key that signed).
-An ES256 statement yields none, so the auditor resolves its `kid` to a key
-and, only when the signature verifies under that key, attributes to it,
-otherwise to nobody: a `kid` alone names whoever the header claims, not
-whoever signed. The reference checker and the vectors attribute KS256
-statements only; ES256 attribution by `kid` is outside them.
+unattributable by writing a head longer than it needs.
+
+Attribution follows the statement's `alg` (protected key 1) and, for KS256,
+its `kid` (protected key 4, the signer's 20-byte address):
+
+- **KS256, a `kid` with no code.** The auditor recovers the signer over the
+  protected header and the payload as found, and attributes to the
+  recovered address (`ecrecover`). The signature's last byte is `v`: 27 or
+  28, which canopy and univocity accept, or the bare recovery id 0 or 1; the
+  auditor normalises it before it recovers, and a `v` that is none of
+  these four recovers nobody. A high s still recovers the key that signed.
+- **KS256, a `kid` with code** (a Safe or other smart account, signing
+  through ERC-1271). A recovered address is not the signer, so the auditor
+  never attributes to it. It attributes to the `kid` only when an
+  **ERC-1271 attestation** (see the
+  [glossary](../glossary.md#erc-1271-attestation)) shows
+  `isValidSignature(digest, signature)` returning the magic value
+  `0x1626ba7e` at the block current at the entry's registration (its
+  `idTimestamp`), where `digest` is the Keccak-256 of the Sig_structure and
+  `signature` is the statement's. The attestation binds the chain, the
+  contract address, the digest, the hash of the signature and the magic
+  value, and is supplied to the checker as data; it is the same read-only
+  call canopy's route makes, so there is no transaction to find, and an
+  auditor needs an archive node for older blocks. A contract-signed
+  statement with no such attestation is reported **unattributed**.
+- **Any other `alg`.** A statement whose `alg` is not KS256 has no KS256
+  recovery, so it is not attributed that way. An ES256 statement yields no
+  address: the auditor resolves its `kid` to a key and, only when the
+  signature verifies under that key, attributes to it, otherwise to nobody:
+  a `kid` alone names whoever the header claims, not whoever signed.
+
+The reference checker and the vectors attribute KS256 statements only;
+ES256 attribution by `kid` is outside them. Whether a `kid` has code, and
+the attestations, are the auditor's input to the checker, not read from the
+statement.
 
 An auditor never trusts key 2 alone; it recomputes the hash from the
 published hop, and it scans every byte of a delegation statement, not only
@@ -412,6 +439,9 @@ the bytes of key 5's signature, which the delegation hash does not cover.
 | `flag/tag-in-another-statement-type-unprotected-simple` | `H(D_AB)`, in the payload of the stranger's statement with `{-70000: true}` in its unprotected header | `outside-key-2`, the stranger |
 | `flag/tag-in-another-statement-type-chunked-payload` | `H(D_AB)`, in the payload of the stranger's statement whose payload is an indefinite-length byte string | `outside-key-2`, the stranger |
 | `flag/tag-in-another-statement-type-high-s` | `H(D_AB)`, in the payload of the stranger's statement whose KS256 signature has a high s | `outside-key-2`, the stranger |
+| `flag/tag-in-another-statement-type-v27`, `-v28` | `H(D_AB)`, in the payload of the stranger's statement whose signature ends in `v` 27, and in another ending in 28 | `outside-key-2`, the stranger |
+| `flag/tag-in-contract-signed-statement-attested` | `H(D_AB)`, in a statement whose `kid` is a contract, signed with an owner's key, with an ERC-1271 attestation | `outside-key-2`, the contract |
+| `flag/tag-in-contract-signed-statement-unattested` | the same statement, with no attestation | `outside-key-2`, no signer |
 
 ### 8.3 The statement vectors
 

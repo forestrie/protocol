@@ -264,7 +264,11 @@ check fails if any of them is refused.
 auditor finds in them: the offset of `DELEGATION_TAG`, the hash `H` after
 it, the verdict and the signer the statement's signature recovers to, or
 `null` when the tag sits outside the protected header and the payload, which
-the signature does not cover. Each
+the signature does not cover. A case may
+also give `auditor`, what the auditor read from the chain: `kid_has_code`,
+`chain_id` and the ERC-1271 `attestations` it holds (an attestation binds
+`address_hex`, `digest_hex`, `signature_hash_hex` and `magic_hex`; the
+block is recorded, not checked). Each
 also gives `route`: whether a registration service accepts the statement
 or refuses it because a revocation or spend statement holds the tag.
 
@@ -282,6 +286,9 @@ or refuses it because a revocation or spend statement holds the tag.
 | `flag/tag-in-another-statement-type-unprotected-simple` | the same, with `{-70000: true}` in the unprotected header | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
 | `flag/tag-in-another-statement-type-chunked-payload` | the same, the payload an indefinite-length byte string of two chunks | `flag:outside-key-2` attributed to the stranger, and the route refuses it |
 | `flag/tag-in-another-statement-type-high-s` | the same, the KS256 signature malleated to high s | `flag:outside-key-2` attributed to the stranger, and the route accepts it (it decodes strictly) |
+| `flag/tag-in-another-statement-type-v27`, `-v28` | `H(D_AB)` in the signed payload of the stranger's statement, its signature's last byte 27, and another with 28 | `flag:outside-key-2` attributed to the stranger, and the route accepts it |
+| `flag/tag-in-contract-signed-statement-attested` | `H(D_AB)` in a statement whose kid is a contract, signed with an owner's key; the case's `auditor` holds `kid_has_code` and an ERC-1271 attestation | `flag:outside-key-2` attributed to the contract, not to the owner the signature recovers to |
+| `flag/tag-in-contract-signed-statement-unattested` | the same, the `auditor` holding no attestation | `flag:outside-key-2` with no signer |
 | `flag/tag-in-statement-with-protected-not-a-map` | `H(D_AB)` in the payload of a statement whose protected header is the integer `5` | `flag:outside-key-2` with no signer, and the route refuses it; neither crashes |
 | `refuse/revocation-with-tag` | `H(D_AB)`, in a revocation statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `well-formed/D_AB-tag18` | `H(D_AB)`, in a tag-18 delegation statement | `well-formed`, one byte later than in `well-formed/D_AB` |

@@ -107,6 +107,7 @@ KEYS = {r: Key(r) for r in (
 ACCOUNTS = {r: Account(r) for r in (
     "human root account", "payee", "seller", "published enforcer (test deployment)",
     "univocity instance (test deployment)", "unlisted delegation manager", "second root account",
+    "stranger smart account (a contract with code)",
 )}
 W_H = ACCOUNTS["human root account"].address
 PAYEE = ACCOUNTS["payee"].address
@@ -265,9 +266,9 @@ INTENT_DOCUMENT = (
 )
 
 
-def sign_statement(protected: bytes, payload: bytes, key: Key) -> bytes:
+def sign_statement(protected: bytes, payload: bytes, key: Key, v_offset: int = 0) -> bytes:
     sig_structure = cv.cbor_encode(["Signature1", protected, b"", payload])
-    return cv.cbor_encode([protected, {}, payload, key.sign(cv.keccak256(sig_structure), 0)])
+    return cv.cbor_encode([protected, {}, payload, key.sign(cv.keccak256(sig_structure), v_offset)])
 
 
 def delegation_statement(name, d: Delegation, signer: Key, delegate_log: bytes, depth: int, purpose: dict,
@@ -420,6 +421,28 @@ def statements_fixture():
                      + cv.cbor_encode(other_payload[half:]) + b"\xff" + other[pay_at + len(other_payload):])
     s_, recid_ = int.from_bytes(other[sig_at + 34:sig_at + 66], "big"), other[-1]
     other_high_s = (other[:sig_at + 34] + (cv.K1_N - s_).to_bytes(32, "big") + bytes([recid_ ^ 1]))
+    # The same statement signed with v = 27 or 28, which canopy and univocity accept: one payload each
+    # for 27 and 28, so both recovery ids are covered. An auditor normalises v before it recovers.
+    other_v = {}
+    for i in range(64):
+        payload_v = other_payload + b" " + str(i).encode()
+        statement_v = sign_statement(cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream",
+                                                     4: stranger.address}), payload_v, stranger, 27)
+        other_v.setdefault(statement_v[-1], statement_v)
+        if len(other_v) == 2:
+            break
+    assert sorted(other_v) == [27, 28]
+    # A statement whose kid is a contract (a Safe): the signature is an owner's, which ecrecovers to the
+    # owner, not to the contract. Whether the contract signed is the contract's to say, by ERC-1271.
+    safe = ACCOUNTS["stranger smart account (a contract with code)"]
+    safe_protected = cv.cbor_encode({1: cv.KS256_ALG, 3: "application/octet-stream", 4: safe.address})
+    safe_statement = sign_statement(safe_protected, other_payload, stranger)
+    safe_digest = cv.keccak256(cv.cbor_encode(["Signature1", safe_protected, b"", other_payload]))
+    safe_signature = safe_statement[-65:]
+    safe_attestation = {
+        "chain_id": CHAIN_ID, "address_hex": safe.address.hex(), "digest_hex": safe_digest.hex(),
+        "block_number": 123456, "signature_hash_hex": cv.keccak256(safe_signature).hex(), "magic_hex": "1626ba7e",
+    }
     # Unsigned choices that canopy admits: an unprotected header that is not a map, and an outer array
     # of more than four elements. Neither is signed, so neither may unattribute a tag in the payload.
     other_unprotected_int = other[:unprot_at] + b"\x00" + other[unprot_at + 1:]
@@ -695,6 +718,31 @@ def statements_fixture():
          "cose_sign1_hex": other_high_s.hex(),
          "expect": {"publications": [pub(other_off, D_AB.struct_hash, "flag:outside-key-2", stranger)],
                     "route": "accepted"}},
+        *[{"name": f"flag/tag-in-another-statement-type-v{v}", "rule": "1b",
+           "note": f"the stranger's statement with its KS256 signature's last byte {v}, not the recovery id "
+                   f"{v - 27}: canopy and univocity accept it, so an auditor normalises it before it recovers, "
+                   "and attributes the tag to the stranger",
+           "cose_sign1_hex": other_v[v].hex(),
+           "expect": {"publications": [pub(other_v[v].find(cv.DELEGATION_TAG), D_AB.struct_hash,
+                                           "flag:outside-key-2", stranger)],
+                      "route": "accepted"}} for v in (27, 28)],
+        {"name": "flag/tag-in-contract-signed-statement-attested", "rule": "1b",
+         "note": "a statement whose kid is a contract with code, signed with an owner's key, and an ERC-1271 "
+                 "attestation of the contract's isValidSignature over the Sig_structure digest: the tag is the "
+                 "contract's, not the owner's the signature recovers to",
+         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "attestations": [safe_attestation]},
+         "cose_sign1_hex": safe_statement.hex(),
+         "expect": {"publications": [pub(safe_statement.find(cv.DELEGATION_TAG), D_AB.struct_hash,
+                                         "flag:outside-key-2", safe)],
+                    "route": "accepted"}},
+        {"name": "flag/tag-in-contract-signed-statement-unattested", "rule": "1b",
+         "note": "the same statement with no attestation: the kid has code, so the recovered owner is not "
+                 "the signer, and the tag is reported unattributed",
+         "auditor": {"chain_id": CHAIN_ID, "kid_has_code": True, "attestations": []},
+         "cose_sign1_hex": safe_statement.hex(),
+         "expect": {"publications": [pub(safe_statement.find(cv.DELEGATION_TAG), D_AB.struct_hash,
+                                         "flag:outside-key-2", None)],
+                    "route": "accepted"}},
         {"name": "flag/tag-in-another-statement-type-unprotected-not-a-map", "rule": "1b",
          "note": "the stranger's statement with the integer 0 as its unprotected header: the signature does not "
                  "cover it, canopy's grant-data path reads it as an empty map and admits the statement, and the "
@@ -742,7 +790,7 @@ def statements_fixture():
             "content_types": cv.CONTENT_TYPES,
             "framework": "MetaMask Delegation Framework v1.3.0; EIP-712 domain name DelegationManager, version 1",
             "delegation_signature": "65 bytes r || s || v, v 27 or 28, low s, over the typed-data digest",
-            "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1, low s",
+            "statement_signature": "KS256: 65 bytes r || s || v, v the recovery id 0 or 1 (an auditor also accepts 27 or 28), low s",
             "cose_sign1": "attached payload, empty unprotected header except in the refuse cases; untagged, or a "
                           "single leading tag 18 (0xd2) in the -tag18 vectors, which the entry commits to as registered",
             "test_key": "private_key_d_hex is keccak256 of the label, reduced mod n; a test scalar, never a "

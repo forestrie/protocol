@@ -244,13 +244,18 @@ _Avoid_: "material", "delegation material"; conflating with checkpoint COSE
 receipts or custody private keys.
 
 **ERC-1271 attestation**:
-A block-bound record that a KS256 contract root's `isValidSignature` accepted a
-delegation certificate's digest: chain id, root address, digest, the hash of
-the signature it was called with, block and the returned magic value. Fetched by a separate helper and supplied to an offline
-verifier, which never calls the chain; trusted as far as the party that fetched
-it, and auditable by re-running the read at that block. It shows the
-certificate was valid under the contract's signers *at that block*, not at
-signing time.
+A block-bound record that a KS256 contract's `isValidSignature` accepted a
+digest: chain id, contract address, digest, the hash of the signature it was
+called with, block and the returned magic value. The digest is a delegation
+certificate's (for a contract root) or a statement's Sig_structure digest (for
+a statement whose `kid` has code, read at the block of the entry's
+registration; see
+[delegated-spend-statements.md](spec/delegated-spend-statements.md) §8.2).
+Fetched by a separate helper and supplied to an offline
+verifier or auditor, which never calls the chain; trusted as far as the party
+that fetched it, and auditable by re-running the read at that block. It shows
+the certificate or statement was valid under the contract's signers *at that
+block*, not at signing time.
 _Avoid_: calling a KS256 contract-root receipt "offline-verified" without one.
 
 **Standing delegate key**:

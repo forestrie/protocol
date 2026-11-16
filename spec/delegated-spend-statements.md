@@ -479,27 +479,19 @@ a description (§4, §7) and an unprotected label other than the endorsement's
 purpose kind, because the kinds are an open registry (§7); the vectors
 include a spend of kind 5 (`decode_accepts`), which must decode.
 
-Every label these types use encodes in one byte, so bytewise key order and
-length-first key order give the same bytes, and these encodings do not
-depend on which of the two applies to longer labels (see
-[Open questions](#open-questions)). The vectors include one map whose labels
-differ in encoded length, `map_key_order`, with its bytes in both orders.
-It is **provisional**: neither encoding is frozen until the order is
-settled, and Forestrie will use that one order for every format it
-controls.
+Bytewise order of the encoded keys (RFC 8949 section 4.2.1) is canon
+wherever Forestrie encodes ([P16](../rules/platform.md#p16--conformant-cosecbor-everywhere-with-one-named-exception),
+Q85): length-first order is not. Every label these types use encodes in one
+byte, so the two orders give the same bytes for these encodings today. The
+vectors include one map whose labels differ in encoded length,
+`map_key_order`, with its bytes in both orders and bytewise marked canon. A
+decoder refuses the length-first bytes. A shared implementation that sorts
+length-first diverges from P16
+([implementation-status.md](./implementation-status.md)); a later version
+that adds a longer label depends on that divergence closing.
 
 ## Open questions
 
-- **Map key order for labels of different encoded length.** P16 states
-  bytewise order everywhere but the checkpoint envelope; a shared
-  implementation sorts length-first
-  ([implementation-status.md](./implementation-status.md)). Forestrie will
-  use one order for every format it controls, and allows a mix only where an
-  external standard or a security requirement forces one, and then first
-  considers changing its own encoding. Which order that is has not been
-  decided yet; the operator's private tracker holds the question. No map defined here is affected, because every label is one
-  byte. A later version that adds a longer label must wait for the order to
-  be settled.
 - **The publication caveat's terms** (which univocity instance and log a hop
   names, and how the check finds the instance's verifier) belong to the
   contract that implements the check. This document fixes only the bytes the

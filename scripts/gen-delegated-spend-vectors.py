@@ -344,12 +344,11 @@ CREDITS_DIGEST = cv.purpose_digest("credits", CREDITS_PURPOSE)
 def map_key_order():
     m = {1: b"\x01", 100: b"\x64", -1: b"\xff"}
     return {
-        "status": "provisional",
-        "canonical": "unsettled",
-        "note": "PROVISIONAL. A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in "
-                "two. Bytewise order (rules/platform.md P16) gives 1, 100, -1; length-first order, which a shared "
-                "implementation uses, gives 1, -1, 100. Which is canon is not settled, so neither set of bytes is "
-                "frozen; no statement map in this file has such labels, so no other vector depends on it.",
+        "canonical": "bytewise",
+        "note": "A map whose labels differ in encoded length: 1 and -1 encode in one byte, 100 in two. "
+                "Bytewise order (RFC 8949 4.2.1, rules/platform.md P16, Q85) gives 1, 100, -1 and is canon; "
+                "length-first order, which a shared implementation uses, gives 1, -1, 100 and is not. No "
+                "statement map in this file has such labels, so no other vector depends on it.",
         "map": {str(k): v.hex() for k, v in m.items()},
         "bytewise_hex": "a3" + "0141" + "01" + "1864" + "41" + "64" + "20" + "41" + "ff",
         "length_first_hex": "a3" + "0141" + "01" + "20" + "41" + "ff" + "1864" + "41" + "64",

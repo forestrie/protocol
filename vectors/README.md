@@ -295,14 +295,14 @@ or refuses it because a revocation or spend statement holds the tag.
 | `refuse/spend-with-tag-tag18` | `H(D_AB)`, in a tag-18 spend statement's unprotected header | `flag:outside-key-2` with no signer, and the route refuses it |
 | `refuse/spend-with-tag-reencoded` | `H(D_AB)`, in a spend statement whose outer array head is not shortest, so no strict decoder reads it | `flag:outside-key-2` with no signer, and the route refuses it |
 
-**`map_key_order` is provisional.** It is a map whose labels differ in
-encoded length (`1`, `100`, `-1`), with its bytes in bytewise order and in
-length-first order. Which order is canon for such labels is not settled
-(Forestrie will use one order for every format it controls; see
-[implementation-status.md](../spec/implementation-status.md)), so the
-entry carries `status: provisional` and `canonical: unsettled`, and the
-check fails if either changes before the order is decided. No statement in
-the file has such labels, so no other vector depends on the order.
+**`map_key_order`** is a map whose labels differ in encoded length (`1`,
+`100`, `-1`), with its bytes in bytewise order and in length-first order.
+Bytewise order (RFC 8949 section 4.2.1) is canon everywhere Forestrie
+encodes (P16, Q85), so the entry carries `canonical: bytewise`, and the check
+fails if it says otherwise or if either order's bytes decode under the other.
+A shared implementation that sorts length-first diverges from it (see
+[implementation-status.md](../spec/implementation-status.md)). No statement
+in the file has such labels, so no other vector depends on the order.
 
 `scripts/check-vectors.py` recomputes every hash, digest, signer and leaf,
 decodes every statement strictly, and runs the audit on each case's bytes.

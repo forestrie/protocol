@@ -1252,7 +1252,7 @@ def receipt_refusal(payload: dict, kind):
 
 def check_map_key_order(name: str, m) -> int:
     """A map whose labels differ in encoded length: both orders' bytes, each refused under
-    the other order, and the vector provisional until the platform settles which is canon."""
+    the other order, and bytewise order canon (RFC 8949 4.2.1, P16)."""
     where = f"{name}: map_key_order"
     value = {int(k): bytes.fromhex(x) for k, x in m["map"].items()}
     lengths = {len(cbor_encode(k)) for k in value}
@@ -1272,8 +1272,8 @@ def check_map_key_order(name: str, m) -> int:
             bad += 1
         except ValueError:
             pass
-    if m.get("status") != "provisional" or m.get("canonical") != "unsettled":
-        print(f"{where}: stays provisional, canonical unsettled, until the map key order is decided")
+    if m.get("canonical") != "bytewise" or "status" in m:
+        print(f"{where}: bytewise order is canon (P16), and the vector carries no provisional status")
         bad += 1
     return bad
 
@@ -1758,8 +1758,10 @@ SELF_TEST_MUTATIONS = [
                     cose_sign1_hex=_named(v["decode_negatives"], "purpose-kind-text")["cose_sign1_hex"])),
     ("erc7710-statements.json", "the spend leaf's salt",
      lambda v: _set(_named(v["delegations"], "leaf/credits"), salt_hex="00" * 32)),
-    ("erc7710-statements.json", "the provisional vector frozen",
-     lambda v: _set(v["map_key_order"], status="frozen", canonical="bytewise")),
+    ("erc7710-statements.json", "length-first order made canon",
+     lambda v: _set(v["map_key_order"], canonical="length-first")),
+    ("erc7710-statements.json", "the vector made provisional again",
+     lambda v: _set(v["map_key_order"], status="provisional")),
     ("erc7710-statements.json", "a v byte that is neither a recovery id nor 27 or 28",
      lambda v: _set(_named(v["audit_cases"], "flag/tag-in-another-statement-type-v27"),
                     cose_sign1_hex=_named(v["audit_cases"], "flag/tag-in-another-statement-type-v27")["cose_sign1_hex"][:-2] + "1d")),

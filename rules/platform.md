@@ -1,7 +1,7 @@
 ---
 id: platform
 title: Platform invariants
-version: 1.0.1
+version: 1.1.0
 created: 2026-09-12
 amended: 2026-11-27
 ---
@@ -221,6 +221,19 @@ key the operator acts on one the contract would also accept, so no operator
 store can mint authority.
 [ADR-0070](../adr/adr-0070-sec-log-authority-anchored-before-use.md)
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §5.1.
+**Enforced-by:** review
+
+### P18 — The operator token is never the default path to onboard a log
+A root holder's logs, and their children, onboard with no operator
+credential: genesis for the root, then forwarding under the parent's
+signed grant. The operator token serves two purposes only: an operator
+onboarding its own logs, which may use custodial signing, and an
+operator's direct relationship with consoles built from the mandate
+and thinker templates. No bootstrap or special log is required for
+anyone else.
+**Why:** a token on the default path would make onboarding permissioned
+(against P6) and turn an operator credential into a gate on authority.
+[operator-token.md](../spec/operator-token.md).
 **Enforced-by:** review
 
 ---

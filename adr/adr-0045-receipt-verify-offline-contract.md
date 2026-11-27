@@ -1,11 +1,19 @@
+---
+id: adr-0045-receipt-verify-offline-contract
+title: "Offline receipt verify contract (`@forestrie/receipt-verify`)"
+status: accepted
+created: 2026-07-04
+updated: 2026-09-12
+---
+
 # ADR-0045: Offline receipt verify contract (`@forestrie/receipt-verify`)
 
-**Status:** ACCEPTED — one of the accepted decisions the specification under
-[`spec/`](../spec/) rests on.  
+One of the accepted decisions the specification under
+[`spec/`](../spec/) rests on.
 Accepted 2026-09-12; the contract had been treated as normative by every
-implementation since it was written.  
-**Date:** 2026-07-04  
-**Related:** [ARC-0019](./arc-0019-grant-verification-model.md),
+implementation since it was written.
+
+**Related:** [ARC-0019](../arc/arc-0019-grant-verification-model.md),
 [spec/checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) (§4, the
 layers as specified today),
 [canopy grant verification implementation](https://github.com/forestrie/canopy/blob/main/docs/arc/canopy-grant-verification-implementation.md)

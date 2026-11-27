@@ -507,7 +507,7 @@ trust root the caller holds, MMR inclusion (header 396), leaf binding (grant
 commitment or statement content hash + idtimestamp). No network during the
 verify step. Layer D (on-chain tip canonicality) is out of scope. See
 [checkpoints-and-receipts.md](spec/checkpoints-and-receipts.md) §4 and
-[ADR-0045](decisions/adr-0045-receipt-verify-offline-contract.md).
+[ADR-0045](adr/adr-0045-receipt-verify-offline-contract.md).
 _Avoid_: conflating with server-side register-grant receipt verify (live trust
 root resolution).
 
@@ -533,5 +533,5 @@ them with links.
 - [spec/label-registry.md](spec/label-registry.md) — every codepoint, with values
 - [spec/implementation-status.md](spec/implementation-status.md) — where an
   implementation differs from the text
-- [decisions/arc-0019-grant-verification-model.md](decisions/arc-0019-grant-verification-model.md) — the grant verification model
-- [decisions/adr-0045-receipt-verify-offline-contract.md](decisions/adr-0045-receipt-verify-offline-contract.md) — the offline receipt verify contract
+- [arc/arc-0019-grant-verification-model.md](arc/arc-0019-grant-verification-model.md) — the grant verification model
+- [adr/adr-0045-receipt-verify-offline-contract.md](adr/adr-0045-receipt-verify-offline-contract.md) — the offline receipt verify contract

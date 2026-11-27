@@ -1,8 +1,16 @@
+---
+id: adr-0069-grant-flag-bit-35-child-payment-required
+title: "Grant flag bit 35 is the operator's child-payment-required policy"
+status: accepted
+created: 2026-09-19
+updated: 2026-11-27
+---
+
 # ADR-0069: Grant flag bit 35 is the operator's child-payment-required policy
 
-**Status:** PROPOSED — records an assignment the operator's registration API
+Records an assignment the operator's registration API
 already makes in the band the contract reserves for it.
-**Date:** 2026-09-19
+
 **Related:** [spec/label-registry.md](../spec/label-registry.md) §5,
 [spec/log-authority-and-grants.md](../spec/log-authority-and-grants.md) §3 and §7,
 [rules/platform.md](../rules/platform.md) P7.

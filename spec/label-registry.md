@@ -64,8 +64,8 @@ codepoint TBD)`.
 | `-65800` | **`TBD1`** — WebAuthn assertion envelope | `WebAuthn assertion envelope` | — | Unprotected | `[authenticatorData, clientDataJSON]`. **Reuses the algorithm's number — see §4** | canopy `packages/shared/encoding/src/verify-cose-sign1.ts` (`WEBAUTHN_ENVELOPE_LABEL`); arbor `services/pkgs/delegationcert/build_certificate.go` (`CoseHeaderWebAuthnEnvelope`) |
 | `-65801` | **`TBD2`** — session-key endorsement | `session key endorsement` | — | Unprotected | The endorsement COSE Sign1, embedded as a byte string, on every endorsed entry | canopy `packages/shared/encoding/src/verify-cose-sign1.ts` (`COSE_LABEL_SESSION_KEY_ENDORSEMENT`) |
 | `-65931` | `SealPeakReceiptsLabel` | `pre-signed peak receipts` | `-65535 - 396` | Unprotected | Pre-signed per-peak inclusion receipts on a checkpoint: an array of byte strings, one tagged COSE Sign1 per peak | go-merklelog `massifs/checkpointreceipt.go`; canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_PEAK_RECEIPTS`) |
-| `-65932` | ~~`tree-size-1`~~ | — | `-65535 - 397` | — | **Withdrawn before any deployment used it.** `tree-size-1` is unsigned prover context in the consistency proof ([ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md), amendment 1). Not to be reassigned | — |
-| `-65933` | `tree-size-2` (the MMR profile draft's `TBD_2`) | `tree-size-2` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to**: the size whose accumulator is the detached payload and the size the contract anchors. CBOR unsigned integer (major type 0). MUST be present on a checkpoint, and MUST equal the last consistency proof's `tree-size-2` ([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3). Interim private-use value pending IANA assignment through the profile draft — [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) | univocity `src/cosecbor/constants.sol` (`LABEL_TREE_SIZE_2`); go-merklelog `massifs/checkpointreceipt.go` (`CheckpointLabelTreeSize2`); canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_TREE_SIZE_2`) |
+| `-65932` | ~~`tree-size-1`~~ | — | `-65535 - 397` | — | **Withdrawn before any deployment used it.** `tree-size-1` is unsigned prover context in the consistency proof ([ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md), amendment 1). Not to be reassigned | — |
+| `-65933` | `tree-size-2` (the MMR profile draft's `TBD_2`) | `tree-size-2` | `-65535 - 398` | **Protected** | The signed size a checkpoint's consistency is proven **to**: the size whose accumulator is the detached payload and the size the contract anchors. CBOR unsigned integer (major type 0). MUST be present on a checkpoint, and MUST equal the last consistency proof's `tree-size-2` ([checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3). Interim private-use value pending IANA assignment through the profile draft — [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md) | univocity `src/cosecbor/constants.sol` (`LABEL_TREE_SIZE_2`); go-merklelog `massifs/checkpointreceipt.go` (`CheckpointLabelTreeSize2`); canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_TREE_SIZE_2`) |
 | `-66535` | `SealDelegationProofLabel` | `on-chain delegation proof` | `-65535 - 1000` | Unprotected | The on-chain delegation proof carried in a checkpoint | go-merklelog `massifs/checkpointreceipt.go`; canopy `packages/shared/encoding/src/cose-labels.ts` (`COSE_LABEL_DELEGATION_PROOF`) |
 | `1000` | `delegationCertUnprotectedLabel` | `delegation certificate` | — | Unprotected | The delegation certificate, as a **byte string wrapping its COSE Sign1**. Predates the private-use convention and is **not** in that space | arbor `services/sealer/src/sealer.go`; canopy `packages/apps/canopy-api/src/grant/delegation-verify.ts` |
 
@@ -87,7 +87,7 @@ space**. The profile draft names it `TBD_2` (its `TBD_1` is `vds`); those
 names are the draft's, and are unrelated to this registry's `TBD1`/`TBD2`,
 which are unprotected envelope labels. The protected header it sits in MUST
 be deterministic CBOR, and a label a verifier does not read may carry only
-the value types [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md)
+the value types [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md)
 D9 lists; [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) §1.3
 states the encoding and the verification rules.
 
@@ -231,6 +231,6 @@ summary, not registry facts.
   wire format and what the flags mean.
 - [checkpoints-and-receipts.md](./checkpoints-and-receipts.md) — the checkpoint
   labels, and what the checkpoint signature covers.
-- [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) — why the
+- [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md) — why the
   target tree size is signed, and the verification MUSTs.
 - [vectors/](../vectors/) — the conformance vectors these codepoints appear in.

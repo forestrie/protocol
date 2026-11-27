@@ -83,7 +83,7 @@ origin peak is folded — every first checkpoint, and any extension whose
 origin peaks all sit above the split — the same accumulator and signature
 verify at several declared sizes, and whoever submits the receipt chooses
 which one is stored. Values are never forged; the height they are read at
-is. Reasoning and the finding: [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md).
+is. Reasoning and the finding: [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md).
 
 When a chain of proofs is published together (§1.2), the signed
 `tree-size-2` MUST equal the last proof's `tree-size-2`, and each proof's
@@ -209,7 +209,7 @@ Receipts are signed only by ES256 keys. A root, though, may be ES256 (64-byte
 `x‖y`) or KS256 (a 20-byte EVM address). Under a KS256 root, layer A goes
 through the label-`1000` certificate, whose protected `alg` must be KS256
 (−65799) and whose digest is `keccak256(Sig_structure)`
-([ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md),
+([ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md),
 amendment of 2026-10-18):
 
 - **An EOA root** verifies fully offline. The verifier ecrecovers the
@@ -374,7 +374,7 @@ the same terms as any other non-canonical encoding.
 The protected header's canonical-key-order requirement, including the
 grammar for values carried under labels a verifier does not read, is stated
 in full in
-[ADR-0066 D9](../decisions/adr-0066-sec-signed-checkpoint-size.md#d9--receipt-encoding-conformance).
+[ADR-0066 D9](../adr/adr-0066-sec-signed-checkpoint-size.md#d9--receipt-encoding-conformance).
 One divergence from core-deterministic order is carved out there and
 nowhere else — the checkpoint envelope's protected header uses length-first
 canonical key order instead — noted under [Open questions](#open-questions).
@@ -393,9 +393,9 @@ guard, are implementation matters recorded in
 
 - [receipt-trust-model.md](./receipt-trust-model.md) — what a receipt proves,
   and the trust roots that answer each question.
-- [ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md) — the
+- [ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md) — the
   accepted contract for layers A–C and the offline boundary.
-- [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) — the
+- [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md) — the
   signed tree sizes and the verification MUSTs of §1.3.
 - [log-authority-and-grants.md](./log-authority-and-grants.md) — the grant
   commitment that layer C checks for a grant receipt.

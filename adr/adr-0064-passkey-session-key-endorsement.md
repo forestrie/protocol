@@ -1,19 +1,27 @@
+---
+id: adr-0064-passkey-session-key-endorsement
+title: "Passkey session-key endorsement (user-log leaf signing)"
+status: accepted
+created: 2026-08-23
+updated: 2026-08-29
+categories: [DELEGATION, WEBAUTHN, CUSTODY, VERIFICATION, WIRE-FORMAT]
+---
+
 # ADR-0064: Passkey session-key endorsement (user-log leaf signing)
 
-**Status:** ACCEPTED — one of the accepted decisions the specification under
+One of the accepted decisions the specification under
 [`spec/`](../spec/) rests on. Decided 2026-08-23, with four refining rulings
-taken the same day. **Amended by
-[ADR-0065](./adr-0065-endorsed-session-key-admission.md) (2026-08-29)**:
+taken the same day. Amended by
+[ADR-0065](./adr-0065-endorsed-session-key-admission.md) (2026-08-29):
 the endorsement moves to payload v2 (validity window) and rides every
 leaf's unprotected header so canopy admission can verify the endorsed
 signer; §4's "zero per-leaf format change" is narrowed and the
 "immortal superseded endorsements" risk is retired — see the amendment
 notes inline below. The custody split (§1) and pin semantics (§3) stand.
-**Date:** 2026-08-23
-**Categories:** [DELEGATION, WEBAUTHN, CUSTODY, VERIFICATION, WIRE-FORMAT]
+
 **Related:** [spec/delegation-and-webauthn-envelopes.md](../spec/delegation-and-webauthn-envelopes.md)
 (the WebAuthn assertion envelope this ADR applies to a new artifact type),
-[ARC-0019](./arc-0019-grant-verification-model.md) §6 (the user-envelope
+[ARC-0019](../arc/arc-0019-grant-verification-model.md) §6 (the user-envelope
 profile: kid = root x),
 [spec/leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
 (the shipped wire-level rules)
@@ -213,7 +221,7 @@ re-endorsement gesture per lease for no custody gain.
   validity window, and the admission rules that supersede §4 here.
 - [spec/leaf-admission-and-session-endorsement.md](../spec/leaf-admission-and-session-endorsement.md)
   — the shipped artifact, admission rules and offline route.
-- [ARC-0019](./arc-0019-grant-verification-model.md) §6 — the statement-signer
+- [ARC-0019](../arc/arc-0019-grant-verification-model.md) §6 — the statement-signer
   binding profile (kid = root x).
 - Verifier: canopy `packages/shared/encoding/src/verify-cose-sign1.ts`
   (`-65800` branch, `requireUserVerification`); offline:

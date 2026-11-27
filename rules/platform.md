@@ -1,9 +1,9 @@
 ---
 id: platform
 title: Platform invariants
-version: 1.0.0
+version: 1.0.1
 created: 2026-09-12
-amended: 2026-11-12
+amended: 2026-11-27
 ---
 
 # Platform invariants
@@ -34,7 +34,7 @@ Verification (receipt signature, MMR inclusion, leaf binding) MUST be pure over
 bytes: no network, SCRAPI, coordinator, RPC, or wallet call, and a receipt
 never expires. **Why:** offline verification is the headline product claim;
 coupling verify to a live service silently falsifies it.
-[ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md)
+[ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md)
 · [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §4.1.
 **Enforced-by:** review
 
@@ -49,7 +49,7 @@ the operator's own tile store.
 **Why:** most trust confusion comes from collapsing them, and sourcing state
 from the operator re-internalises the trust the log removes.
 [receipt trust model](../spec/receipt-trust-model.md)
-· [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) (attribution).
+· [ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) (attribution).
 **Enforced-by:** review
 
 ### P4 — Non-equivocation is enforced by the immutable contract, not watchers
@@ -81,7 +81,7 @@ Authority = a valid **grant inclusion proof** + a correctly **signed
 consistency receipt**. The contract MUST NOT check `msg.sender` for submission
 authority. **Why:** no operator can censor or stall a well-formed write, and
 proof of authority is portable, not identity-held.
-[ARC-0019](../decisions/arc-0019-grant-verification-model.md)
+[ARC-0019](../arc/arc-0019-grant-verification-model.md)
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §7.
 **Enforced-by:** test:univocity/test/integration/CheckpointFlow.t.sol, test:univocity/test/checkpoints/Univocity.t.sol
 
@@ -121,12 +121,12 @@ Verify **receipt inclusion** + **grant envelope (the `Forestrie-Grant` COSE
 Sign1) signature against the `ownerLogId` authority** + **statement-signer
 binding** (`kid` == the grant's binding, and the statement signature under that
 signer — `grantData`, or a session key the `grantData` root has endorsed,
-[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md)). The issuance key (parent authority) is distinct from the endorsed
+[ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md)). The issuance key (parent authority) is distinct from the endorsed
 signer key (`grantData`); NEVER verify the *grant* envelope against `grantData`,
 and NEVER verify a *statement* against the parent authority.
 **Why:** each part blocks a different forgery — collapsing them opens
 replay/substitution.
-[ARC-0019](../decisions/arc-0019-grant-verification-model.md) §§4–6
+[ARC-0019](../arc/arc-0019-grant-verification-model.md) §§4–6
 · [log-authority-and-grants.md](../spec/log-authority-and-grants.md) §5.
 **Enforced-by:** test:canopy/packages/apps/canopy-api/test/grant-authorize.test.ts, test:canopy/packages/apps/canopy-api/test/prepare-child-log-ks256.test.ts, test:canopy/packages/apps/canopy-api/test/register-statement-endorsed.test.ts, review
 
@@ -201,8 +201,8 @@ identity with a bytewise-order encoder. **Why:** on-chain verifiability and
 interop depend on exact bytes; a lax or tag-mangling codec produces receipts
 the contract rejects, and changing the header order would change every
 checkpoint the sealer emits.
-[ADR-0068](../decisions/adr-0068-checkpoint-envelope-canonicalisation-exception.md)
-· [ADR-0066](../decisions/adr-0066-sec-signed-checkpoint-size.md) D9
+[ADR-0068](../adr/adr-0068-checkpoint-envelope-canonicalisation-exception.md)
+· [ADR-0066](../adr/adr-0066-sec-signed-checkpoint-size.md) D9
 · [checkpoints-and-receipts.md](../spec/checkpoints-and-receipts.md) §1.3.
 **Enforced-by:** test:univocity/test/cosecbor/cosecbor.t.sol, test:canopy/packages/shared/encoding/src/protected-header-conformance.test.ts, review
 

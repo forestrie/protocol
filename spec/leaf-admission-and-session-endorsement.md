@@ -8,8 +8,8 @@ authorised.
 [delegation-and-webauthn-envelopes.md](./delegation-and-webauthn-envelopes.md)
 (the assertion envelope this artifact reuses),
 [label-registry.md](./label-registry.md),
-[ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md),
-[ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md),
+[ADR-0064](../adr/adr-0064-passkey-session-key-endorsement.md),
+[ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md),
 [glossary.md](../glossary.md).
 
 ## Summary
@@ -334,7 +334,7 @@ entry it is attached to. Recorded as accepted.
   count rather than a scan, which is what the rejected *range* form could not
   offer. The open part is not the check but the carrier: the grant map is
   closed, so such a permission needs a derived-policy home. Worth a recorded
-  decision under `decisions/` before anything depends on it.
+  decision under `adr/` before anything depends on it.
 - **Registering the endorsement as the log's first entry** was also deferred.
   It is admissible with no change and would give a receipted succession
   record. Not needed once every entry carries its own endorsement, and it adds
@@ -352,7 +352,7 @@ user-verification policy is recorded in
   — the assertion envelope and challenge binding this artifact reuses.
 - [key-custody-and-choice.md](./key-custody-and-choice.md) — the custody
   options and how to leave.
-- [ADR-0064](../decisions/adr-0064-passkey-session-key-endorsement.md) — the custody
+- [ADR-0064](../adr/adr-0064-passkey-session-key-endorsement.md) — the custody
   split and the original artifact.
-- [ADR-0065](../decisions/adr-0065-endorsed-session-key-admission.md) — payload v2,
+- [ADR-0065](../adr/adr-0065-endorsed-session-key-admission.md) — payload v2,
   the window, and the admission rules.

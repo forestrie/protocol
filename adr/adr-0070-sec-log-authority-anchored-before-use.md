@@ -111,7 +111,7 @@ three parts.
   the log is anchored. How long it waits depends on how often the owner's
   checkpoints are published.
 - Offline verification is unchanged. It already takes no key from operator
-  storage ([ADR-0045](../decisions/adr-0045-receipt-verify-offline-contract.md)).
+  storage ([ADR-0045](../adr/adr-0045-receipt-verify-offline-contract.md)).
 
 ## Alternatives Considered
 
@@ -142,4 +142,4 @@ three parts.
   contract), P5 (the chain is never the hot path), P9 (append-only), P10
   (three-part grant verification), P12 (signed is not sequenced), P14 (one
   instance root, set once).
-- [ADR-0045 offline receipt verification](../decisions/adr-0045-receipt-verify-offline-contract.md).
+- [ADR-0045 offline receipt verification](../adr/adr-0045-receipt-verify-offline-contract.md).

@@ -18,6 +18,12 @@ application token are examples. It is not part of the protocol's authority
 model: no grant, statement, checkpoint or receipt carries it, and no
 verifier checks it. Authority comes from grants and their receipts (P6).
 
+An onboard token bought through self-service onboarding is not an operator
+token. Any root holder can obtain one by paying for an instance, without
+the operator's discretion: it is a payment receipt that genesis redeems.
+An onboard token that operations mint directly (break-glass) is an operator
+token.
+
 ## What it is for
 
 The token serves two purposes, and only these:

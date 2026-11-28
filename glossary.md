@@ -107,7 +107,9 @@ _Avoid_: "payment operator", "mandate operator".
 A credential an operator's own services accept from the operator, for
 onboarding the operator's own logs and for a direct console relationship.
 Not part of the authority model: root holders and their children onboard
-without it. See [operator-token.md](spec/operator-token.md).
+without it. A self-service onboard token, which any root holder buys, is a
+payment receipt and not an operator token; a break-glass onboard token that
+operations mint is one. See [operator-token.md](spec/operator-token.md).
 _Avoid_: "bootstrap token", treating it as the default onboarding path.
 
 **Grant issuer**:

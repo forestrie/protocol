@@ -103,6 +103,15 @@ The party that onboards a log owner, hosts their client, collects payment and
 routes signing requests. Holds no user root in the self-custody shapes.
 _Avoid_: "payment operator", "mandate operator".
 
+**Operator token**:
+A credential an operator's own services accept from the operator, for
+onboarding the operator's own logs and for a direct console relationship.
+Not part of the authority model: root holders and their children onboard
+without it. A self-service onboard token, which any root holder buys, is a
+payment receipt and not an operator token; a break-glass onboard token that
+operations mint is one. See [operator-token.md](spec/operator-token.md).
+_Avoid_: "bootstrap token", treating it as the default onboarding path.
+
 **Grant issuer**:
 The party that holds an authority log's root key and so signs the creation
 grants for that log's children. A role, not a service: every authority log's
